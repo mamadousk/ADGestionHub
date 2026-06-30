@@ -1,0 +1,28 @@
+﻿@page
+@model LogoutModel
+@{
+    ViewData["Title"] = "Déconnexion";
+}
+
+<div class="container mt-5">
+    <header class="text-center">
+        <h1 class="display-4">@ViewData["Title"]</h1>
+        @{
+            if (User.Identity?.IsAuthenticated ?? false)
+            {
+                <div class="card shadow-sm p-4 mt-4">
+                    <p>Voulez-vous vraiment vous déconnecter de AdGestionHub ?</p>
+                    <form class="form-inline justify-content-center" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Page("/", new { area = "" })" method="post">
+                        <button type="submit" class="btn btn-danger btn-lg">Confirmer la déconnexion</button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-success mt-4">
+                    <p class="mb-0">Vous avez été déconnecté avec succès. <a asp-page="/Account/Login">Cliquez ici pour vous reconnecter.</a></p>
+                </div>
+            }
+        }
+    </header>
+</div>

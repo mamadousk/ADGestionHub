@@ -1,0 +1,76 @@
+﻿@model AdGestionHub.Models.Sale
+
+@{
+    ViewData["Title"] = "Détails de la Vente";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header text-white py-3" style="background-color: #FF8C00 !important; border: none;">
+            <h4 class="mb-0"><i class="fas fa-info-circle me-2"></i> Fiche Récapitulative de la Vente</h4>
+        </div>
+
+        <div class="card-body p-4">
+            <div class="row">
+                <div class="col-md-5 border-end">
+                    <h5 class="text-muted mb-4 text-uppercase small fw-bold border-bottom pb-2">Informations Générales</h5>
+                    <dl class="row">
+                        <dt class="col-sm-5 fw-bold">Client :</dt>
+                        <dd class="col-sm-7">@(Model.CustomerName ?? "Client Anonyme")</dd>
+
+                        <dt class="col-sm-5 fw-bold">Date :</dt>
+                        <dd class="col-sm-7">@Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</dd>
+
+                        <dt class="col-sm-5 fw-bold">Paiement :</dt>
+                        <dd class="col-sm-7"><span class="badge bg-light text-dark border">@Model.PaymentMethod</span></dd>
+                    </dl>
+                </div>
+
+                <div class="col-md-7 ps-md-4">
+                    <h5 class="text-muted mb-4 text-uppercase small fw-bold border-bottom pb-2">Articles achetés (Panier)</h5>
+                    <table class="table table-sm table-borderless">
+                        <thead class="text-muted small">
+                            <tr>
+                                <th>Désignation</th>
+                                <th class="text-center">Qté</th>
+                                <th class="text-end">Prix Unit.</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td>@item.ProductName</td>
+                                    <td class="text-center">@item.Quantity</td>
+                                    <td class="text-end">@item.UnitPrice.ToString("N2") $</td>
+                                    <td class="text-end fw-bold">@((item.Quantity * item.UnitPrice).ToString("N2")) $</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-top">
+                                <td colspan="3" class="h5 fw-bold pt-3 text-end">Total Final :</td>
+                                <td class="h5 fw-bold pt-3 text-end text-success">@Model.FinalPrice.ToString("N2") $</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="d-flex justify-content-between">
+                <a asp-action="Index" class="btn btn-outline-secondary px-4">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </a>
+                <div>
+                    <a asp-action="DownloadReceipt" asp-route-id="@Model.Id" class="btn btn-dark px-4 me-2">
+                        <i class="fas fa-print"></i> Imprimer
+                    </a>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

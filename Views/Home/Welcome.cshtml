@@ -1,0 +1,523 @@
+﻿@{
+
+    ViewData["Title"] = "Bienvenue";
+
+    Layout = "_Layout";
+
+}
+
+
+
+<style>
+
+    /* Animations dignes d'un vrai SaaS */
+
+    .saas-hero {
+        background: radial-gradient(circle at top right, #fffbf5 0%, #ffffff 100%);
+        overflow: hidden;
+    }
+
+
+
+    .hover-lift {
+        transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    }
+
+
+
+        .hover-lift:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 20px 40px rgba(255, 140, 0, 0.1) !important;
+        }
+
+
+
+    .feature-card {
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0,0,0,0.05) !important;
+    }
+
+
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: #FF8C00 !important;
+            box-shadow: 0 10px 30px rgba(255, 140, 0, 0.08) !important;
+        }
+
+
+
+    .icon-wrapper {
+        width: 70px;
+        height: 70px;
+        border-radius: 20px;
+        background: #fff5e6;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s ease;
+        transform: rotate(-5deg);
+    }
+
+
+
+    .feature-card:hover .icon-wrapper {
+        transform: rotate(0deg) scale(1.1);
+        background: #FF8C00;
+    }
+
+
+
+        .feature-card:hover .icon-wrapper i {
+            color: white !important;
+        }
+
+
+
+    .animate-fade-up {
+        animation: fadeUp 0.8s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+
+
+    .delay-1 {
+        animation-delay: 0.1s;
+    }
+
+
+
+    .delay-2 {
+        animation-delay: 0.2s;
+    }
+
+
+
+    .delay-3 {
+        animation-delay: 0.3s;
+    }
+
+
+
+    @@keyframes fadeUp {
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+
+
+    .pulse-glow {
+        animation: pulseGlow 2s infinite;
+    }
+
+
+
+    @@keyframes pulseGlow {
+
+        0% {
+            box-shadow: 0 0 0 0 rgba(255, 140, 0, 0.4);
+        }
+
+
+
+        70% {
+            box-shadow: 0 0 0 15px rgba(255, 140, 0, 0);
+        }
+
+
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(255, 140, 0, 0);
+        }
+    }
+
+
+
+    .text-gradient {
+        background: linear-gradient(90deg, #FF8C00, #ff5e00);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+</style>
+
+<section class="py-5 saas-hero" style="padding-top: 100px !important; padding-bottom: 80px !important;">
+
+    <div class="container text-center">
+
+        <div class="animate-fade-up mb-4">
+
+            <span class="badge rounded-pill bg-light text-dark border py-2 px-3 shadow-sm" style="font-size: 0.9rem;">
+
+                <i class="fas fa-rocket me-2" style="color:#FF8C00;"></i> AdGestionHub Bêta est en ligne
+
+            </span>
+
+        </div>
+
+
+
+        <h1 class="display-3 fw-bold mb-4 animate-fade-up delay-1" style="letter-spacing: -1px;">
+
+            Gérez votre commerce avec <br />
+
+            <span class="text-gradient">une précision redoutable</span>
+
+        </h1>
+
+        <p class="lead fs-5 text-muted mb-5 mx-auto animate-fade-up delay-2" style="max-width: 600px;">
+
+            Choisissez le plan qui propulsera votre boutique vers de nouveaux sommets. La gestion commerciale simplifiée pour les entrepreneurs de demain.
+
+        </p>
+
+
+
+        <div class="row justify-content-center g-4 animate-fade-up delay-3">
+
+            <div class="col-md-6 col-lg-4">
+
+                <div class="card h-100 hover-lift shadow border-0 position-relative rounded-4 text-center" style="border: 2px solid #FF8C00 !important; background-color: #fff;">
+
+                    <div class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-warning text-dark px-4 py-2 shadow-sm border border-white" style="font-size: 0.85rem; letter-spacing: 1px;">
+
+                        OFFRE DE LANCEMENT
+
+                    </div>
+
+                    <div class="card-body p-5 d-flex flex-column">
+
+                        <div class="text-uppercase small fw-bold mb-2" style="color: #FF8C00;">Plan Bêta</div>
+
+                        <h4 class="fw-bold mb-3">Démarrez maintenant</h4>
+
+                        <div class="my-4">
+
+                            <span class="display-4 fw-bold text-dark">Gratuit</span>
+
+                        </div>
+
+                        <hr style="border-top: 2px solid #f0f0f0;" />
+
+                        <ul class="list-unstyled text-start mb-5 flex-grow-1">
+
+                            <li class="mb-3"><i class="fas fa-check-circle me-3" style="color: #FF8C00; font-size: 1.2rem;"></i> <span class="text-secondary">Accès illimité aux fonctions</span></li>
+
+                            <li class="mb-3"><i class="fas fa-check-circle me-3" style="color: #FF8C00; font-size: 1.2rem;"></i> <span class="text-secondary">Gestion Ventes & Stocks</span></li>
+
+                            <li class="mb-3"><i class="fas fa-check-circle me-3" style="color: #FF8C00; font-size: 1.2rem;"></i> <span class="text-secondary">Support prioritaire par email</span></li>
+
+                            <li class="mb-3 p-2 rounded" style="background-color: #fffbf5; border-left: 3px solid #FF8C00;">
+
+                                <i class="fas fa-star text-warning me-2"></i> <strong>Feedback demandé</strong>
+
+                            </li>
+
+                        </ul>
+
+                        <div class="d-grid mt-auto">
+
+                            <a href="/Identity/Account/Register" class="btn text-white fw-bold py-3 rounded-3 pulse-glow shadow-sm" style="background-color: #FF8C00; font-size: 1.1rem;">
+
+                                Créer mon compte gratuit
+
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-md-6 col-lg-4">
+
+                <div class="card h-100 hover-lift shadow-sm border-0 rounded-4 text-center" style="background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%); opacity: 0.9;">
+
+                    <div class="card-body p-5 d-flex flex-column">
+
+                        <div class="text-uppercase small fw-bold mb-2 text-secondary" style="letter-spacing: 1px;">Bientôt disponible</div>
+
+                        <h4 class="fw-bold text-dark mb-3">Plan Pro</h4>
+
+                        <div class="my-4">
+
+                            <span class="h2 fw-bold text-muted">Premium</span>
+
+                        </div>
+
+                        <hr style="border-top: 2px solid #f0f0f0;" />
+
+                        <ul class="list-unstyled text-start mb-5 flex-grow-1 text-muted">
+
+                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> IA de prédiction des stocks</li>
+
+                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Facturation illimitée avec logo</li>
+
+                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Analyses de profit détaillées</li>
+
+                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Support VIP 24h/24 via WhatsApp</li>
+
+                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Sauvegarde Cloud automatique</li>
+
+                        </ul>
+
+                        <div class="mt-auto">
+
+                            <div class="input-group shadow-sm rounded-3 overflow-hidden">
+
+                                <input type="email" id="waitingEmail" class="form-control border-0 py-3" placeholder="Votre email pro..." style="background-color: #f1f3f5;">
+
+                                <button onclick="sendToWaitingList()" class="btn btn-dark px-4 fw-bold text-uppercase" style="font-size: 0.85rem;">
+
+                                    Rejoindre
+
+                                </button>
+
+                            </div>
+
+                            <small class="text-muted mt-2 d-block">Rejoignez la liste d'attente prioritaire.</small>
+
+                        </div>
+
+
+
+                        <script>
+
+                            function sendToWaitingList() {
+
+                                const emailInput = document.getElementById('waitingEmail');
+
+                                if(!emailInput.value) { alert("Veuillez entrer une adresse email valide."); return; }
+
+
+
+                                // Animation visuelle pendant l'envoi
+
+                                const btn = event.target;
+
+                                const originalText = btn.innerText;
+
+                                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                                btn.disabled = true;
+
+
+
+                                fetch('/Marketing/JoinWaitingList?email=' + encodeURIComponent(emailInput.value), {
+
+                                    method: 'POST'
+
+                                }).then(response => {
+
+                                    if(response.ok) {
+
+                                        alert("Félicitations ! Vous êtes sur la liste VIP pour le Plan Pro.");
+
+                                        emailInput.value = "";
+
+                                    }
+
+                                }).finally(() => {
+
+                                    btn.innerText = originalText;
+
+                                    btn.disabled = false;
+
+                                });
+
+                            }
+
+                        </script>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<section class="py-5" style="background-color: #fafbfc;">
+
+    <div class="container py-5">
+
+        <div class="text-center mb-5 animate-fade-up">
+
+            <h2 class="fw-bold display-5">Pourquoi choisir <span class="text-gradient">AdGestionHub</span> ?</h2>
+
+            <p class="text-muted fs-5 mt-3">Les outils des grandes entreprises, conçus pour votre boutique.</p>
+
+        </div>
+
+
+
+        <div class="row g-4 text-center">
+
+            <div class="col-md-6 col-lg-4 animate-fade-up delay-1">
+
+                <div class="p-5 h-100 feature-card rounded-4 bg-white">
+
+                    <div class="icon-wrapper shadow-sm">
+
+                        <i class="fas fa-chart-pie fa-2x" style="color: #FF8C00;"></i>
+
+                    </div>
+
+                    <h5 class="fw-bold mt-3">Ventes Détaillées</h5>
+
+                    <p class="text-muted mt-3 line-height-lg">Chaque transaction est enregistrée avec précision. Vous gardez le contrôle total sur vos revenus et votre trésorerie en temps réel.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-md-6 col-lg-4 animate-fade-up delay-2">
+
+                <div class="p-5 h-100 feature-card rounded-4 bg-white">
+
+                    <div class="icon-wrapper shadow-sm">
+
+                        <i class="fas fa-boxes fa-2x" style="color: #FF8C00;"></i>
+
+                    </div>
+
+                    <h5 class="fw-bold mt-3">Inventaire Intelligent</h5>
+
+                    <p class="text-muted mt-3">Votre stock se met à jour automatiquement. Recevez des alertes avant la rupture de vos produits phares.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-md-6 col-lg-4 animate-fade-up delay-3">
+
+                <div class="p-5 h-100 feature-card rounded-4 bg-white">
+
+                    <div class="icon-wrapper shadow-sm">
+
+                        <i class="fas fa-arrow-trend-up fa-2x" style="color: #FF8C00;"></i>
+
+                    </div>
+
+                    <h5 class="fw-bold mt-3">Rapports & Bénéfices</h5>
+
+                    <p class="text-muted mt-3">Visualisez vos bénéfices nets en un clin d’œil. Suivez vos performances jour après jour avec des graphiques clairs.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-md-6 col-lg-4 animate-fade-up delay-1">
+
+                <div class="p-5 h-100 feature-card rounded-4 bg-white">
+
+                    <div class="icon-wrapper shadow-sm">
+
+                        <i class="fas fa-user-shield fa-2x" style="color: #FF8C00;"></i>
+
+                    </div>
+
+                    <h5 class="fw-bold mt-3">Multi-Utilisateurs</h5>
+
+                    <p class="text-muted mt-3">Ajoutez vos employés avec des accès limités (vendeur, gérant). Vous gardez la maîtrise absolue des données sensibles.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-md-6 col-lg-4 animate-fade-up delay-2">
+
+                <div class="p-5 h-100 feature-card rounded-4 bg-white">
+
+                    <div class="icon-wrapper shadow-sm">
+
+                        <i class="fas fa-file-invoice-dollar fa-2x" style="color: #FF8C00;"></i>
+
+                    </div>
+
+                    <h5 class="fw-bold mt-3">Facturation Pro</h5>
+
+                    <p class="text-muted mt-3">Générez des factures et reçus élégants avec votre logo. Inspirez confiance et fidélisez vos clients.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="col-md-6 col-lg-4 animate-fade-up delay-3">
+
+                <div class="p-5 h-100 feature-card rounded-4 bg-white">
+
+                    <div class="icon-wrapper shadow-sm">
+
+                        <i class="fas fa-cloud fa-2x" style="color: #FF8C00;"></i>
+
+                    </div>
+
+                    <h5 class="fw-bold mt-3">Accès Sécurisé Partout</h5>
+
+                    <p class="text-muted mt-3">Connectez-vous depuis n’importe quel appareil (PC, Tablette, Smartphone). Vos données sont sauvegardées sur le Cloud 24h/24.</p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<footer class="py-5 text-center bg-white border-top">
+
+    <div class="container py-4">
+
+        <h3 class="fw-bold mb-3" style="color:#FF8C00; letter-spacing: -1px;">AdGestionHub</h3>
+
+        <p class="text-muted mb-4 fs-5">La gestion commerciale simplifiée pour les entrepreneurs de demain.</p>
+
+        <div class="mb-4">
+
+            <a href="#" class="text-muted mx-3 fs-4 transition-all hover-lift d-inline-block"><i class="fab fa-facebook"></i></a>
+
+            <a href="#" class="text-muted mx-3 fs-4 transition-all hover-lift d-inline-block"><i class="fab fa-youtube"></i></a>
+
+            <a href="#" class="text-muted mx-3 fs-4 transition-all hover-lift d-inline-block"><i class="fab fa-tiktok"></i></a>
+
+        </div>
+
+        <div class="text-muted small mt-5">
+
+            &copy; @DateTime.Now.Year AdGestionHub. Un produit conçu avec passion.
+
+        </div>
+
+    </div>
+
+</footer>

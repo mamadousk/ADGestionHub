@@ -1,0 +1,203 @@
+﻿@model AdGestionHub.Models.Sale
+
+@{
+    ViewData["Title"] = "Nouvelle Vente";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header text-white py-3" style="background-color: #FF8C00;">
+            <h4 class="mb-0"><i class="fas fa-cart-plus me-2"></i> Enregistrer une Vente</h4>
+        </div>
+        <div class="card-body p-4">
+            <form asp-action="Create" id="saleForm">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="CustomerName" class="form-label fw-bold">Nom du Client</label>
+                        <input asp-for="CustomerName" class="form-control" placeholder="Client au comptoir" />
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="PaymentMethod" class="form-label fw-bold">Moyen de Paiement</label>
+                        <select asp-for="PaymentMethod" class="form-select">
+                            <option value="Cash">Cash</option>
+                            <option value="M-Pesa">M-Pesa</option>
+                            <option value="Airtel Money">Airtel Money</option>
+                            <option value="Orange Money">Orange Money</option>
+                            <option value="Carte Bancaire">Carte Bancaire</option>
+                        </select>
+                    </div>
+                </div>
+
+                <hr />
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="text-muted mb-0">Ajouter des produits au panier</h5>
+                    <button type="button" id="btnClearCart" class="btn btn-sm btn-outline-danger">
+                        <i class="fas fa-trash-alt me-1"></i> Vider le panier
+                    </button>
+                </div>
+
+                <div class="row g-2 align-items-end mb-4">
+                    <div class="col-md-5">
+                        <label class="form-label small fw-bold">Produit (Recherche)</label>
+                        <input type="text" id="productInput" class="form-control" placeholder="Taper le nom du produit..." list="existingProducts">
+                        <datalist id="existingProducts">
+                            @if (ViewBag.ProductId != null)
+                            {
+                                foreach (var item in (IEnumerable<SelectListItem>)ViewBag.ProductId)
+                                {
+                                    <option value="@item.Text" data-id="@item.Value"></option>
+                                }
+                            }
+                        </datalist>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Prix Unitaire ($)</label>
+                        <input type="number" id="tempPrice" class="form-control" step="0.01" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Quantité</label>
+                        <input type="number" id="tempQty" class="form-control" value="1" min="1" />
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" id="btnAddItem" class="btn btn-dark w-100">
+                            <i class="fas fa-plus"></i> Ajouter au panier
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover border" id="cartTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Produit</th>
+                                <th class="text-center">Prix</th>
+                                <th class="text-center">Quantité</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cartBody">
+                        </tbody>
+                        <tfoot>
+                            <tr class="fw-bold fs-5">
+                                <td colspan="3" class="text-end">TOTAL GÉNÉRAL :</td>
+                                <td class="text-end text-success"><span id="grandTotal">0.00</span> $</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+
+                <input type="hidden" asp-for="FinalPrice" id="inputFinalPrice" />
+
+                <div class="mt-4 pt-3 border-top d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-light border">Annuler</a>
+                    <button type="submit" class="btn text-white px-5 shadow-sm" style="background-color: #FF8C00;">
+                        Valider la vente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let itemIndex = 0;
+
+        document.getElementById('btnAddItem').addEventListener('click', function() {
+            const input = document.getElementById('productInput');
+            const productName = input.value;
+
+            // Correction 1 : On force le point pour le calcul JS interne
+            const rawPriceStr = document.getElementById('tempPrice').value.replace(',', '.');
+            const price = parseFloat(rawPriceStr);
+            const qty = parseInt(document.getElementById('tempQty').value);
+
+            const datalist = document.getElementById('existingProducts');
+            const option = Array.from(datalist.options).find(opt => opt.value === productName);
+            const productId = option ? option.getAttribute('data-id') : "";
+
+            if (!productName || isNaN(price) || isNaN(qty)) {
+                alert("Veuillez remplir le nom, le prix et la quantité.");
+                return;
+            }
+
+            const subtotal = price * qty;
+            const tbody = document.getElementById('cartBody');
+
+            // Correction 2 : On formate avec la virgule pour que le serveur C# comprenne
+            const priceForServer = price.toFixed(2).replace('.', ',');
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    ${productName}
+                    <input type="hidden" name="Items[${itemIndex}].ProductId" value="${productId}" />
+                    <input type="hidden" name="Items[${itemIndex}].ProductName" value="${productName}" />
+                </td>
+                <td class="text-center">
+                    ${price.toFixed(2)} $
+                    <input type="hidden" name="Items[${itemIndex}].UnitPrice" value="${priceForServer}" />
+                </td>
+                <td class="text-center">
+                    ${qty}
+                    <input type="hidden" name="Items[${itemIndex}].Quantity" value="${qty}" />
+                </td>
+                <td class="text-end fw-bold">${subtotal.toFixed(2)} $</td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(row);
+            itemIndex++;
+            updateTotal();
+
+            input.value = "";
+            document.getElementById('tempPrice').value = "";
+            document.getElementById('tempQty').value = "1";
+            input.focus();
+        });
+
+        document.getElementById('btnClearCart').addEventListener('click', function() {
+            if (confirm("Voulez-vous vraiment vider tout le panier ?")) {
+                document.getElementById('cartBody').innerHTML = "";
+                itemIndex = 0;
+                updateTotal();
+            }
+        });
+
+        document.getElementById('cartBody').addEventListener('click', function(e) {
+            if (e.target.closest('.btn-remove')) {
+                e.target.closest('tr').remove();
+                updateTotal();
+            }
+        });
+
+        function updateTotal() {
+            let total = 0;
+            const rows = document.querySelectorAll('#cartBody tr');
+            rows.forEach(row => {
+                const pInput = row.querySelector('input[name*="UnitPrice"]');
+                const qInput = row.querySelector('input[name*="Quantity"]');
+                if (pInput && qInput) {
+                    // Correction 3 : JS a besoin du point pour faire l'addition
+                    const p = parseFloat(pInput.value.replace(',', '.'));
+                    const q = parseInt(qInput.value);
+                    if (!isNaN(p) && !isNaN(q)) {
+                        total += (p * q);
+                    }
+                }
+            });
+            document.getElementById('grandTotal').innerText = total.toFixed(2);
+            // Correction 4 : On renvoie bien le prix final au C# avec la virgule
+            document.getElementById('inputFinalPrice').value = total.toFixed(2).replace('.', ',');
+        }
+    </script>
+}

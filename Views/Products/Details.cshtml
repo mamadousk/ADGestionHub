@@ -1,0 +1,77 @@
+﻿@using AdGestionHub.Models
+@model Product
+
+
+@{
+    ViewData["Title"] = "Détails du Produit - AdGestionHub";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header text-white py-3" style="background-color: #FF8C00 !important; border: none;">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="fas fa-box-open me-2"></i> @Model.Name</h4>
+                <span class="badge bg-white text-dark shadow-sm">ID: #@Model.Id</span>
+            </div>
+        </div>
+        
+        <div class="card-body p-4">
+            <div class="row">
+                <div class="col-md-6 border-end">
+                    <h5 class="text-muted mb-4 text-uppercase small fw-bold"><i class="fas fa-warehouse me-2"></i> État du Stock</h5>
+                    <dl class="row">
+                        <dt class="col-sm-5 fw-bold text-dark">Nom du Produit :</dt>
+                        <dd class="col-sm-7">@Model.Name</dd>
+
+                        <dt class="col-sm-5 fw-bold text-dark">En Stock :</dt>
+                        <dd class="col-sm-7">
+                            @{
+                                var stockClass = Model.StockQuantity <= Model.LowStockThreshold ? "bg-danger" : "bg-success";
+                            }
+                            <span class="badge @stockClass p-2 px-3">
+                                @Model.StockQuantity unités
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-5 fw-bold text-dark">Seuil d'Alerte :</dt>
+                        <dd class="col-sm-7 text-muted">@Model.LowStockThreshold</dd>
+
+                        <dt class="col-sm-5 fw-bold text-dark">Variations :</dt>
+                        <dd class="col-sm-7">@(string.IsNullOrEmpty(Model.Variations) ? "Standard" : Model.Variations)</dd>
+                    </dl>
+                </div>
+
+                <div class="col-md-6 ps-md-4">
+                    <h5 class="text-muted mb-4 text-uppercase small fw-bold"><i class="fas fa-dollar-sign me-2"></i> Analyse Financière</h5>
+                    <dl class="row">
+                        <dt class="col-sm-5 fw-bold text-dark">Prix d'Achat :</dt>
+                        <dd class="col-sm-7">@Model.PurchasePrice.ToString("N2").Replace(".", ",") $</dd>
+
+                        <dt class="col-sm-5 fw-bold text-dark">Prix de Vente :</dt>
+                        <dd class="col-sm-7 fw-bold h5" style="color: #FF8C00;">
+                            @Model.SalePrice.ToString("N2").Replace(".", ",") $
+                        </dd>
+
+                        <dt class="col-sm-5 fw-bold text-dark">Marge Estimée :</dt>
+                        <dd class="col-sm-7 text-success fw-bold">
+                            @((Model.SalePrice - Model.PurchasePrice).ToString("N2").Replace(".", ",")) $
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <div class="d-flex justify-content-between">
+                <a asp-action="Index" class="btn btn-outline-secondary px-4 shadow-sm">
+                    <i class="fas fa-arrow-left me-1"></i> Retour
+                </a>
+                <div class="btn-group">
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn text-white px-4 shadow-sm" style="background-color: #FF8C00;">
+                        <i class="fas fa-edit me-1"></i> Modifier
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

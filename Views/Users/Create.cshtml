@@ -1,0 +1,16 @@
+﻿<div class="container mt-5">
+    <div class="col-md-6 mx-auto card shadow border-0 p-4">
+        <h3 style="color: #FF8C00;">Nouvel Employé</h3>
+        <form asp-action="Create" method="post">
+            <div class="mb-3">
+                <label class="form-label">Email de l'employé</label>
+                <input type="email" name="email" class="form-control" required />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Mot de passe provisoire</label>
+                <input type="password" name="password" class="form-control" required />
+            </div>
+            <button type="submit" class="btn text-white w-100" style="background-color: #FF8C00;">Créer le compte employé</button>
+        </form>
+    </div>
+</div>

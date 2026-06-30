@@ -1,0 +1,64 @@
+﻿@using AdGestionHub
+@model Product
+
+@{
+    ViewData["Title"] = "Ajouter un Produit";
+}
+
+<div class="container mt-4">
+    <div class="card shadow-sm border-0">
+        <div class="card-header text-white" style="background-color: #FF8C00 !important;">
+            <h3 class="mb-0">📦 Nouveau Produit</h3>
+        </div>
+        <div class="card-body p-4">
+            <form asp-action="Create" method="post">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label asp-for="Name" class="form-label fw-bold">Nom du Produit</label>
+                        <input asp-for="Name" class="form-control border-warning" />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="PurchasePrice" class="form-label fw-bold">Prix d'Achat</label>
+                        <input asp-for="PurchasePrice" class="form-control border-warning" type="number" step="0.01" />
+                        <span asp-validation-for="PurchasePrice" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="SalePrice" class="form-label fw-bold">Prix de Vente</label>
+                        <input asp-for="SalePrice" class="form-control border-warning" type="number" step="0.01" />
+                        <span asp-validation-for="SalePrice" class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="StockQuantity" class="form-label fw-bold">Quantité en Stock</label>
+                        <input asp-for="StockQuantity" class="form-control border-warning" type="number" />
+                        <span asp-validation-for="StockQuantity" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="StockAlertThreshold" class="form-label fw-bold">Seuil d'alerte stock</label>
+                        <input asp-for="StockAlertThreshold" class="form-control border-warning" type="number" />
+                        <span asp-validation-for="StockAlertThreshold" class="text-danger"></span>
+                </div>
+                </div>
+            
+
+                <hr class="my-4" />
+
+                <div class="d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-outline-secondary">Annuler</a>
+                    <button type="submit" class="btn text-white px-5" style="background-color: #FF8C00;">Créer le Produit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

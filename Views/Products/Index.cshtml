@@ -1,0 +1,103 @@
+﻿@using AdGestionHub.Models
+@model IEnumerable<Product>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 style="color: #FF8C00;"><i class="fas fa-boxes me-2"></i> Gestion du Stock</h2>
+        <a asp-action="Create" class="btn text-white shadow-sm" style="background-color: #FF8C00;">
+            <i class="fas fa-plus-circle me-1"></i> Nouveau Produit
+        </a>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded bg-white p-3">
+        <table class="table table-hover align-middle">
+            <thead style="background-color: #fff3e0;">
+                <tr>
+                    <th>Nom du Produit</th>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <th>Prix d'Achat</th>
+                    }
+                    <th>Prix de Vente</th>
+                    <th>Stock Actuel</th>
+                    <th>Statut</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>
+                        <td class="fw-bold text-dark">@item.Name</td>
+
+                        @if (User.IsInRole("Admin"))
+                        {
+                            @* Correction point/virgule automatique à l'affichage *@
+                            <td>@item.PurchasePrice.ToString("N2").Replace(".", ",") $</td>
+                        }
+
+                        <td class="text-success fw-bold">
+                            @item.SalePrice.ToString("N2").Replace(".", ",") $
+                        </td>
+
+                        <td>@item.StockQuantity</td>
+
+                        <td>
+                            @if (item.StockQuantity <= 0)
+                            {
+                                <span class="badge bg-danger">Rupture</span>
+                            }
+                            else if (item.StockQuantity <= (item.LowStockThreshold))
+     @* Utilisation de ta propriété de seuil *@
+                            {
+                                <span class="badge bg-warning text-dark">Stock Bas</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">En Stock</span>
+                            }
+                        </td>
+
+                        <td class="text-center">
+                            <div class="btn-group">
+                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" title="Modifier">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info mx-1" title="Détails">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+
+                                @* Remplace ton bouton actuel par celui-ci *@
+                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-trash"></i> Supprimer
+                                </a>
+                            </div>
+
+                            <div class="modal fade" id="deleteModal-@item.Id" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content border-0 shadow">
+                                        <div class="modal-header bg-danger text-white border-0">
+                                            <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmation</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body p-4">
+                                            <p class="mb-0">Voulez-vous vraiment supprimer <strong>@item.Name</strong> ?</p>
+                                            <small class="text-muted">Cette action est définitive pour votre inventaire.</small>
+                                        </div>
+                                        <div class="modal-footer bg-light border-0 d-flex justify-content-between">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                            <form asp-action="DeleteConfirmed" asp-route-id="@item.Id" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-danger px-4">Supprimer</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

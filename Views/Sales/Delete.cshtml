@@ -1,0 +1,44 @@
+﻿@model AdGestionHub.Models.Sale
+
+@{
+    ViewData["Title"] = "Supprimer la Vente";
+}
+
+<div class="container mt-4">
+    <h1>Supprimer</h1>
+    <h3>Êtes-vous sûr de vouloir supprimer cette vente ?</h3>
+    <div>
+        <h4>Détails de la Vente</h4>
+        <hr />
+        <dl class="row">
+            <dt class="col-sm-3">Client</dt>
+            <dd class="col-sm-9">@(string.IsNullOrEmpty(Model.CustomerName) ? "Client au comptoir" : Model.CustomerName)</dd>
+
+            <dt class="col-sm-3">Produits vendus</dt>
+            <dd class="col-sm-9">
+                @if (Model.Items != null && Model.Items.Any())
+                {
+                    @string.Join(", ", Model.Items.Select(i => $"{i.ProductName} (x{i.Quantity})"))
+                }
+            </dd>
+
+            <dt class="col-sm-3">Quantité Totale</dt>
+            <dd class="col-sm-9">@(Model.Items?.Sum(i => i.Quantity) ?? 0)</dd>
+
+            <dt class="col-sm-3">Prix Total ($)</dt>
+            <dd class="col-sm-9">@Model.FinalPrice.ToString("N2") $</dd>
+
+            <dt class="col-sm-3">Date de vente</dt>
+            <dd class="col-sm-9">@Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</dd>
+
+            <dt class="col-sm-3">Mode de paiement</dt>
+            <dd class="col-sm-9">@Model.PaymentMethod</dd>
+        </dl>
+
+        <form asp-action="Delete">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger">Confirmer la suppression</button> |
+            <a asp-action="Index" class="btn btn-secondary">Retour à la liste</a>
+        </form>
+    </div>
+</div>

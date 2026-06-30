@@ -1,0 +1,98 @@
+﻿@model AdGestionHub.Models.Expense
+
+@{
+    ViewData["Title"] = "Nouvelle Dépense";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow border-0">
+                <div class="card-header text-white text-center fw-bold" style="background-color: #FF8C00;">
+                    <h4 class="mb-0"><i class="fas fa-plus-circle"></i> Nouvelle Dépense</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form asp-action="Create" id="expenseForm">
+                        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="Description" class="form-label fw-bold">Description</label>
+                            <input asp-for="Description" class="form-control" placeholder="Ex: Facture SNEL, Achat fournitures..." required />
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Amount" class="form-label fw-bold">Montant ($)</label>
+                                <input asp-for="Amount" type="number" step="0.01" class="form-control" required />
+                                <span asp-validation-for="Amount" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Catégorie</label>
+                                <select id="categorySelect" name="Category" class="form-select" onchange="checkCategory(this)">
+                                    <option value="Loyer">Loyer</option>
+                                    <option value="Salaire">Salaire</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Marketing">Marketing</option>
+                                    <option value="Internet">Internet</option>
+                                    <option value="Autre">Autre...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3" id="customCategoryDiv" style="display: none;">
+                            <label class="form-label fw-bold text-primary">Nom de la nouvelle catégorie</label>
+                            <input type="text" id="customCategoryInput" class="form-control" placeholder="Entrez le type de dépense" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Date" class="form-label fw-bold">Date de l'opération</label>
+                            <input asp-for="Date" type="datetime-local" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                            <span asp-validation-for="Date" class="text-danger"></span>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn text-white fw-bold" style="background-color: #FF8C00;">
+                                Enregistrer la dépense
+                            </button>
+                            <a asp-action="Index" class="btn btn-outline-secondary">Retour au journal</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function checkCategory(select) {
+            var customDiv = document.getElementById('customCategoryDiv');
+            var customInput = document.getElementById('customCategoryInput');
+
+            if (select.value === 'Autre') {
+                customDiv.style.display = 'block';
+                customInput.required = true;
+                customInput.focus();
+            } else {
+                customDiv.style.display = 'none';
+                customInput.required = false;
+            }
+        }
+
+        // Avant de soumettre, on remplace la valeur "Autre" par le texte saisi
+        document.getElementById('expenseForm').onsubmit = function() {
+            var select = document.getElementById('categorySelect');
+            var customInput = document.getElementById('customCategoryInput');
+
+            if (select.value === 'Autre') {
+                // On crée une option temporaire avec la valeur saisie pour que le modèle la reçoive
+                var opt = document.createElement('option');
+                opt.value = customInput.value;
+                opt.selected = true;
+                select.appendChild(opt);
+            }
+        };
+    </script>
+}

@@ -1,0 +1,94 @@
+﻿@using AdGestionHub.Models
+@model IEnumerable<Expense>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 style="color: #FF8C00;">📑 Journal des Dépenses</h2>
+        <a asp-action="Create" class="btn text-white fw-bold shadow-sm" style="background-color: #FF8C00; border-radius: 8px;">
+            <i class="fas fa-plus"></i> Nouvelle Dépense
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="table-responsive p-3">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Catégorie</th>
+                        <th>Montant</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.OrderByDescending(e => e.Date))
+                    {
+                        <tr>
+                            <td>@item.Date.ToString("dd/MM/yyyy")</td>
+                            <td>@item.Description</td>
+                            <td><span class="badge bg-info text-dark">@item.Category</span></td>
+                            <td class="fw-bold text-danger">- @item.Amount.ToString("N2") $</td>
+                            <td class="text-center">
+                                <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Supprimer cette dépense ?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i> Supprimer
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white fw-bold">
+                    <i class="fas fa-chart-pie"></i> Récapitulatif par Catégorie
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Catégorie</th>
+                                <th class="text-end">Total Cumulé</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{
+                                var categories = Model.GroupBy(e => e.Category)
+                                                      .Select(g => new { Nom = g.Key, Total = g.Sum(e => e.Amount) })
+                                                      .OrderByDescending(g => g.Total);
+                            }
+                            @foreach (var cat in categories)
+                            {
+                                <tr>
+                                    <td>@cat.Nom</td>
+                                    <td class="text-end fw-bold text-danger">@cat.Total.ToString("N2") $</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <th class="text-uppercase">Total Général</th>
+                                <th class="text-end text-danger h5">@Model.Sum(e => e.Amount).ToString("N2") $</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 d-flex align-items-center justify-content-center">
+            <div class="text-center p-4 border rounded bg-light w-100">
+                <i class="fas fa-info-circle fa-2x text-muted mb-2"></i>
+                <p class="text-muted mb-0">
+                    Ce résumé t'aide à identifier tes plus grosses sources de dépenses pour optimiser ta rentabilité.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

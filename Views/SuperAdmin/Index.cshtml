@@ -1,0 +1,177 @@
+﻿@model IEnumerable<AdGestionHub.Models.Boutique>
+@{
+    ViewData["Title"] = "Console SuperAdmin";
+}
+
+<div class="container-fluid mt-4">
+    @* En-tête *@
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold text-dark"><i class="fas fa-chart-line text-orange"></i> Console AdGestionHub</h2>
+        <span class="badge bg-danger p-2 px-3 rounded-pill">Accès Fondateur (Mamadou Sacko)</span>
+    </div>
+
+    @* Section Annonces Globales *@
+    <div class="card border-0 shadow-sm mb-4 bg-light">
+        <div class="card-body">
+            <h6 class="fw-bold"><i class="fas fa-bullhorn text-danger me-2"></i>Diffuser une annonce à toutes les boutiques</h6>
+
+            <form asp-action="SendNotification" method="post" class="row g-2 mb-3">
+                <div class="col-md-7">
+                    <input type="text" name="message" class="form-control" placeholder="Ex: Maintenance de la plateforme ce soir à 22h..." required />
+                </div>
+                <div class="col-md-2">
+                    <select name="isCritical" class="form-select">
+                        <option value="false">Information (Orange)</option>
+                        <option value="true">Urgent / Maintenance (Rouge)</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="number" name="hoursActive" class="form-control" value="2" placeholder="Heures" title="Durée de l'affichage" />
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-danger w-100">Publier</button>
+                </div>
+            </form>
+
+            @if (ViewBag.Notifications != null)
+            {
+                var notifications = (IEnumerable<AdGestionHub.Models.GlobalNotification>)ViewBag.Notifications;
+                if (notifications.Any())
+                {
+                    <div class="mt-3">
+                        <p class="small fw-bold text-muted mb-2 text-uppercase">Annonces en cours :</p>
+                        @foreach (var notif in notifications)
+                        {
+                            <div class="alert @(notif.IsCritical ? "alert-danger" : "alert-warning") d-flex justify-content-between align-items-center py-2 shadow-sm border-0 mb-2">
+                                <div>
+                                    <i class="fas @(notif.IsCritical ? "fa-exclamation-triangle" : "fa-info-circle") me-2"></i>
+                                    @notif.Message
+                                    <small class="ms-2 opacity-75">(Expire : @notif.ExpiryDate.ToString("HH:mm"))</small>
+                                </div>
+                                <form asp-action="DeleteNotification" asp-route-id="@notif.Id" method="post">
+                                    <button type="submit" class="btn btn-sm text-danger border-0 p-0" onclick="return confirm('Retirer ?')">
+                                        <i class="fas fa-times-circle"></i> Retirer
+                                    </button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    @* Cartes de statistiques *@
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-3" style="border-left: 5px solid #FF8C00 !important;">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-light p-3 rounded-circle me-3">
+                        <i class="fas fa-store fa-2x" style="color:#FF8C00;"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Boutiques</h6>
+                        <h3 class="fw-bold mb-0">@(ViewBag.BoutiqueCount ?? 0)</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-3" style="border-left: 5px solid #28a745 !important;">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-light p-3 rounded-circle me-3">
+                        <i class="fas fa-dollar-sign fa-2x text-success"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Ventes Globales</h6>
+                        <h3 class="fw-bold mb-0">@((ViewBag.GlobalSales ?? 0m).ToString("N0")) $</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm p-3" style="border-left: 5px solid #17a2b8 !important;">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-light p-3 rounded-circle me-3">
+                        <i class="fas fa-boxes fa-2x text-info"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-muted mb-0">Total Produits</h6>
+                        <h3 class="fw-bold mb-0">@(ViewBag.TotalProducts ?? 0)</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3 d-flex justify-content-between">
+                    <h5 class="mb-0 fw-bold">🏢 Parc Boutiques</h5>
+                </div>
+                <div class="table-responsive p-3">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Nom</th>
+                                <th>Ville</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (Model != null && Model.Any())
+                            {
+                                foreach (var item in Model)
+                                {
+                                    <tr>
+                                        <td><strong>#@item.Id</strong></td>
+                                        <td>@item.Name</td>
+                                        <td><span class="badge bg-light text-dark">Kinshasa</span></td>
+                                        <td>
+                                            <a asp-action="BoutiqueDetails" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning rounded-pill px-3">
+                                                <i class="fas fa-eye"></i> Inspecter
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="4" class="text-center text-muted">Aucune boutique enregistrée.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0 fw-bold">⭐ Derniers Avis</h5>
+                </div>
+                <div class="card-body">
+                    @if (ViewBag.Feedbacks != null)
+                    {
+                        foreach (var f in (IEnumerable<AdGestionHub.Models.UserFeedback>)ViewBag.Feedbacks)
+                        {
+                            <div class="mb-3 p-2 border-bottom">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="badge bg-warning text-dark">Note: @f.Note/5</span>
+                                    <small class="text-muted">@f.DateEnvoi.ToString("dd/MM")</small>
+                                </div>
+                                <p class="small fst-italic mb-0 text-dark">"@f.Commentaire"</p>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-center text-muted small">Aucun avis pour le moment.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

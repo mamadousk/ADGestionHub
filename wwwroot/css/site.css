@@ -1,0 +1,39 @@
+/* Style du Footer Adhilix mis à jour pour la visibilité */
+.footer-adhilix {
+    background-color: #1a1a1a;
+    color: #ffffff !important; /* Force le texte principal en blanc */
+    border-top: 4px solid #FF8C00;
+}
+
+    /* Forcer les paragraphes et textes muted à être plus clairs */
+    .footer-adhilix p,
+    .footer-adhilix .text-muted {
+        color: #ffffff !important;
+        opacity: 0.8; /* Légère transparence pour garder une hiérarchie visuelle */
+    }
+
+    /* Style des titres de colonnes */
+    .footer-adhilix h5 {
+        color: #ffffff !important;
+        font-weight: bold;
+        margin-bottom: 1.5rem;
+    }
+
+/* Style spécifique pour les liens */
+.footer-links a {
+    color: #ffffff !important; /* Liens en blanc */
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: 0.3s;
+}
+
+    .footer-links a:hover {
+        color: #FF8C00 !important; /* Orange seulement au survol */
+        padding-left: 5px;
+    }
+
+/* Icônes de contact */
+.footer-adhilix i,
+.footer-adhilix .contact-info {
+    color: #ffffff !important;
+}
