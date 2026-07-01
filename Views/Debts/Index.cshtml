@@ -1,212 +1,200 @@
-﻿@model IEnumerable<AdGestionHub.Models.Debt>
+﻿<!-- ==================== FILE: Views/Debts/Index.cshtml ==================== -->
+@model IEnumerable<AdGestionHub.Models.Debt>
 
 @{
     ViewData["Title"] = "Gestion des Dettes";
     var totalDues = Model != null ? Model.Where(d => !d.IsPaid).Sum(d => d.Amount) : 0;
 }
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 text-wrap">
+<div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="fw-bold" style="color:#FF8C00;">📓 Cahier des Dettes</h1>
-            <p class="text-muted d-none d-md-block">Suivez vos crédits clients et relancez les paiements.</p>
+            <h1 class="display-6 fw-bold mb-0"><i class="fas fa-hand-holding-usd text-primary me-2"></i>Cahier des Dettes</h1>
+            <p class="text-muted">Suivez vos crédits clients et relancez les paiements.</p>
         </div>
-        <button type="button" class="btn btn-warning rounded-pill px-4 shadow-sm text-white fw-bold" data-bs-toggle="modal" data-bs-target="#addDebtModal">
-            <i class="fas fa-plus-circle me-2"></i> Nouvelle Dette
+        <button type="button" class="btn btn-primary-gradient" data-bs-toggle="modal" data-bs-target="#addDebtModal">
+            <i class="fas fa-plus me-2"></i>Nouvelle Dette
         </button>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="input-group shadow-sm rounded-pill overflow-hidden border">
-                <span class="input-group-text bg-white border-0 ps-3">
-                    <i class="fas fa-search text-muted"></i>
-                </span>
-                <input type="text" id="searchInput" class="form-control border-0 py-2" placeholder="Chercher un client (nom ou téléphone)...">
-            </div>
-        </div>
-        <div class="col-md-4 mt-3 mt-md-0">
-            <div class="card border-0 shadow-sm bg-danger text-white rounded-pill">
-                <div class="card-body py-2 px-4 d-flex justify-content-between align-items-center">
-                    <small class="fw-bold text-uppercase opacity-75">Total :</small>
-                    <h4 class="fw-bold mb-0">@totalDues.ToString("N0") <small>$</small></h4>
-                </div>
+    <!-- Carte Total Dues -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-lg-4">
+            <div class="card-dashboard" style="border-left: 4px solid #ef4444;">
+                <div class="stat-label">Total des créances</div>
+                <div class="stat-number text-danger">@totalDues.ToString("N0") $</div>
+                <div class="small text-muted">Clients à relancer</div>
             </div>
         </div>
     </div>
 
-    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-4 gap-2" id="pills-tab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active rounded-pill me-2 fw-bold shadow-sm" id="pills-home-tab" data-bs-toggle="pill" data-bs-target="#pills-active" type="button">
+            <button class="nav-link active rounded-pill px-4 py-2 fw-semibold" id="pills-active-tab" data-bs-toggle="pill" data-bs-target="#pills-active" type="button">
                 🚨 En attente (@(Model?.Count(d => !d.IsPaid) ?? 0))
             </button>
         </li>
         <li class="nav-item">
-            <button class="nav-link rounded-pill fw-bold bg-light text-dark shadow-sm" id="pills-profile-tab" data-bs-toggle="pill" data-bs-target="#pills-paid" type="button">
+            <button class="nav-link rounded-pill px-4 py-2 fw-semibold" id="pills-paid-tab" data-bs-toggle="pill" data-bs-target="#pills-paid" type="button">
                 ✅ Archivées (@(Model?.Count(d => d.IsPaid) ?? 0))
             </button>
         </li>
     </ul>
 
-    <div class="tab-content mt-4">
-        <div class="tab-pane fade show active" id="pills-active" role="tabpanel">
+    <!-- Contenu Tabs -->
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="pills-active">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0" id="tableActive">
-                        <thead class="bg-light">
-                            <tr>
-                                <th class="ps-4">Client</th>
-                                <th>Montant</th>
-                                <th>Échéance</th>
-                                <th class="text-end pe-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="debt-rows">
-                            @if (Model != null && Model.Any(d => !d.IsPaid))
-                            {
-                                foreach (var item in Model.Where(d => !d.IsPaid))
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-modern mb-0" id="tableActive">
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th>Montant</th>
+                                    <th>Échéance</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="debt-rows">
+                                @if (Model != null && Model.Any(d => !d.IsPaid))
                                 {
-                                    <tr>
-                                        <td class="ps-4 search-target">
-                                            <div class="fw-bold text-dark name-val">@item.ClientName</div>
-                                            <small class="text-muted phone-val">@item.ClientPhone</small>
-                                        </td>
-                                        <td class="fw-bold text-danger">@item.Amount.ToString("N0") $</td>
-                                        <td>
-                                            @if (item.DueDate.HasValue)
-                                            {
-                                                <span class="@(item.DueDate < DateTime.Now ? "text-danger fw-bold" : "")">
-                                                    @item.DueDate.Value.ToString("dd/MM/yyyy")
-                                                </span>
-                                            }
-                                            else
-                                            {
-
-                                                <span class="text-muted">--</span>
-                                            }
-                                        </td>
-                                        <td class="text-end pe-4">
-                                            @{
-                                                var cleanPhone = item.ClientPhone?.Replace(" ", "").Replace("+", "");
-                                                if (!string.IsNullOrEmpty(cleanPhone) && !cleanPhone.StartsWith("243")) { cleanPhone = "243" + cleanPhone; }
-                                            }
-                                            <a href="https://wa.me/@cleanPhone?text=Bonjour%20@item.ClientName,%20rappel%20dette%20de%20@item.Amount%20FC."
-                                               target="_blank" class="btn btn-sm btn-outline-success rounded-circle me-2">
-                                                <i class="fab fa-whatsapp"></i>
-                                            </a>
-                                            <form asp-action="MarkAsPaid" asp-route-id="@item.Id" method="post" class="d-inline">
-                                                <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 fw-bold">Encaisser</button>
-                                            </form>
-                                        </td>
-                                    </tr>
+                                    foreach (var item in Model.Where(d => !d.IsPaid))
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="fw-bold">@item.ClientName</div>
+                                                <small class="text-muted">@item.ClientPhone</small>
+                                            </td>
+                                            <td class="fw-bold text-danger">@item.Amount.ToString("N0") $</td>
+                                            <td>
+                                                @if (item.DueDate.HasValue)
+                                                {
+                                                    <span class="@(item.DueDate < DateTime.Now ? "text-danger fw-bold" : "")">
+                                                        @item.DueDate.Value.ToString("dd/MM/yyyy")
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">--</span>
+                                                }
+                                            </td>
+                                            <td class="text-end">
+                                                <a href="https://wa.me/@item.ClientPhone?text=Bonjour%20@item.ClientName,%20rappel%20dette%20de%20@item.Amount%20FC."
+                                                   target="_blank" class="btn btn-sm btn-soft text-success me-1">
+                                                    <i class="fab fa-whatsapp"></i>
+                                                </a>
+                                                <form asp-action="MarkAsPaid" asp-route-id="@item.Id" method="post" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 fw-bold">Encaisser</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                <tr><td colspan="4" class="text-center py-5 text-muted">Rien à signaler ici. 👏</td></tr>
-                            }
-                        </tbody>
-                    </table>
+                                else
+                                {
+                                    <tr><td colspan="4" class="text-center py-5 text-muted">Aucune dette en attente. 👏</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="tab-pane fade" id="pills-paid" role="tabpanel">
+        <div class="tab-pane fade" id="pills-paid">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0" id="tablePaid">
-                        <thead class="bg-light text-muted small text-uppercase">
-                            <tr>
-                                <th class="ps-4">Client</th>
-                                <th>Montant réglé</th>
-                                <th>Note</th>
-                                <th class="text-end pe-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="debt-rows text-muted">
-                            @if (Model != null && Model.Any(d => d.IsPaid))
-                            {
-                                foreach (var item in Model.Where(d => d.IsPaid))
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-modern mb-0" id="tablePaid">
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th>Montant réglé</th>
+                                    <th>Note</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="debt-rows text-muted">
+                                @if (Model != null && Model.Any(d => d.IsPaid))
                                 {
-                                    <tr>
-                                        <td class="ps-4 fw-semibold search-target">
-                                            <span class="name-val">@item.ClientName</span>
-                                        </td>
-                                        <td class="text-success fw-bold">@item.Amount.ToString("N0") $</td>
-                                        <td><small>@item.Note</small></td>
-                                        <td class="text-end pe-4">
-                                            <form asp-action="Delete" asp-route-id="@item.Id" method="post"
-                                                  onsubmit="return confirm('Supprimer définitivement cette archive ?');" class="d-inline">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle border-0">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
+                                    foreach (var item in Model.Where(d => d.IsPaid))
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@item.ClientName</td>
+                                            <td class="text-success fw-bold">@item.Amount.ToString("N0") $</td>
+                                            <td><small>@item.Note</small></td>
+                                            <td class="text-end">
+                                                <form asp-action="Delete" asp-route-id="@item.Id" method="post"
+                                                      onsubmit="return confirm('Supprimer définitivement cette archive ?');" class="d-inline">
+                                                    <button type="submit" class="btn btn-sm btn-soft text-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
-                            }
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nouvelle Dette -->
+<div class="modal fade" id="addDebtModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-content-modern">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold"><i class="fas fa-plus-circle text-primary me-2"></i>Nouveau Crédit Client</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form asp-controller="Debts" asp-action="Create" method="post">
+                <div class="modal-body px-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nom du client</label>
+                        <input name="ClientName" class="form-control form-control-modern" required placeholder="Ex: Maman Alphonsine" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Téléphone (WhatsApp)</label>
+                        <input name="ClientPhone" class="form-control form-control-modern" placeholder="243810000000" />
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Montant ($)</label>
+                            <input name="Amount" type="number" class="form-control form-control-modern" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Échéance</label>
+                            <input name="DueDate" type="date" class="form-control form-control-modern" />
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">Note</label>
+                        <textarea name="Note" class="form-control form-control-modern" rows="2" placeholder="Ex: 5 savons..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="submit" class="btn btn-primary-gradient w-100">Enregistrer le crédit</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        document.getElementById('searchInput').addEventListener('keyup', function() {
+        document.getElementById('searchInput')?.addEventListener('keyup', function() {
             let filter = this.value.toLowerCase();
             let rows = document.querySelectorAll('.debt-rows tr');
-
             rows.forEach(row => {
-                let text = row.querySelector('.search-target').textContent.toLowerCase();
-                if (text.includes(filter)) {
-                    row.style.display = "";
-                } else {
-                    row.style.display = "none";
-                }
+                let text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? "" : "none";
             });
         });
     </script>
 }
-
-<div class="modal fade" id="addDebtModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header border-0 pb-0" style="background-color: #FF8C00; color: white;">
-                <h5 class="modal-title fw-bold">📓 Nouveau Crédit Client</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <form asp-controller="Debts" asp-action="Create" method="post">
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Nom du Client</label>
-                        <input name="ClientName" class="form-control form-control-lg bg-light border-0" required placeholder="Ex: Maman Alphonsine" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Téléphone (Format: 243...)</label>
-                        <input name="ClientPhone" class="form-control bg-light border-0" placeholder="243810000000" />
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold small text-muted">Montant ($)</label>
-                            <input name="Amount" type="number" class="form-control fw-bold border-2" style="border-color: #FF8C00" required />
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold small text-muted">Échéance</label>
-                            <input name="DueDate" type="date" class="form-control bg-light border-0" />
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted">Note / Description</label>
-                        <textarea name="Note" class="form-control bg-light border-0" rows="2" placeholder="Ex: 5 savons..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0 p-4">
-                    <button type="submit" class="btn btn-warning text-white w-100 rounded-pill fw-bold py-3 shadow">Enregistrer le crédit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>

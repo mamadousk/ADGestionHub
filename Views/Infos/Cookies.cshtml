@@ -2,15 +2,118 @@
     ViewData["Title"] = "Gestion des Cookies";
 }
 
-<div class="container mt-5 shadow-sm p-5 bg-white rounded border-top border-warning border-5">
-    <h1 class="text-orange fw-bold mb-4">🍪 @ViewData["Title"]</h1>
-    <hr />
-    <div class="legal-text" style="line-height: 1.8; color: #333;">
-        <p>AdGestionHub utilise uniquement des cookies techniques essentiels :</p>
-        <ul>
-            <li><strong>Cookies de session :</strong> Pour rester connecté à votre tableau de bord.</li>
-            <li><strong>Cookies de préférence :</strong> Pour mémoriser vos choix d'affichage.</li>
-        </ul>
-        <p><strong>Zéro Tracking :</strong> Nous n'utilisons aucun cookie publicitaire. Votre navigation reste privée.</p>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 py-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="icon-wrapper orange" style="width: 56px; height: 56px; border-radius: 16px; background: #fff3e0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-cookie-bite fa-2x" style="color: #FF8C00;"></i>
+                        </div>
+                        <div>
+                            <h1 class="display-6 fw-bold mb-0">Gestion des Cookies</h1>
+                            <p class="text-muted small">Ce que nous utilisons et pourquoi</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4 p-lg-5">
+                    <div class="legal-content" style="line-height: 1.8; color: #1e293b;">
+
+                        <!-- Introduction -->
+                        <p class="lead" style="font-size: 1.1rem; color: #475569;">
+                            AdGestionHub utilise des cookies pour améliorer votre expérience et garantir le bon fonctionnement de la plateforme. Nous respectons votre vie privée et n'utilisons <strong>aucun cookie publicitaire ou de traçage</strong>.
+                        </p>
+
+                        <hr class="my-4" />
+
+                        <!-- Section 1 -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-cookie me-2"></i> 1. Qu'est-ce qu'un cookie ?
+                        </h4>
+                        <p>
+                            Un cookie est un petit fichier texte déposé sur votre navigateur lors de la visite d'un site web. Il permet de mémoriser certaines informations (préférences, identifiant de session) pour faciliter votre navigation.
+                        </p>
+
+                        <!-- Section 2 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-list me-2"></i> 2. Les cookies que nous utilisons
+                        </h4>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 25%;">Type de cookie</th>
+                                        <th style="width: 40%;">Fonction</th>
+                                        <th style="width: 20%;">Durée</th>
+                                        <th style="width: 15%;">Obligatoire</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Session (.AspNetCore.*)</strong></td>
+                                        <td>Permet de maintenir votre session de connexion active pendant votre navigation.</td>
+                                        <td>Session (expire à la fermeture du navigateur)</td>
+                                        <td><span class="badge bg-success">Oui</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Préférences utilisateur</strong></td>
+                                        <td>Mémorise vos choix d'affichage (ex : thème, langue).</td>
+                                        <td>1 an</td>
+                                        <td><span class="badge bg-secondary">Non (amélioration)</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Anti-forgerie (Anti-CSRF)</strong></td>
+                                        <td>Protège contre les attaques de type Cross-Site Request Forgery.</td>
+                                        <td>Session</td>
+                                        <td><span class="badge bg-success">Oui</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Section 3 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-ban me-2"></i> 3. Cookies tiers
+                        </h4>
+                        <p>
+                            AdGestionHub <strong>n'utilise aucun cookie tiers</strong> (publicité, analytics externe, réseaux sociaux). Nous ne vendons pas vos données et ne les utilisons pas à des fins de reciblage.
+                        </p>
+
+                        <!-- Section 4 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-sliders-h me-2"></i> 4. Gestion des cookies
+                        </h4>
+                        <p>
+                            Vous pouvez à tout moment gérer ou supprimer les cookies via les paramètres de votre navigateur. Voici les liens vers les guides des principaux navigateurs :
+                        </p>
+                        <ul>
+                            <li><a href="https://support.google.com/chrome/answer/95647" target="_blank" style="color:#FF8C00;">Google Chrome</a></li>
+                            <li><a href="https://support.mozilla.org/fr/kb/gerer-les-cookies" target="_blank" style="color:#FF8C00;">Mozilla Firefox</a></li>
+                            <li><a href="https://support.microsoft.com/fr-fr/microsoft-edge/tout-savoir-sur-les-cookies-dans-microsoft-edge-60d8c0b9-d3e7-8e6e-5e5c-3a9a3e9b7c4c" target="_blank" style="color:#FF8C00;">Microsoft Edge</a></li>
+                            <li><a href="https://support.apple.com/fr-fr/guide/safari/sfri11471/mac" target="_blank" style="color:#FF8C00;">Safari</a></li>
+                        </ul>
+                        <div class="bg-light p-3 rounded-4 border-start border-warning border-4 mt-3">
+                            <i class="fas fa-info-circle me-2" style="color:#FF8C00;"></i>
+                            <strong>Note :</strong> La désactivation des cookies essentiels peut empêcher la connexion et l'utilisation de certaines fonctionnalités de la plateforme.
+                        </div>
+
+                        <!-- Section 5 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-envelope me-2"></i> 5. Contact
+                        </h4>
+                        <p>
+                            Pour toute question relative à notre politique de cookies, vous pouvez nous contacter à :<br />
+                            <a href="mailto:cookies@adhil-digital.com" class="fw-bold" style="color:#FF8C00;">cookies@adhil-digital.com</a>
+                        </p>
+
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 py-3 px-4 text-muted small">
+                    <i class="fas fa-clock me-1"></i> Dernière mise à jour : @DateTime.Now.ToString("dd/MM/yyyy")
+                </div>
+            </div>
+        </div>
     </div>
 </div>

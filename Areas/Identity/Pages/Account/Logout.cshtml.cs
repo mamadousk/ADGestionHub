@@ -1,21 +1,15 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-#nullable disable
-
-using System;
+﻿// ==================== FILE: Areas/Identity/Pages/Account/Logout.cshtml.cs ====================
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
-using AdGestionHub.Models; // <-- AJOUTÉ : Pour reconnaître ApplicationUser
+using AdGestionHub.Models;
 
 namespace AdGestionHub.Areas.Identity.Pages.Account
 {
     public class LogoutModel : PageModel
     {
-        // CORRECTION : Utilisation de ApplicationUser au lieu d'IdentityUser
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ILogger<LogoutModel> _logger;
 
@@ -36,12 +30,10 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             }
             else
             {
-                // Redirection vers la page de login pour AdGestionHub
                 return RedirectToPage("/Account/Login");
             }
         }
 
-        // Ajout d'une méthode OnGet pour déconnecter immédiatement si on accède à la page
         public async Task<IActionResult> OnGet(string returnUrl = null)
         {
             return await OnPost(returnUrl);

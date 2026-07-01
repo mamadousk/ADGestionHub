@@ -2,20 +2,106 @@
     ViewData["Title"] = "Politique de Confidentialité";
 }
 
-<div class="container mt-5 shadow-sm p-5 bg-white rounded border-top border-warning border-5">
-    <h1 class="text-orange fw-bold mb-4">🔒 @ViewData["Title"]</h1>
-    <hr />
-    <div class="legal-text" style="line-height: 1.8; color: #333;">
-        <h4 class="fw-bold">VOS DONNÉES SONT SACRÉES</h4>
-        <p>Nous nous engageons formellement à ne <strong>JAMAIS vendre</strong> ou transmettre vos données à des tiers.</p>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 py-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="icon-wrapper orange" style="width: 56px; height: 56px; border-radius: 16px; background: #fff3e0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-shield-alt fa-2x" style="color: #FF8C00;"></i>
+                        </div>
+                        <div>
+                            <h1 class="display-6 fw-bold mb-0">Politique de Confidentialité</h1>
+                            <p class="text-muted small">Protection de vos données personnelles</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4 p-lg-5">
+                    <div class="legal-content" style="line-height: 1.8; color: #1e293b;">
 
-        <h4 class="fw-bold mt-4">DONNÉES COLLECTÉES</h4>
-        <ul>
-            <li><strong>Gérant :</strong> Nom, email, nom de la boutique.</li>
-            <li><strong>Clients :</strong> Nom saisi lors de la création d'un reçu.</li>
-        </ul>
+                        <!-- Introduction -->
+                        <p class="lead" style="font-size: 1.1rem; color: #475569;">
+                            Chez <strong>AdGestionHub</strong>, nous considérons la confidentialité de vos données comme une priorité absolue. Nous nous engageons à <strong>ne jamais vendre, louer ou partager</strong> vos informations avec des tiers.
+                        </p>
 
-        <h4 class="fw-bold mt-4">SÉCURITÉ ET DROITS</h4>
-        <p>Toutes les données sont chiffrées (SSL). Vous disposez d'un droit d'accès, de modification et de suppression totale de vos données à tout moment.</p>
+                        <hr class="my-4" />
+
+                        <!-- Section 1 -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-database me-2"></i> 1. Données collectées
+                        </h4>
+                        <p>Nous collectons uniquement les données strictement nécessaires au fonctionnement de la plateforme :</p>
+                        <ul>
+                            <li><strong>Informations du gérant :</strong> Email, nom de la boutique, numéro de téléphone (optionnel).</li>
+                            <li><strong>Données commerciales :</strong> Produits, ventes, dépenses, clients (saisies par vous).</li>
+                            <li><strong>Données techniques :</strong> Adresse IP, navigateur, durée de session (à des fins statistiques et de sécurité).</li>
+                        </ul>
+
+                        <!-- Section 2 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-lock me-2"></i> 2. Utilisation des données
+                        </h4>
+                        <ul>
+                            <li>Gérer votre boutique et vos opérations commerciales</li>
+                            <li>Améliorer l'expérience utilisateur et les fonctionnalités de la plateforme</li>
+                            <li>Vous contacter pour des notifications importantes (maintenance, mise à jour)</li>
+                            <li>Respecter nos obligations légales et fiscales</li>
+                        </ul>
+
+                        <!-- Section 3 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-share-alt me-2"></i> 3. Partage des données
+                        </h4>
+                        <p>
+                            <strong>Aucune donnée n'est partagée avec des tiers.</strong> Nous n'utilisons pas de services publicitaires ni de traqueurs. Seuls les sous-traitants techniques (hébergeur, service d'emails) peuvent avoir un accès limité, dans le strict respect de la confidentialité.
+                        </p>
+
+                        <!-- Section 4 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-clock me-2"></i> 4. Durée de conservation
+                        </h4>
+                        <p>
+                            Vos données sont conservées aussi longtemps que votre compte est actif. En cas de suppression de compte, toutes vos données sont définitivement effacées dans un délai de 30 jours, sauf obligation légale de conservation (ex : facturation).
+                        </p>
+
+                        <!-- Section 5 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-user-edit me-2"></i> 5. Vos droits
+                        </h4>
+                        <p>
+                            Conformément aux lois en vigueur, vous disposez des droits suivants sur vos données :
+                        </p>
+                        <ul>
+                            <li><strong>Droit d'accès :</strong> Consulter toutes les données que nous détenons sur vous.</li>
+                            <li><strong>Droit de rectification :</strong> Modifier des données inexactes.</li>
+                            <li><strong>Droit à l'effacement :</strong> Supprimer votre compte et toutes vos données.</li>
+                            <li><strong>Droit à la portabilité :</strong> Récupérer vos données dans un format structuré (JSON).</li>
+                        </ul>
+                        <p>
+                            Pour exercer ces droits, contactez-nous à l'adresse suivante :<br />
+                            <a href="mailto:privacy@adhil-digital.com" class="fw-bold" style="color:#FF8C00;">privacy@adhil-digital.com</a>
+                        </p>
+
+                        <!-- Section 6 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-shield-virus me-2"></i> 6. Sécurité des données
+                        </h4>
+                        <p>
+                            Nous utilisons les meilleures pratiques de l'industrie pour protéger vos données :
+                        </p>
+                        <ul>
+                            <li>Chiffrement SSL/TLS pour toutes les communications</li>
+                            <li>Authentification forte et gestion des sessions sécurisées</li>
+                            <li>Accès restreint aux bases de données</li>
+                            <li>Sauvegardes régulières et chiffrées</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 py-3 px-4 text-muted small">
+                    <i class="fas fa-clock me-1"></i> Dernière mise à jour : @DateTime.Now.ToString("dd/MM/yyyy")
+                </div>
+            </div>
+        </div>
     </div>
 </div>

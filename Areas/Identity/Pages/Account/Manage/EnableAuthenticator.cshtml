@@ -1,46 +1,47 @@
 ﻿@page
 @model EnableAuthenticatorModel
 @{
-    ViewData["Title"] = "Configure authenticator app";
+    ViewData["Title"] = "Configurer l'application d'authentification";
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
 }
 
+<h3 class="fw-bold">@ViewData["Title"]</h3>
+<p class="text-muted">Scannez le QR code avec votre application d'authentification (ex: Google Authenticator).</p>
+
 <partial name="_StatusMessage" for="StatusMessage" />
-<h3>@ViewData["Title"]</h3>
+
 <div>
-    <p>To use an authenticator app go through the following steps:</p>
-    <ol class="list">
-        <li>
-            <p>
-                Download a two-factor authenticator app like Microsoft Authenticator for
-                <a href="https://go.microsoft.com/fwlink/?Linkid=825072">Android</a> and
-                <a href="https://go.microsoft.com/fwlink/?Linkid=825073">iOS</a> or
-                Google Authenticator for
-                <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2&amp;hl=en">Android</a> and
-                <a href="https://itunes.apple.com/us/app/google-authenticator/id388497605?mt=8">iOS</a>.
-            </p>
+    <ol class="list-group list-group-numbered mb-4">
+        <li class="list-group-item border-0 bg-transparent">
+            <p>Téléchargez une application d'authentification comme :</p>
+            <ul>
+                <li><a href="https://go.microsoft.com/fwlink/?Linkid=825072">Microsoft Authenticator</a> (Android / iOS)</li>
+                <li><a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2">Google Authenticator</a> (Android)</li>
+                <li><a href="https://itunes.apple.com/us/app/google-authenticator/id388497605">Google Authenticator</a> (iOS)</li>
+            </ul>
         </li>
-        <li>
-            <p>Scan the QR Code or enter this key <kbd>@Model.SharedKey</kbd> into your two factor authenticator app. Spaces and casing do not matter.</p>
-            <div class="alert alert-info">Learn how to <a href="https://go.microsoft.com/fwlink/?Linkid=852423">enable QR code generation</a>.</div>
-            <div id="qrCode"></div>
-            <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+        <li class="list-group-item border-0 bg-transparent">
+            <p>Scannez ce QR code avec votre application :</p>
+            <div class="bg-light p-3 rounded-4 d-inline-block text-center" style="min-width: 200px;">
+                <div id="qrCode"></div>
+                <div id="qrCodeData" data-url="@Model.AuthenticatorUri"></div>
+                <p class="mt-2 small text-muted">Clé : <kbd>@Model.SharedKey</kbd></p>
+            </div>
         </li>
-        <li>
-            <p>
-                Once you have scanned the QR code or input the key above, your two factor authentication app will provide you
-                with a unique code. Enter the code in the confirmation box below.
-            </p>
+        <li class="list-group-item border-0 bg-transparent">
+            <p>Entrez le code à 6 chiffres généré par l'application :</p>
             <div class="row">
                 <div class="col-md-6">
                     <form id="send-code" method="post">
-                        <div class="form-floating mb-3">
-                            <input asp-for="Input.Code" class="form-control" autocomplete="off" placeholder="Please enter the code."/>
-                            <label asp-for="Input.Code" class="control-label form-label">Verification Code</label>
-                            <span asp-validation-for="Input.Code" class="text-danger"></span>
+                        <div class="mb-3">
+                            <label asp-for="Input.Code" class="form-label fw-semibold">Code de vérification</label>
+                            <input asp-for="Input.Code" class="form-control form-control-modern" placeholder="123456" />
+                            <span asp-validation-for="Input.Code" class="text-danger small"></span>
                         </div>
-                        <button type="submit" class="w-100 btn btn-lg btn-primary">Verify</button>
-                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                        <button type="submit" class="btn btn-primary-gradient">
+                            <i class="fas fa-check-circle me-2"></i> Vérifier
+                        </button>
+                        <div asp-validation-summary="ModelOnly" class="text-danger mt-3" role="alert"></div>
                     </form>
                 </div>
             </div>

@@ -1,39 +1,436 @@
-/* Style du Footer Adhilix mis à jour pour la visibilité */
-.footer-adhilix {
-    background-color: #1a1a1a;
-    color: #ffffff !important; /* Force le texte principal en blanc */
-    border-top: 4px solid #FF8C00;
+/* ==================== FILE: wwwroot/css/site.css ==================== */
+/* Import de la police moderne Inter depuis Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
+
+/* ===== VARIABLES DESIGN SYSTEM ===== */
+:root {
+    --bs-primary: #FF8C00;
+    --bs-primary-dark: #e67e00;
+    --bs-primary-light: #fff3e0;
+    --bs-primary-gradient: linear-gradient(135deg, #FF8C00 0%, #ff6a00 100%);
+    --bs-dark-bg: #0f172a;
+    --bs-gray-50: #f8fafc;
+    --bs-gray-100: #f1f5f9;
+    --bs-gray-200: #e2e8f0;
+    --bs-gray-300: #cbd5e1;
+    --bs-gray-400: #94a3b8;
+    --bs-gray-500: #64748b;
+    --bs-gray-600: #475569;
+    --bs-gray-700: #334155;
+    --bs-gray-800: #1e293b;
+    --bs-gray-900: #0f172a;
+    --bs-card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --bs-card-shadow-hover: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --bs-card-border-radius: 16px;
+    --bs-card-border: 1px solid rgba(226, 232, 240, 0.6);
+    --bs-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-    /* Forcer les paragraphes et textes muted à être plus clairs */
-    .footer-adhilix p,
-    .footer-adhilix .text-muted {
-        color: #ffffff !important;
-        opacity: 0.8; /* Légère transparence pour garder une hiérarchie visuelle */
-    }
-
-    /* Style des titres de colonnes */
-    .footer-adhilix h5 {
-        color: #ffffff !important;
-        font-weight: bold;
-        margin-bottom: 1.5rem;
-    }
-
-/* Style spécifique pour les liens */
-.footer-links a {
-    color: #ffffff !important; /* Liens en blanc */
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: 0.3s;
+/* ===== RESET & BASE ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-    .footer-links a:hover {
-        color: #FF8C00 !important; /* Orange seulement au survol */
-        padding-left: 5px;
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bs-gray-50);
+    color: var(--bs-gray-800);
+    padding-top: 76px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== TYPOGRAPHIE ===== */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.text-gradient {
+    background: var(--bs-primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ===== NAVBAR MODERNE ===== */
+.navbar-main {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    padding: 0.75rem 0;
+}
+
+    .navbar-main .navbar-brand {
+        font-weight: 800;
+        font-size: 1.4rem;
+        color: var(--bs-gray-900);
+        letter-spacing: -0.5px;
     }
 
-/* Icônes de contact */
-.footer-adhilix i,
-.footer-adhilix .contact-info {
-    color: #ffffff !important;
+        .navbar-main .navbar-brand span {
+            color: var(--bs-primary);
+        }
+
+    .navbar-main .nav-link {
+        font-weight: 500;
+        color: var(--bs-gray-600);
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        transition: var(--bs-transition);
+        font-size: 0.9rem;
+    }
+
+        .navbar-main .nav-link:hover,
+        .navbar-main .nav-link.active {
+            color: var(--bs-gray-900);
+            background-color: var(--bs-gray-100);
+        }
+
+    .navbar-main .btn-orange {
+        background: var(--bs-primary-gradient);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.5rem 1.5rem;
+        border-radius: 50px;
+        box-shadow: 0 4px 6px -1px rgba(255, 140, 0, 0.2);
+        transition: var(--bs-transition);
+    }
+
+        .navbar-main .btn-orange:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(255, 140, 0, 0.3);
+            color: white;
+        }
+
+    .navbar-main .btn-outline-orange {
+        border: 1px solid var(--bs-primary);
+        color: var(--bs-primary);
+        background: transparent;
+        border-radius: 50px;
+        font-weight: 600;
+        padding: 0.5rem 1.5rem;
+        transition: var(--bs-transition);
+    }
+
+        .navbar-main .btn-outline-orange:hover {
+            background: var(--bs-primary);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(255, 140, 0, 0.2);
+        }
+
+/* ===== CARTES DASHBOARD ===== */
+.card-dashboard {
+    background: white;
+    border: var(--bs-card-border);
+    border-radius: var(--bs-card-border-radius);
+    padding: 1.5rem;
+    transition: var(--bs-transition);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+    .card-dashboard:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--bs-card-shadow-hover);
+    }
+
+    .card-dashboard .icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+    }
+
+        .card-dashboard .icon-wrapper.orange {
+            background: var(--bs-primary-light);
+            color: var(--bs-primary);
+        }
+
+        .card-dashboard .icon-wrapper.green {
+            background: #ecfdf5;
+            color: #10b981;
+        }
+
+        .card-dashboard .icon-wrapper.blue {
+            background: #eff6ff;
+            color: #3b82f6;
+        }
+
+        .card-dashboard .icon-wrapper.red {
+            background: #fef2f2;
+            color: #ef4444;
+        }
+
+    .card-dashboard .stat-number {
+        font-size: 2.2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem;
+    }
+
+    .card-dashboard .stat-label {
+        font-size: 0.9rem;
+        color: var(--bs-gray-500);
+        font-weight: 500;
+    }
+
+/* ===== TABLEAUX MODERNES ===== */
+.table-modern {
+    border-collapse: separate;
+    border-spacing: 0 6px;
+}
+
+    .table-modern thead th {
+        background: transparent;
+        color: var(--bs-gray-500);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--bs-gray-200);
+        padding: 0.75rem 1rem;
+    }
+
+    .table-modern tbody tr {
+        background: white;
+        border-radius: 12px;
+        transition: var(--bs-transition);
+    }
+
+        .table-modern tbody tr:hover {
+            box-shadow: var(--bs-card-shadow);
+            transform: scale(1.01);
+        }
+
+    .table-modern tbody td {
+        padding: 1rem;
+        border: none;
+        vertical-align: middle;
+        color: var(--bs-gray-700);
+    }
+
+    .table-modern tbody tr:first-child td:first-child {
+        border-top-left-radius: 12px;
+    }
+
+    .table-modern tbody tr:first-child td:last-child {
+        border-top-right-radius: 12px;
+    }
+
+    .table-modern tbody tr:last-child td:first-child {
+        border-bottom-left-radius: 12px;
+    }
+
+    .table-modern tbody tr:last-child td:last-child {
+        border-bottom-right-radius: 12px;
+    }
+
+/* ===== BADGES / STATUS ===== */
+.badge-status {
+    padding: 0.35rem 0.8rem;
+    border-radius: 50px;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+    .badge-status.success {
+        background: #ecfdf5;
+        color: #065f46;
+    }
+
+    .badge-status.warning {
+        background: #fffbeb;
+        color: #92400e;
+    }
+
+    .badge-status.danger {
+        background: #fef2f2;
+        color: #991b1b;
+    }
+
+    .badge-status.info {
+        background: #eff6ff;
+        color: #1e40af;
+    }
+
+/* ===== BOUTONS ===== */
+.btn-primary-gradient {
+    background: var(--bs-primary-gradient);
+    border: none;
+    color: white;
+    font-weight: 600;
+    padding: 0.625rem 1.5rem;
+    border-radius: 50px;
+    box-shadow: 0 4px 6px -1px rgba(255, 140, 0, 0.2);
+    transition: var(--bs-transition);
+}
+
+    .btn-primary-gradient:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(255, 140, 0, 0.3);
+        color: white;
+    }
+
+.btn-soft {
+    background: var(--bs-gray-100);
+    color: var(--bs-gray-700);
+    border: none;
+    font-weight: 500;
+    padding: 0.625rem 1.5rem;
+    border-radius: 50px;
+    transition: var(--bs-transition);
+}
+
+    .btn-soft:hover {
+        background: var(--bs-gray-200);
+        color: var(--bs-gray-900);
+    }
+
+/* ===== FORMULAIRES ===== */
+.form-control-modern {
+    background: white;
+    border: 1px solid var(--bs-gray-200);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: var(--bs-transition);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+    .form-control-modern:focus {
+        border-color: var(--bs-primary);
+        box-shadow: 0 0 0 4px rgba(255, 140, 0, 0.1);
+        outline: none;
+    }
+
+/* ===== MODALES ===== */
+.modal-content-modern {
+    border: none;
+    border-radius: 24px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* ===== FOOTER ===== */
+.footer-modern {
+    background: var(--bs-dark-bg);
+    color: var(--bs-gray-300);
+    padding: 3rem 0 1.5rem;
+    border-top: 4px solid var(--bs-primary);
+}
+
+    .footer-modern a {
+        color: var(--bs-gray-400);
+        text-decoration: none;
+        transition: var(--bs-transition);
+    }
+
+        .footer-modern a:hover {
+            color: white;
+        }
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-up {
+    animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+}
+
+.delay-1 {
+    animation-delay: 0.05s;
+}
+
+.delay-2 {
+    animation-delay: 0.1s;
+}
+
+.delay-3 {
+    animation-delay: 0.15s;
+}
+
+.delay-4 {
+    animation-delay: 0.2s;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    body {
+        padding-top: 66px;
+    }
+
+    .card-dashboard .stat-number {
+        font-size: 1.6rem;
+    }
+
+    .navbar-main .navbar-brand {
+        font-size: 1.2rem;
+    }
+}
+/* Correction des couleurs pour les pages du compte */
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
+    background-color: #FF8C00 !important; /* Orange */
+    color: white !important;
+}
+
+.nav-pills .nav-link {
+    color: #334155 !important; /* Gris foncé pour le texte inactif */
+    transition: all 0.2s ease;
+}
+
+    .nav-pills .nav-link:hover:not(.active) {
+        background-color: #fff3e0 !important;
+        color: #e67e00 !important;
+    }
+
+    .nav-pills .nav-link i {
+        width: 20px;
+        text-align: center;
+    }
+/* ===== FOOTER : amélioration de la lisibilité et du survol ===== */
+.footer-modern a.text-light {
+    transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+    .footer-modern a.text-light:hover {
+        opacity: 1 !important;
+        color: #FF8C00 !important;
+        text-decoration: underline !important;
+    }
+
+.footer-modern .badge {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Petite amélioration responsive pour les petits écrans */
+@media (max-width: 768px) {
+    .footer-modern .row.g-5 {
+        gap: 2rem !important;
+    }
+
+    .footer-modern h5 {
+        font-size: 1.3rem !important;
+    }
 }

@@ -1,15 +1,18 @@
-﻿@inject AdGestionHub.Data.ApplicationDbContext _context
+﻿<!-- ==================== FILE: Views/Shared/_Layout.cshtml ==================== -->
+@inject AdGestionHub.Data.ApplicationDbContext _context
 @{
-    // Sécurité : on essaie de récupérer la notification, si la table a un souci de colonne, le site ne plante pas.
     AdGestionHub.Models.GlobalNotification activeNotification = null;
     try
     {
         activeNotification = _context.GlobalNotifications
-            .FirstOrDefault(n => n.ExpiryDate > DateTime.Now);
+            .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
     }
-    catch { /* Erreur SQL ignorée pour laisser le site fonctionner */ }
-}
+    catch { /* Ignorer les erreurs de DB si la table n'existe pas encore */ }
 
+    // Récupérer le contrôleur et l'action courants pour la navigation active
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -17,198 +20,221 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - AdGestionHub</title>
 
+    <!-- Bootstrap & FontAwesome -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <!-- Notre CSS sur mesure (MODERN) -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AdGestionHub.styles.css" asp-append-version="true" />
-
-    <style>
-        body {
-            padding-top: 80px;
-        }
-
-        .text-orange {
-            color: #FF8C00 !important;
-        }
-
-        .btn-orange {
-            background-color: #FF8C00;
-            color: white;
-        }
-
-            .btn-orange:hover {
-                background-color: #e67e00;
-                color: white;
-            }
-
-        .footer-adhilix {
-            background-color: #1a1a1a;
-            color: #fff;
-        }
-
-        .footer-links a {
-            color: #aaa;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-            .footer-links a:hover {
-                color: #FF8C00;
-            }
-    </style>
 </head>
 <body>
     <header>
+        <!-- Notification Globale -->
         @if (activeNotification != null)
         {
-            <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") text-center mb-0" style="border-radius:0; position: fixed; top: 0; width: 100%; z-index: 1050;">
+            <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") text-center mb-0 py-2" style="border-radius:0; position: fixed; top: 0; width: 100%; z-index: 1060; font-weight: 500;">
                 <i class="fas fa-bullhorn me-2"></i> @activeNotification.Message
             </div>
             <style>
-                body {
-                    padding-top: 130px;
-                }</style>
+                        body {
+                            padding-top: 110px;
+                        }
+            </style>
         }
 
-        <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top" style="@(activeNotification != null ? "top: 48px;" : "")">
-            <div class="container-fluid">
-                <a class="navbar-brand fw-bold" asp-area="" asp-controller="Home" asp-action="@(User.Identity.IsAuthenticated ? "Index" : "Welcome")" style="color:#FF8C00; font-size:1.5rem;">
-                    AdGestionHub
+        <!-- Navbar Moderne -->
+        <nav class="navbar navbar-expand-lg navbar-main fixed-top">
+            <div class="container">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="@(User.Identity.IsAuthenticated ? "Index" : "Welcome")">
+                    Ad<span>GestionHub</span>
                 </a>
-
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
                 <div class="collapse navbar-collapse" id="mainNavbar">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                   <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+    @if (User.Identity.IsAuthenticated)
+    {
+        @if (User.IsInRole("SuperAdmin"))
+        {
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle fw-semibold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                    <i class="fas fa-user-shield text-danger me-1"></i> Console Système
+                </a>
+                <ul class="dropdown-menu border-0 shadow-lg rounded-3 mt-2">
+                    <li><a class="dropdown-item" asp-controller="SuperAdmin" asp-action="Index"><i class="fas fa-home me-2"></i>Vue d'ensemble</a></li>
+                    <li><a class="dropdown-item text-danger" asp-controller="SuperAdmin" asp-action="Logs"><i class="fas fa-exclamation-circle me-2"></i>Journal des Erreurs</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" asp-controller="SuperAdmin" asp-action="ManageNotifications"><i class="fas fa-bullhorn me-2"></i>Notifications Globales</a></li>
+                </ul>
+            </li>
+        }
+        else
+        {
+            // Déclaration des classes dynamiques
+            var isDashboard = ViewContext.RouteData.Values["controller"]?.ToString() == "Home" && ViewContext.RouteData.Values["action"]?.ToString() == "Index";
+            var isProducts = ViewContext.RouteData.Values["controller"]?.ToString() == "Products";
+            var isSales = ViewContext.RouteData.Values["controller"]?.ToString() == "Sales";
+            var isDebts = ViewContext.RouteData.Values["controller"]?.ToString() == "Debts";
+            var isUsers = ViewContext.RouteData.Values["controller"]?.ToString() == "Users";
+            var isSettings = ViewContext.RouteData.Values["controller"]?.ToString() == "Settings";
+
+            <li class="nav-item"><a class="nav-link @(isDashboard ? "active" : "")" asp-controller="Home" asp-action="Index"><i class="fas fa-chart-pie me-1"></i> Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link @(isProducts ? "active" : "")" asp-controller="Products" asp-action="Index"><i class="fas fa-box me-1"></i> Produits</a></li>
+            <li class="nav-item"><a class="nav-link @(isSales ? "active" : "")" asp-controller="Sales" asp-action="Index"><i class="fas fa-coins me-1"></i> Ventes</a></li>
+            
+            @if (User.IsInRole("Admin"))
+            {
+                <li class="nav-item"><a class="nav-link @(isUsers ? "active" : "")" asp-controller="Users" asp-action="Index"><i class="fas fa-users me-1"></i> Employés</a></li>
+                <li class="nav-item"><a class="nav-link @(isSettings ? "active" : "")" asp-controller="Settings" asp-action="Index"><i class="fas fa-sliders-h me-1"></i> Paramètres</a></li>
+                <li class="nav-item"><a class="nav-link @(isDebts ? "active" : "")" asp-controller="Debts" asp-action="Index"><i class="fas fa-hand-holding-usd me-1"></i> Dettes</a></li>
+            }
+        }
+    }
+</ul>
+          
+
+                    <ul class="navbar-nav ms-auto align-items-center gap-2">
                         @if (User.Identity.IsAuthenticated)
                         {
-                            @if (User.IsInRole("SuperAdmin"))
-                            {
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle fw-bold text-danger" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="fas fa-user-shield"></i> Console Système
-                                    </a>
-                                    <ul class="dropdown-menu border-0 shadow" aria-labelledby="adminDropdown">
-                                        <li>
-                                            <a class="dropdown-item" asp-controller="SuperAdmin" asp-action="Index">
-                                                <i class="fas fa-home me-2"></i> Vue d'ensemble
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item text-danger" asp-controller="SuperAdmin" asp-action="Logs">
-                                                <i class="fas fa-exclamation-circle me-2"></i> Journal des Erreurs
-                                            </a>
-                                        </li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li>
-                                            <a class="dropdown-item" asp-controller="SuperAdmin" asp-action="ManageNotifications">
-                                                <i class="fas fa-bullhorn me-2"></i> Notifications Globales
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            }
-                            else
-                            {
-                                <li class="nav-item">
-                                    <a class="nav-link fw-semibold text-dark" asp-controller="Home" asp-action="Index">📊 Dashboard</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link fw-semibold text-dark" asp-controller="Products" asp-action="Index">📦 Produits</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link fw-semibold text-dark" asp-controller="Sales" asp-action="Index">💰 Ventes</a>
-                                </li>
-
-                                @if (User.IsInRole("Admin"))
-                                {
-                                    <li class="nav-item">
-                                        <a class="nav-link fw-semibold text-dark" asp-controller="Users" asp-action="Index">👥 Employés</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                    <span class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.8rem; font-weight: 600;">
+                                        @User.Identity.Name?.Substring(0, 1).ToUpper()
+                                    </span>
+                                    <span class="d-none d-lg-inline">@User.Identity.Name</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-3 mt-2">
+                                    <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index"><i class="fas fa-user-cog me-2"></i> Mon Profil</a></li>
+                                    @if (!User.IsInRole("SuperAdmin"))
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="Settings" asp-action="Index"><i class="fas fa-store me-2"></i> Ma Boutique</a></li>
+                                    }
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-inline">
+                                            <button type="submit" class="dropdown-item text-danger"><i class="fas fa-sign-out-alt me-2"></i> Déconnexion</button>
+                                        </form>
                                     </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link fw-semibold text-dark" asp-controller="Settings" asp-action="Index">⚙️ Profil</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link fw-semibold text-dark" asp-controller="Debts" asp-action="Index">📓 Dettes</a>
-                                    </li>
-                                    <li class="nav-item ms-lg-2">
-                                        <button type="button" class="btn btn-sm btn-outline-warning rounded-pill mt-1" data-bs-toggle="modal" data-bs-target="#feedbackModal">
-                                            ⭐ Avis
-                                        </button>
-                                    </li>
-                                }
-                            }
-                        }
-                    </ul>
-
-                    <ul class="navbar-nav ms-auto align-items-center">
-                        @if (User.Identity.IsAuthenticated)
-                        {
-                            <li class="nav-item me-3">
-                                <span class="fw-semibold text-muted small">@User.Identity.Name</span>
-                            </li>
-                            <li class="nav-item">
-                                <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="form-inline">
-                                    <button type="submit" class="btn btn-sm btn-danger rounded-pill px-3">Déconnexion</button>
-                                </form>
+                                </ul>
                             </li>
                         }
                         else
                         {
-                            <li class="nav-item">
-                                <a href="/Identity/Account/Login" class="btn btn-sm btn-orange rounded-pill px-3 me-2">Connexion</a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="/Identity/Account/Register" class="btn btn-sm btn-outline-warning rounded-pill px-3" style="color:#FF8C00; border-color:#FF8C00;">S’inscrire</a>
-                            </li>
+                            <li class="nav-item"><a href="/Identity/Account/Login" class="btn btn-outline-orange btn-sm px-4">Connexion</a></li>
+                            <li class="nav-item"><a href="/Identity/Account/Register" class="btn btn-orange btn-sm px-4">Essayer Gratuitement</a></li>
                         }
                     </ul>
                 </div>
             </div>
         </nav>
     </header>
-
-    <div class="container">
+    
+    <main role="main" class="pb-5">
+        <!-- Container pour les messages de succès/erreur -->
         @if (TempData["SuccessMessage"] != null)
         {
-            <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 mt-3" role="alert" style="border-left: 5px solid #28a745 !important;">
-                <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="container mt-3">
+                <div class="alert alert-success border-0 shadow-sm rounded-4 d-flex align-items-center" role="alert">
+                    <i class="fas fa-check-circle me-3 fa-lg"></i>
+                    <div>@TempData["SuccessMessage"]</div>
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="container mt-3">
+                <div class="alert alert-danger border-0 shadow-sm rounded-4 d-flex align-items-center" role="alert">
+                    <i class="fas fa-exclamation-circle me-3 fa-lg"></i>
+                    <div>@TempData["ErrorMessage"]</div>
+                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                </div>
             </div>
         }
 
-        <main role="main" class="pb-5">
+        <div class="container py-3">
             @RenderBody()
-        </main>
-    </div>
+        </div>
+    </main>
 
-    <footer class="footer-adhilix mt-auto">
-        <div class="container py-4">
-            <div class="row gx-5">
-                <div class="col-lg-4 mb-4">
-                    <h5 class="text-orange fw-bold">AdGestionHub</h5>
-                    <p class="text-muted small">La solution SaaS de gestion intelligente pour les commerçants en RDC. Simplifiez votre stock et boostez votre boutique.</p>
-                    <span class="badge bg-dark">🚀 Adhilix Group</span>
-                </div>
-                <div class="col-lg-4 mb-4">
-                    <h5 class="text-white fw-bold">Informations</h5>
-                    <div class="footer-links">
-                        <div class="mb-2"><a asp-controller="Infos" asp-action="Confidentialite">Politique de Confidentialité</a></div>
-                        <div class="mb-2"><a asp-controller="Infos" asp-action="CGU">Conditions Générales (CGU)</a></div>
-                        <div class="mb-2"><a asp-controller="Infos" asp-action="MentionsLegales">Mentions Légales</a></div>
+    <partial name="_CookieConsentPartial" />
+    <!-- ==================== SECTION FOOTER MODERNISÉ ==================== -->
+    <footer class="footer-modern">
+        <div class="container">
+            <div class="row g-5">
+                <!-- Colonne 1 : Marque et description -->
+                <div class="col-lg-4">
+                    <h5 class="text-white fw-bold mb-3" style="font-size: 1.5rem;">
+                        Ad<span style="color: #FF8C00;">GestionHub</span>
+                    </h5>
+                    <p class="text-light" style="opacity: 0.9; line-height: 1.7;">
+                        La solution SaaS de gestion intelligente pour les commerçants en RDC.
+                        Simplifiez votre stock, suivez vos ventes et boostez votre boutique.
+                    </p>
+                    <div class="mt-3">
+                        <span class="badge bg-dark border border-secondary px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+                            🚀 Adhil Digital
+                        </span>
                     </div>
                 </div>
-                <div class="col-lg-4 mb-4">
-                    <h5 class="text-white fw-bold">Contact</h5>
-                    <p class="text-muted small mb-1">📍 Limete 1ère Rue, Kinshasa, RDC</p>
-                    <p class="text-muted small">📧 contact@adhilix.com</p>
+
+                <!-- Colonne 2 : Liens légaux -->
+                <div class="col-lg-4">
+                    <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
+                        <i class="fas fa-gavel me-2"></i> Informations légales
+                    </h6>
+                    <div class="d-flex flex-column gap-2">
+                        <a asp-controller="Infos" asp-action="Confidentialite" class="text-light text-decoration-none" style="opacity: 0.85; transition: opacity 0.2s;">
+                            <i class="fas fa-shield-alt me-2" style="width: 20px;"></i>Politique de confidentialité
+                        </a>
+                        <a asp-controller="Infos" asp-action="CGU" class="text-light text-decoration-none" style="opacity: 0.85; transition: opacity 0.2s;">
+                            <i class="fas fa-file-contract me-2" style="width: 20px;"></i>Conditions générales d'utilisation (CGU)
+                        </a>
+                        <a asp-controller="Infos" asp-action="MentionsLegales" class="text-light text-decoration-none" style="opacity: 0.85; transition: opacity 0.2s;">
+                            <i class="fas fa-balance-scale me-2" style="width: 20px;"></i>Mentions légales
+                        </a>
+                        <a asp-controller="Infos" asp-action="Cookies" class="text-light text-decoration-none" style="opacity: 0.85; transition: opacity 0.2s;">
+                            <i class="fas fa-cookie-bite me-2" style="width: 20px;"></i>Gestion des cookies
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Colonne 3 : Contact et réseaux sociaux -->
+                <div class="col-lg-4">
+                    <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
+                        <i class="fas fa-address-card me-2"></i> Contact
+                    </h6>
+                    <p class="text-light mb-2" style="opacity: 0.9;">
+                        <i class="fas fa-map-pin me-2" style="width: 20px;"></i> Limete 1ère Rue, Kinshasa, RDC
+                    </p>
+                    <p class="text-light mb-3" style="opacity: 0.9;">
+                        <i class="fas fa-envelope me-2" style="width: 20px;"></i> contact@adhil-digital.com
+                    </p>
+                    <div class="d-flex gap-3 fs-5 mt-2">
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="Facebook">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="YouTube">
+                            <i class="fab fa-youtube"></i>
+                        </a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="WhatsApp">
+                            <i class="fab fa-whatsapp"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
-            <hr class="border-secondary my-3">
-            <div class="text-center small text-muted">
-                &copy; 2026 <strong>AdGestionHub.</strong> Un produit de Adhil Digital Solutions <span class="badge border border-secondary ms-2">Version bêta</span>
+
+            <!-- Séparateur et copyright -->
+            <hr class="border-secondary opacity-25 my-4" />
+            <div class="text-center small text-light" style="opacity: 0.7;">
+                &copy; @DateTime.Now.Year <strong>AdGestionHub</strong>. Un produit de
+                <strong style="color: #FF8C00;">Adhil Digital</strong> – Tous droits réservés.
+                <span class="badge border border-secondary ms-2" style="font-weight: 400;">Version bêta 1.0</span>
             </div>
         </div>
     </footer>
@@ -218,28 +244,33 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 
+    <!-- Modal Feedback (Global) -->
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow">
-                <div class="modal-header" style="background-color: #FF8C00; color: white;">
-                    <h5 class="modal-title">Votre avis sur AdGestionHub</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content modal-content-modern">
+                <div class="modal-header border-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Votre avis compte !</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form asp-controller="Marketing" asp-action="SubmitFeedback" method="post">
-                    <div class="modal-body">
-                        <label class="fw-bold">Note :</label>
-                        <select name="note" class="form-select mb-3">
-                            <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
-                            <option value="4">⭐⭐⭐⭐ (Très bien)</option>
-                            <option value="3">⭐⭐⭐ (Moyen)</option>
-                            <option value="2">⭐⭐ (Insuffisant)</option>
-                            <option value="1">⭐ (Mauvais)</option>
-                        </select>
-                        <label class="fw-bold">Commentaire :</label>
-                        <textarea name="commentaire" class="form-control" rows="3" required></textarea>
+                    <div class="modal-body px-4">
+                        <div class="mb-3">
+                            <label class="fw-semibold mb-2">Note</label>
+                            <select name="note" class="form-select form-control-modern">
+                                <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
+                                <option value="4">⭐⭐⭐⭐ (Très bien)</option>
+                                <option value="3">⭐⭐⭐ (Moyen)</option>
+                                <option value="2">⭐⭐ (Insuffisant)</option>
+                                <option value="1">⭐ (Mauvais)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="fw-semibold mb-2">Commentaire</label>
+                            <textarea name="commentaire" class="form-control form-control-modern" rows="3" placeholder="Partagez votre expérience..." required></textarea>
+                        </div>
                     </div>
-                    <div class="modal-footer border-0">
-                        <button type="submit" class="btn btn-warning text-white w-100 rounded-pill fw-bold">Envoyer mon feedback</button>
+                    <div class="modal-footer border-0 pb-4 px-4">
+                        <button type="submit" class="btn btn-primary-gradient w-100">Envoyer mon feedback</button>
                     </div>
                 </form>
             </div>

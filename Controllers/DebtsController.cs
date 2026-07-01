@@ -1,9 +1,12 @@
-﻿using AdGestionHub.Data;
+﻿// ==================== FILE: Controllers/DebtsController.cs ====================
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -19,21 +22,20 @@ namespace AdGestionHub.Controllers
             _userManager = userManager;
         }
 
-        // Liste des dettes actives (Non archivées)
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
-            var query = _context.Debts.AsQueryable();
+            if (user == null) return Challenge();
 
-            // LOGIQUE DE POUVOIR DU SUPERADMIN
+            IQueryable<Debt> query = _context.Debts;
+
             if (!User.IsInRole("SuperAdmin"))
             {
-                // Si ce n'est pas toi, on filtre par boutique
                 query = query.Where(d => d.BoutiqueId == user.BoutiqueId && !d.IsArchived);
             }
-            // Si c'est toi (SuperAdmin), la requête reste "brute" et prend TOUT
+            // SuperAdmin voit tout
 
-            var debts = await query.OrderByDescending(d => d.DateCreated).ToListAsync();
+            var debts = await query.OrderByDescending(d => d.DateCreated).AsNoTracking().ToListAsync();
             return View(debts);
         }
 
@@ -44,8 +46,7 @@ namespace AdGestionHub.Controllers
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
 
-            // CORRECTION ERREUR CS0266 : On utilise GetValueOrDefault() pour passer de int? à int
-            debt.BoutiqueId = user.BoutiqueId.GetValueOrDefault();
+            debt.BoutiqueId = user.BoutiqueId ?? 0;
             debt.DateCreated = DateTime.Now;
             debt.IsArchived = false;
 
@@ -60,7 +61,8 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> Archive(int id)
         {
             var user = await _userManager.GetUserAsync(User);
-            // On vérifie que la dette appartient bien à la boutique de l'utilisateur
+            if (user == null) return Challenge();
+
             var debt = await _context.Debts
                 .FirstOrDefaultAsync(d => d.Id == id && d.BoutiqueId == user.BoutiqueId);
 
@@ -78,6 +80,8 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> MarkAsPaid(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
             var debt = await _context.Debts
                 .FirstOrDefaultAsync(d => d.Id == id && d.BoutiqueId == user.BoutiqueId);
 
@@ -85,6 +89,7 @@ namespace AdGestionHub.Controllers
             {
                 debt.IsPaid = true;
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Dette marquée comme payée.";
             }
             return RedirectToAction(nameof(Index));
         }

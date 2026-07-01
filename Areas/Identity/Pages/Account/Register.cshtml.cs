@@ -1,19 +1,14 @@
-﻿using AdGestionHub.Data;
+﻿// ==================== FILE: Areas/Identity/Pages/Account/Register.cshtml.cs ====================
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AdGestionHub.Areas.Identity.Pages.Account
@@ -22,29 +17,19 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IUserStore<ApplicationUser> _userStore;
-        private readonly IUserEmailStore<ApplicationUser> _emailStore;
-        private readonly ILogger<RegisterModel> _logger;
-        private readonly ApplicationDbContext _context;
         private readonly RoleManager<IdentityRole> _roleManager;
-        private readonly IEmailSender _emailSender; // Vérifie bien l'underscore et l'orthographe
+        private readonly ApplicationDbContext _context;
+
         public RegisterModel(
-             UserManager<ApplicationUser> userManager,
-             IUserStore<ApplicationUser> userStore,
-             SignInManager<ApplicationUser> signInManager,
-             ILogger<RegisterModel> logger,
-             IEmailSender emailSender,
-             ApplicationDbContext context,
-             RoleManager<IdentityRole> roleManager) // <-- IL MANQUAIT CETTE LIGNE ICI
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            RoleManager<IdentityRole> roleManager,
+            ApplicationDbContext context)
         {
             _userManager = userManager;
-            _userStore = userStore;
-            _emailStore = (IUserEmailStore<ApplicationUser>)userStore;
             _signInManager = signInManager;
-            _logger = logger;
-            _emailSender = emailSender;
+            _roleManager = roleManager;
             _context = context;
-            _roleManager = roleManager; // <-- CETTE LIGNE SERA MAINTENANT VALIDE
         }
 
         [BindProperty]
@@ -76,6 +61,12 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             public string ConfirmPassword { get; set; }
         }
 
+        public async Task OnGetAsync(string returnUrl = null)
+        {
+            ReturnUrl = returnUrl;
+            ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
+        }
+
         public async Task<IActionResult> OnPostAsync(string returnUrl = null)
         {
             returnUrl ??= Url.Content("~/");
@@ -83,45 +74,45 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
 
             if (ModelState.IsValid)
             {
-                // 1. Initialisation de l'utilisateur
                 var user = new ApplicationUser
                 {
                     FullName = Input.StoreName,
-                    StoreName = Input.StoreName
+                    StoreName = Input.StoreName,
+                    UserName = Input.Email,
+                    Email = Input.Email
                 };
-
-                await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-                await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
 
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
                 if (result.Succeeded)
                 {
-                    _logger.LogInformation("Compte créé.");
-
-                    // 2. Création de la Boutique (SaaS)
+                    // 1. Création de la boutique
                     var boutique = new Boutique
                     {
                         Name = Input.StoreName,
                         OwnerEmail = user.Email,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.Now,
+                        IsActive = true
                     };
-
                     _context.Boutiques.Add(boutique);
                     await _context.SaveChangesAsync();
 
-                    // 3. Liaison
+                    // 2. Liaison de l'utilisateur à la boutique
                     user.BoutiqueId = boutique.Id;
                     await _userManager.UpdateAsync(user);
 
-                    // 4. Attribution du rôle Admin (Sans erreurs)
+                    // 3. Création des rôles s'ils n'existent pas
                     if (!await _roleManager.RoleExistsAsync("Admin"))
-                    {
-                        await _roleManager.CreateAsync(new Microsoft.AspNetCore.Identity.IdentityRole("Admin"));
-                    }
+                        await _roleManager.CreateAsync(new IdentityRole("Admin"));
+                    if (!await _roleManager.RoleExistsAsync("Employé"))
+                        await _roleManager.CreateAsync(new IdentityRole("Employé"));
+                    if (!await _roleManager.RoleExistsAsync("SuperAdmin"))
+                        await _roleManager.CreateAsync(new IdentityRole("SuperAdmin"));
+
+                    // 4. Attribution du rôle Admin au créateur
                     await _userManager.AddToRoleAsync(user, "Admin");
 
-                    // 5. Connexion
+                    // 5. Connexion automatique
                     await _signInManager.SignInAsync(user, isPersistent: false);
                     return LocalRedirect(returnUrl);
                 }

@@ -1,63 +1,241 @@
-﻿@using AdGestionHub
+﻿@using AdGestionHub.Models
 @model Product
 
 @{
-    ViewData["Title"] = "Ajouter un Produit";
+    ViewData["Title"] = "Ajouter un produit";
 }
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0">
-        <div class="card-header text-white" style="background-color: #FF8C00 !important;">
-            <h3 class="mb-0">📦 Nouveau Produit</h3>
-        </div>
-        <div class="card-body p-4">
-            <form asp-action="Create" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 px-4">
+                <h3 class="fw-bold mb-0"><i class="fas fa-box text-primary me-2"></i>Nouveau Produit</h3>
+                <p class="text-muted small">Remplissez les informations ou scannez un code-barres.</p>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Create" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
 
-                <div class="row">
-                    <div class="col-md-12 mb-3">
-                        <label asp-for="Name" class="form-label fw-bold">Nom du Produit</label>
-                        <input asp-for="Name" class="form-control border-warning" />
-                        <span asp-validation-for="Name" class="text-danger"></span>
+                    <div class="row g-4">
+                        <!-- Code-barres avec scanner -->
+                        <div class="col-12">
+                            <label asp-for="Barcode" class="form-label fw-semibold">Code-barres</label>
+                            <div class="input-group">
+                                <input asp-for="Barcode" class="form-control form-control-modern" placeholder="Scannez ou saisissez le code..." id="barcodeInput" />
+                                <button type="button" id="btnScanBarcode" class="btn btn-primary-gradient">
+                                    <i class="fas fa-camera me-1"></i> Scanner
+                                </button>
+                            </div>
+                            <span asp-validation-for="Barcode" class="text-danger small"></span>
+                            <small class="text-muted">Laissez vide pour génération automatique.</small>
+                        </div>
+
+                        <!-- Zone de scan avec ZBar -->
+                        <div id="scannerContainer" style="display: none; margin-top: 10px;">
+                            <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto;">
+                                <video id="video" muted autoplay playsinline style="width: 100%; border-radius: 12px; background: #000;"></video>
+                                <canvas id="canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+                                <div id="scan-result" style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #fff; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 8px; font-size: 14px;">
+                                    📷 En attente de scan...
+                                </div>
+                            </div>
+                            <button type="button" id="btnStopScan" class="btn btn-danger btn-sm mt-2">
+                                <i class="fas fa-times"></i> Fermer
+                            </button>
+                        </div>
+
+                        <!-- Nom -->
+                        <div class="col-12">
+                            <label asp-for="Name" class="form-label fw-semibold">Nom du produit</label>
+                            <input asp-for="Name" class="form-control form-control-modern" placeholder="Ex: Savon de luxe 500g" />
+                            <span asp-validation-for="Name" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Prix -->
+                        <div class="col-md-6">
+                            <label asp-for="PurchasePrice" class="form-label fw-semibold">Prix d'achat (USD)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0">$</span>
+                                <input asp-for="PurchasePrice" class="form-control form-control-modern border-start-0" type="number" step="0.01" />
+                            </div>
+                            <span asp-validation-for="PurchasePrice" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="SalePrice" class="form-label fw-semibold">Prix de vente (USD)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0">$</span>
+                                <input asp-for="SalePrice" class="form-control form-control-modern border-start-0" type="number" step="0.01" />
+                            </div>
+                            <span asp-validation-for="SalePrice" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Stock et seuil -->
+                        <div class="col-md-6">
+                            <label asp-for="StockQuantity" class="form-label fw-semibold">Quantité en stock</label>
+                            <input asp-for="StockQuantity" class="form-control form-control-modern" type="number" />
+                            <span asp-validation-for="StockQuantity" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="StockAlertThreshold" class="form-label fw-semibold">Seuil d'alerte</label>
+                            <input asp-for="StockAlertThreshold" class="form-control form-control-modern" type="number" value="5" />
+                            <small class="text-muted">Alerte à partir de ce seuil.</small>
+                            <span asp-validation-for="StockAlertThreshold" class="text-danger small"></span>
+                        </div>
+
+                        <!-- Variations -->
+                        <div class="col-12">
+                            <label asp-for="Variations" class="form-label fw-semibold">Variations (optionnel)</label>
+                            <input asp-for="Variations" class="form-control form-control-modern" placeholder="Ex: Rouge, XL, 500g" />
+                            <span asp-validation-for="Variations" class="text-danger small"></span>
+                        </div>
                     </div>
 
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="PurchasePrice" class="form-label fw-bold">Prix d'Achat</label>
-                        <input asp-for="PurchasePrice" class="form-control border-warning" type="number" step="0.01" />
-                        <span asp-validation-for="PurchasePrice" class="text-danger"></span>
+                    <hr class="my-4" />
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
+                        <button type="submit" class="btn btn-primary-gradient px-5">
+                            <i class="fas fa-save me-2"></i>Créer le produit
+                        </button>
                     </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="SalePrice" class="form-label fw-bold">Prix de Vente</label>
-                        <input asp-for="SalePrice" class="form-control border-warning" type="number" step="0.01" />
-                        <span asp-validation-for="SalePrice" class="text-danger"></span>
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="StockQuantity" class="form-label fw-bold">Quantité en Stock</label>
-                        <input asp-for="StockQuantity" class="form-control border-warning" type="number" />
-                        <span asp-validation-for="StockQuantity" class="text-danger"></span>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label asp-for="StockAlertThreshold" class="form-label fw-bold">Seuil d'alerte stock</label>
-                        <input asp-for="StockAlertThreshold" class="form-control border-warning" type="number" />
-                        <span asp-validation-for="StockAlertThreshold" class="text-danger"></span>
-                </div>
-                </div>
-            
-
-                <hr class="my-4" />
-
-                <div class="d-flex justify-content-between">
-                    <a asp-action="Index" class="btn btn-outline-secondary">Annuler</a>
-                    <button type="submit" class="btn text-white px-5" style="background-color: #FF8C00;">Créer le Produit</button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@undecaf/zbar-wasm@@0.11.0/dist/index.js">
+    </script>
+    <script>
+        // Variables globales
+        let scannerActive = false;
+        let stream = null;
+        let scanInterval = null;
+        let zbarScanner = null;
+
+        // Références DOM
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scanResult = document.getElementById('scan-result');
+        const scannerContainer = document.getElementById('scannerContainer');
+        const btnScan = document.getElementById('btnScanBarcode');
+        const btnStop = document.getElementById('btnStopScan');
+
+        // Événements
+        btnScan.addEventListener('click', function () {
+            if (!scannerActive) startScanner();
+            else stopScanner();
+        });
+
+        btnStop.addEventListener('click', stopScanner);
+
+        // ===== DÉMARRER LE SCANNER =====
+        async function startScanner() {
+            if (scannerActive) return;
+
+            try {
+                // 1. Demander l'accès à la caméra
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+
+                video.srcObject = stream;
+                await video.play();
+
+                // 2. Afficher le conteneur
+                scannerContainer.style.display = 'block';
+                btnScan.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Arrêter';
+                btnStop.style.display = 'inline-block';
+                scanResult.textContent = '📷 Initialisation du scanner...';
+                scannerActive = true;
+
+                // 3. Initialiser ZBar WASM
+                zbarScanner = new ZBarScanner();
+                await zbarScanner.init();
+
+                scanResult.textContent = '📷 Scan en cours... Placez un code-barres devant la caméra.';
+
+                // 4. Lancer le scan à intervalles réguliers
+                scanInterval = setInterval(async () => {
+                    if (!scannerActive) return;
+
+                    // Capturer une image depuis la vidéo
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Analyser l'image
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const results = await zbarScanner.scanImageData(imageData);
+
+                    if (results && results.length > 0) {
+                        const code = results[0].data;
+                        scanResult.textContent = '✅ Code détecté : ' + code;
+                        document.getElementById('barcodeInput').value = code;
+                        stopScanner();
+                    }
+                }, 150);
+
+            } catch (err) {
+                console.error('Erreur scanner:', err);
+                scanResult.textContent = '❌ Erreur : ' + (err.message || 'Impossible d\'accéder à la caméra.');
+                btnScan.innerHTML = '<i class="fas fa-camera me-1"></i> Scanner';
+                btnStop.style.display = 'none';
+                scannerContainer.style.display = 'none';
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                scannerActive = false;
+            }
+        }
+
+        // ===== ARRÊTER LE SCANNER =====
+        function stopScanner() {
+            if (!scannerActive) return;
+
+            scannerActive = false;
+
+            // Arrêter l'intervalle de scan
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+
+            // Arrêter la caméra
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+            }
+
+            // Réinitialiser l'interface
+            scannerContainer.style.display = 'none';
+            btnScan.innerHTML = '<i class="fas fa-camera me-1"></i> Scanner';
+            btnStop.style.display = 'none';
+            scanResult.textContent = '📷 Scan arrêté';
+
+            // Libérer ZBar
+            if (zbarScanner) {
+                try { zbarScanner.destroy(); } catch (e) { }
+                zbarScanner = null;
+            }
+        }
+
+        // Nettoyer si la page est fermée
+        window.addEventListener('beforeunload', function () {
+            stopScanner();
+        });
+    </script>
+
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }

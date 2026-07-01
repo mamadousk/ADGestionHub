@@ -1,11 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿// ==================== FILE: Controllers/ExpensesController.cs ====================
 using AdGestionHub.Data;
 using AdGestionHub.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
+    [Authorize]
     public class ExpensesController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -18,7 +22,11 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Challenge();
+
             var expenses = await _context.Expenses
+                .AsNoTracking()
                 .Where(e => e.UserId == userId)
                 .OrderByDescending(e => e.Date)
                 .ToListAsync();
@@ -26,7 +34,6 @@ namespace AdGestionHub.Controllers
             return View(expenses);
         }
 
-        // --- CETTE MÉTHODE MANQUAIT ET CAUSAIT LA 404 ---
         [HttpGet]
         public IActionResult Create()
         {
@@ -38,21 +45,25 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> Create(Expense expense)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Challenge();
 
-            if (userId != null)
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+                return NotFound("Utilisateur non trouvé.");
+
+            expense.UserId = userId;
+            expense.BoutiqueId = user.BoutiqueId ?? 0;
+
+            if (ModelState.IsValid)
             {
-                // On récupère l'utilisateur pour lier la dépense à sa boutique
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
-
-                expense.UserId = userId;
-                if (user != null) expense.BoutiqueId = user.BoutiqueId;
-
-                if (ModelState.IsValid)
-                {
-                    _context.Add(expense);
-                    await _context.SaveChangesAsync();
-                    return RedirectToAction(nameof(Index));
-                }
+                _context.Add(expense);
+                await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Dépense enregistrée avec succès.";
+                return RedirectToAction(nameof(Index));
             }
             return View(expense);
         }
@@ -61,12 +72,20 @@ namespace AdGestionHub.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id)
         {
-            var expense = await _context.Expenses.FindAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Challenge();
+
+            var expense = await _context.Expenses
+                .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+
             if (expense != null)
             {
                 _context.Expenses.Remove(expense);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Dépense supprimée avec succès.";
             }
+
             return RedirectToAction(nameof(Index));
         }
     }

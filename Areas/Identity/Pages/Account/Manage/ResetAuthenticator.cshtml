@@ -1,24 +1,29 @@
 ﻿@page
 @model ResetAuthenticatorModel
 @{
-    ViewData["Title"] = "Reset authenticator key";
+    ViewData["Title"] = "Réinitialiser l'application d'authentification";
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
 }
 
+<h3 class="fw-bold">@ViewData["Title"]</h3>
+<p class="text-muted">Cette action désactivera la 2FA jusqu'à ce que vous reconfiguriez l'application.</p>
+
 <partial name="_StatusMessage" for="StatusMessage" />
-<h3>@ViewData["Title"]</h3>
-<div class="alert alert-warning" role="alert">
-    <p>
-        <span class="glyphicon glyphicon-warning-sign"></span>
-        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
-    </p>
-    <p>
-        This process disables 2FA until you verify your authenticator app.
-        If you do not complete your authenticator app configuration you may lose access to your account.
-    </p>
+
+<div class="alert alert-warning border-0 shadow-sm rounded-4">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>Si vous réinitialisez votre clé d'authentification, votre application ne fonctionnera plus tant que vous ne l'aurez pas reconfigurée.</strong>
+    <p class="mb-0">Ce processus désactive la 2FA jusqu'à ce que vous vérifiiez à nouveau l'application. Si vous ne terminez pas la configuration, vous pourriez perdre l'accès à votre compte.</p>
 </div>
+
 <div>
     <form id="reset-authenticator-form" method="post">
-        <button id="reset-authenticator-button" class="btn btn-danger" type="submit">Reset authenticator key</button>
+        <button id="reset-authenticator-button" class="btn btn-danger">
+            <i class="fas fa-redo me-2"></i> Réinitialiser la clé d'authentification
+        </button>
     </form>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

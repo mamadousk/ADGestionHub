@@ -1,103 +1,92 @@
 ﻿@using AdGestionHub.Models
+@using Microsoft.AspNetCore.Identity
 @model IEnumerable<Product>
 
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 style="color: #FF8C00;"><i class="fas fa-boxes me-2"></i> Gestion du Stock</h2>
-        <a asp-action="Create" class="btn text-white shadow-sm" style="background-color: #FF8C00;">
-            <i class="fas fa-plus-circle me-1"></i> Nouveau Produit
+<div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-6 fw-bold mb-0">📦 Gestion du Stock</h1>
+            <p class="text-muted">Liste de vos produits et alertes de réapprovisionnement</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary-gradient">
+            <i class="fas fa-plus me-2"></i> Nouveau Produit
         </a>
     </div>
 
-    <div class="table-responsive shadow-sm rounded bg-white p-3">
-        <table class="table table-hover align-middle">
-            <thead style="background-color: #fff3e0;">
-                <tr>
-                    <th>Nom du Produit</th>
-                    @if (User.IsInRole("Admin"))
-                    {
-                        <th>Prix d'Achat</th>
-                    }
-                    <th>Prix de Vente</th>
-                    <th>Stock Actuel</th>
-                    <th>Statut</th>
-                    <th class="text-center">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in Model)
-                {
-                    <tr>
-                        <td class="fw-bold text-dark">@item.Name</td>
-
-                        @if (User.IsInRole("Admin"))
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-modern mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nom du produit</th>
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <th>Prix d'achat</th>
+                            }
+                            <th>Prix de vente</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Statut</th>
+                            <th>Code-barres</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
                         {
-                            @* Correction point/virgule automatique à l'affichage *@
-                            <td>@item.PurchasePrice.ToString("N2").Replace(".", ",") $</td>
-                        }
-
-                        <td class="text-success fw-bold">
-                            @item.SalePrice.ToString("N2").Replace(".", ",") $
-                        </td>
-
-                        <td>@item.StockQuantity</td>
-
-                        <td>
-                            @if (item.StockQuantity <= 0)
-                            {
-                                <span class="badge bg-danger">Rupture</span>
-                            }
-                            else if (item.StockQuantity <= (item.LowStockThreshold))
-     @* Utilisation de ta propriété de seuil *@
-                            {
-                                <span class="badge bg-warning text-dark">Stock Bas</span>
-                            }
-                            else
-                            {
-                                <span class="badge bg-success">En Stock</span>
-                            }
-                        </td>
-
-                        <td class="text-center">
-                            <div class="btn-group">
-                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary" title="Modifier">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info mx-1" title="Détails">
-                                    <i class="fas fa-eye"></i>
-                                </a>
-
-                                @* Remplace ton bouton actuel par celui-ci *@
-                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-outline-danger">
-                                    <i class="fas fa-trash"></i> Supprimer
-                                </a>
-                            </div>
-
-                            <div class="modal fade" id="deleteModal-@item.Id" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered">
-                                    <div class="modal-content border-0 shadow">
-                                        <div class="modal-header bg-danger text-white border-0">
-                                            <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i> Confirmation</h5>
-                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body p-4">
-                                            <p class="mb-0">Voulez-vous vraiment supprimer <strong>@item.Name</strong> ?</p>
-                                            <small class="text-muted">Cette action est définitive pour votre inventaire.</small>
-                                        </div>
-                                        <div class="modal-footer bg-light border-0 d-flex justify-content-between">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                                            <form asp-action="DeleteConfirmed" asp-route-id="@item.Id" method="post">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn btn-danger px-4">Supprimer</button>
-                                            </form>
-                                        </div>
+                            <tr>
+                                <td class="fw-bold">@item.Name</td>
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <td>@item.PurchasePrice.ToString("N2") $</td>
+                                }
+                                <td>@item.SalePrice.ToString("N2") $</td>
+                                <td class="text-center">@item.StockQuantity</td>
+                                <td class="text-center">
+                                    @if (item.StockQuantity <= 0)
+                                    {
+                                        <span class="badge-status danger">Rupture</span>
+                                    }
+                                    else if (item.StockQuantity <= item.LowStockThreshold)
+                                    {
+                                        <span class="badge-status warning">Stock bas</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-status success">Disponible</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(item.Barcode))
+                                    {
+                                        <span class="small text-muted">@item.Barcode</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted fst-italic">Non défini</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Modifier">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Détails">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a asp-action="PrintBarcode" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Imprimer l'étiquette">
+                                            <i class="fas fa-tag"></i>
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-soft text-danger" title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
                                     </div>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>

@@ -1,10 +1,11 @@
 ﻿using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -15,72 +16,108 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICacheService _cacheService;
+        private readonly ILogger<ProductsController> _logger;
 
-        public ProductsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public ProductsController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            ICacheService cacheService,
+            ILogger<ProductsController> logger)
         {
             _context = context;
             _userManager = userManager;
+            _cacheService = cacheService;
+            _logger = logger;
         }
 
-        // 1. LISTE DES PRODUITS
+        // ========== GÉNÉRATION DU CODE-BARRES ==========
+        private string GenerateBarcode(int boutiqueId, int productId)
+        {
+            var baseCode = $"ADG{boutiqueId.ToString("D2")}{productId.ToString("D6")}";
+            int sum = 0;
+            foreach (char c in baseCode)
+                if (char.IsDigit(c)) sum += int.Parse(c.ToString());
+            int checksum = sum % 10;
+            return baseCode + checksum.ToString();
+        }
+
+        // ========== INDEX ==========
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
 
-            IQueryable<Product> productsQuery = _context.Products;
+            var cacheKey = $"Products_List_{user.BoutiqueId ?? 0}";
 
-            if (!User.IsInRole("SuperAdmin"))
+            var products = await _cacheService.GetOrSetAsync(cacheKey, async () =>
             {
-                productsQuery = productsQuery.Where(p => p.BoutiqueId == user.BoutiqueId);
-            }
+                IQueryable<Product> query = _context.Products.AsNoTracking();
+                if (!User.IsInRole("SuperAdmin"))
+                    query = query.Where(p => p.BoutiqueId == user.BoutiqueId);
+                return await query.ToListAsync();
+            }, TimeSpan.FromMinutes(5));
 
-            return View(await productsQuery.ToListAsync());
+            return View(products);
         }
 
-        // 2. DÉTAILS
+        // ========== DETAILS ==========
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
 
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
             var product = await _context.Products
-                .FirstOrDefaultAsync(m => m.Id == id && m.BoutiqueId == user.BoutiqueId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
 
             if (product == null) return NotFound();
 
             return View(product);
         }
 
-        // 3. CRÉATION (GET)
-        public IActionResult Create()
-        {
-            return View();
-        }
+        // ========== CREATE (GET) ==========
+        public IActionResult Create() => View();
 
-        // 4. CRÉATION (POST)
+        // ========== CREATE (POST) ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,Variations")] Product product)
+        public async Task<IActionResult> Create([Bind("Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations,Barcode")] Product product)
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
 
             if (ModelState.IsValid)
             {
                 product.BoutiqueId = user.BoutiqueId;
+                product.UserId = user.Id;
                 _context.Add(product);
                 await _context.SaveChangesAsync();
+
+                if (string.IsNullOrEmpty(product.Barcode))
+                {
+                    product.Barcode = GenerateBarcode(product.BoutiqueId.Value, product.Id);
+                    _context.Update(product);
+                    await _context.SaveChangesAsync();
+                }
+
+                await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
+                TempData["SuccessMessage"] = "Produit créé avec succès !";
                 return RedirectToAction(nameof(Index));
             }
             return View(product);
         }
 
-        // 5. MODIFICATION (GET)
+        // ========== EDIT (GET) ==========
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
 
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
             var product = await _context.Products
                 .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
 
@@ -89,62 +126,120 @@ namespace AdGestionHub.Controllers
             return View(product);
         }
 
-        // 6. MODIFICATION (POST)
+        // ========== EDIT (POST) ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,Variations")] Product product)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations,Barcode")] Product product)
         {
             if (id != product.Id) return NotFound();
 
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
 
             var existingProduct = await _context.Products
-                .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
 
             if (existingProduct == null) return NotFound();
 
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
+                return View(product);
+
+            try
             {
-                try
-                {
-                    product.BoutiqueId = user.BoutiqueId;
-                    _context.Update(product);
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!ProductExists(product.Id)) return NotFound();
-                    else throw;
-                }
+                existingProduct.Name = product.Name;
+                existingProduct.PurchasePrice = product.PurchasePrice;
+                existingProduct.SalePrice = product.SalePrice;
+                existingProduct.StockQuantity = product.StockQuantity;
+                existingProduct.LowStockThreshold = product.LowStockThreshold;
+                existingProduct.StockAlertThreshold = product.StockAlertThreshold;
+                existingProduct.Variations = product.Variations;
+                existingProduct.Barcode = product.Barcode;
+
+                _context.Update(existingProduct);
+                await _context.SaveChangesAsync();
+
+                await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
+                await _cacheService.RemoveAsync($"Product_Details_{id}_{user.BoutiqueId ?? 0}");
+
+                TempData["SuccessMessage"] = "Produit mis à jour avec succès !";
                 return RedirectToAction(nameof(Index));
             }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!await ProductExists(id)) return NotFound();
+                else throw;
+            }
+        }
+
+        // ========== IMPRESSION ÉTIQUETTE ==========
+        public async Task<IActionResult> PrintBarcode(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
+            var product = await _context.Products
+                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
+
+            if (product == null) return NotFound();
+
+            if (string.IsNullOrEmpty(product.Barcode))
+            {
+                product.Barcode = GenerateBarcode(product.BoutiqueId.Value, product.Id);
+                _context.Update(product);
+                await _context.SaveChangesAsync();
+            }
+
+            var storeName = await _context.StoreSettings
+                .Where(s => s.BoutiqueId == user.BoutiqueId)
+                .Select(s => s.StoreName)
+                .FirstOrDefaultAsync() ?? "Ma Boutique";
+
+            ViewBag.StoreName = storeName;
+
             return View(product);
         }
 
-        // --- SECTION SUPPRESSION CORRIGÉE ---
-
-        // 7. AFFICHE LA PAGE DE CONFIRMATION (GET)
-        [HttpGet]
+        // ========== DELETE ==========
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
 
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
             var product = await _context.Products
-                .FirstOrDefaultAsync(m => m.Id == id && m.BoutiqueId == user.BoutiqueId);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
 
             if (product == null) return NotFound();
 
             return View(product);
         }
 
-        // 8. EXÉCUTE LA SUPPRESSION (POST)
+        private string GenerateEAN13Barcode(int boutiqueId, int productId)
+        {
+            // Prefixe "ADG" n'est pas EAN, on utilise un code interne pour les produits sans code.
+            // Mais pour que le scanner le reconnaisse, on peut générer un EAN-13 avec un préfixe réservé.
+            // Solution : on génère un code de 13 chiffres avec un préfixe "200" pour les produits internes.
+            string baseCode = "200" + boutiqueId.ToString("D3") + productId.ToString("D6");
+            // Ajouter le chiffre de contrôle
+            int sum = 0;
+            for (int i = 0; i < 12; i++)
+            {
+                int digit = int.Parse(baseCode[i].ToString());
+                sum += (i % 2 == 0) ? digit : digit * 3;
+            }
+            int checksum = (10 - (sum % 10)) % 10;
+            return baseCode + checksum.ToString();
+        }
+
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null) return Challenge();
+
             var product = await _context.Products
                 .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
 
@@ -152,14 +247,19 @@ namespace AdGestionHub.Controllers
             {
                 _context.Products.Remove(product);
                 await _context.SaveChangesAsync();
+
+                await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
+                await _cacheService.RemoveAsync($"Product_Details_{id}_{user.BoutiqueId ?? 0}");
+
+                TempData["SuccessMessage"] = "Produit supprimé avec succès !";
             }
 
             return RedirectToAction(nameof(Index));
         }
 
-        private bool ProductExists(int id)
+        private async Task<bool> ProductExists(int id)
         {
-            return _context.Products.Any(e => e.Id == id);
+            return await _context.Products.AnyAsync(e => e.Id == id);
         }
     }
 }

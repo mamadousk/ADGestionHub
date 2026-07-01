@@ -2,22 +2,88 @@
     ViewData["Title"] = "Mentions Légales";
 }
 
-<div class="container mt-5 shadow-sm p-5 bg-white rounded border-top border-warning border-5">
-    <h1 class="text-orange fw-bold mb-4">⚖️ @ViewData["Title"]</h1>
-    <hr />
-    <div class="legal-text" style="line-height: 1.8; color: #333;">
-        <h4 class="fw-bold">ÉDITEUR DU SITE</h4>
-        <p>Le site <strong>AdGestionHub</strong> est édité par la structure <strong>Adhilix</strong>, située à Limete 1ère Rue, Kinshasa, République Démocratique du Congo.</p>
-        <ul>
-            <li><strong>Responsable de la publication :</strong> Mamadou Sacko.</li>
-            <li><strong>Statut :</strong> Structure en cours de régularisation (RCCM / ID Nat en attente).</li>
-            <li><strong>Contact :</strong> mail | +243 [Ton Numéro]</li>
-        </ul>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 py-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="icon-wrapper orange" style="width: 56px; height: 56px; border-radius: 16px; background: #fff3e0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-gavel fa-2x" style="color: #FF8C00;"></i>
+                        </div>
+                        <div>
+                            <h1 class="display-6 fw-bold mb-0">Mentions Légales</h1>
+                            <p class="text-muted small">Conformément aux dispositions des articles 6-III et 19 de la Loi n° 2004-575 pour la Confiance en l'Économie Numérique.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4 p-lg-5">
+                    <div class="legal-content" style="line-height: 1.8; color: #1e293b;">
 
-        <h4 class="fw-bold mt-4">HÉBERGEMENT</h4>
-        <p>Le site est hébergé sur des serveurs sécurisés. [Précise ici le nom de ton hébergeur si tu l'as déjà].</p>
+                        <!-- Section 1 : Éditeur -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 1.5rem;">
+                            <i class="fas fa-building me-2"></i> 1. Éditeur du site
+                        </h4>
+                        <p>
+                            <strong>AdGestionHub</strong> est une plateforme SaaS éditée par la structure <strong>Adhil Digital</strong>.
+                        </p>
+                        <ul class="list-unstyled ps-3">
+                            <li><i class="fas fa-check-circle text-orange me-2" style="color:#FF8C00;"></i> <strong>Responsable de la publication :</strong> Mamadou Sacko</li>
+                            <li><i class="fas fa-check-circle text-orange me-2" style="color:#FF8C00;"></i> <strong>Statut :</strong> Structure en cours de régularisation (RCCM / ID Nat en attente)</li>
+                            <li><i class="fas fa-check-circle text-orange me-2" style="color:#FF8C00;"></i> <strong>Siège social :</strong> Limete 1ère Rue, Kinshasa, République Démocratique du Congo</li>
+                            <li><i class="fas fa-check-circle text-orange me-2" style="color:#FF8C00;"></i> <strong>Contact :</strong> <a href="mailto:contact@adhil-digital.com" class="text-decoration-none" style="color:#FF8C00;">contact@adhil-digital.com</a></li>
+                        </ul>
 
-        <h4 class="fw-bold mt-4">PROPRIÉTÉ INTELLECTUELLE</h4>
-        <p>L'ensemble de la plateforme (code source, design, logos, base de données) est la propriété exclusive de <strong>Adhilix</strong>. Toute reproduction ou revente du logiciel est strictement interdite.</p>
+                        <hr class="my-4" />
+
+                        <!-- Section 2 : Hébergement -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-server me-2"></i> 2. Hébergement
+                        </h4>
+                        <p>
+                            Le site est hébergé sur des serveurs sécurisés, assurant la disponibilité et l'intégrité des données de nos utilisateurs.
+                        </p>
+                        <ul class="list-unstyled ps-3">
+                            <li><i class="fas fa-check-circle text-orange me-2" style="color:#FF8C00;"></i> <strong>Hébergeur :</strong> Microsoft Azure / AWS (à préciser selon votre fournisseur)</li>
+                            <li><i class="fas fa-check-circle text-orange me-2" style="color:#FF8C00;"></i> <strong>Localisation des données :</strong> Europe (conforme au RGPD)</li>
+                        </ul>
+
+                        <hr class="my-4" />
+
+                        <!-- Section 3 : Propriété intellectuelle -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-copyright me-2"></i> 3. Propriété intellectuelle
+                        </h4>
+                        <p>
+                            L'ensemble du contenu du site AdGestionHub (textes, logos, code source, base de données, interfaces graphiques) est la propriété exclusive de <strong>Adhil Digital</strong>. Toute reproduction, modification, ou revente du logiciel est strictement interdite sans autorisation préalable.
+                        </p>
+
+                        <hr class="my-4" />
+
+                        <!-- Section 4 : Droit applicable -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-globe-africa me-2"></i> 4. Droit applicable
+                        </h4>
+                        <p>
+                            Les présentes mentions légales sont régies par le droit en vigueur en République Démocratique du Congo. Tout litige relève de la compétence exclusive des tribunaux de Kinshasa.
+                        </p>
+
+                        <hr class="my-4" />
+
+                        <!-- Section 5 : Contact -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-headset me-2"></i> 5. Contact
+                        </h4>
+                        <p>
+                            Pour toute question relative aux présentes mentions légales, vous pouvez nous contacter à l'adresse suivante :<br />
+                            <a href="mailto:legal@adhil-digital.com" class="fw-bold" style="color:#FF8C00;">legal@adhil-digital.com</a>
+                        </p>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 py-3 px-4 text-muted small">
+                    <i class="fas fa-clock me-1"></i> Dernière mise à jour : @DateTime.Now.ToString("dd/MM/yyyy")
+                </div>
+            </div>
+        </div>
     </div>
 </div>

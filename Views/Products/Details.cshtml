@@ -1,75 +1,94 @@
 ﻿@using AdGestionHub.Models
 @model Product
 
-
 @{
-    ViewData["Title"] = "Détails du Produit - AdGestionHub";
+    ViewData["Title"] = $"Détails - {Model.Name}";
 }
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0">
-        <div class="card-header text-white py-3" style="background-color: #FF8C00 !important; border: none;">
-            <div class="d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="fas fa-box-open me-2"></i> @Model.Name</h4>
-                <span class="badge bg-white text-dark shadow-sm">ID: #@Model.Id</span>
-            </div>
-        </div>
-        
-        <div class="card-body p-4">
-            <div class="row">
-                <div class="col-md-6 border-end">
-                    <h5 class="text-muted mb-4 text-uppercase small fw-bold"><i class="fas fa-warehouse me-2"></i> État du Stock</h5>
-                    <dl class="row">
-                        <dt class="col-sm-5 fw-bold text-dark">Nom du Produit :</dt>
-                        <dd class="col-sm-7">@Model.Name</dd>
-
-                        <dt class="col-sm-5 fw-bold text-dark">En Stock :</dt>
-                        <dd class="col-sm-7">
-                            @{
-                                var stockClass = Model.StockQuantity <= Model.LowStockThreshold ? "bg-danger" : "bg-success";
-                            }
-                            <span class="badge @stockClass p-2 px-3">
-                                @Model.StockQuantity unités
-                            </span>
-                        </dd>
-
-                        <dt class="col-sm-5 fw-bold text-dark">Seuil d'Alerte :</dt>
-                        <dd class="col-sm-7 text-muted">@Model.LowStockThreshold</dd>
-
-                        <dt class="col-sm-5 fw-bold text-dark">Variations :</dt>
-                        <dd class="col-sm-7">@(string.IsNullOrEmpty(Model.Variations) ? "Standard" : Model.Variations)</dd>
-                    </dl>
-                </div>
-
-                <div class="col-md-6 ps-md-4">
-                    <h5 class="text-muted mb-4 text-uppercase small fw-bold"><i class="fas fa-dollar-sign me-2"></i> Analyse Financière</h5>
-                    <dl class="row">
-                        <dt class="col-sm-5 fw-bold text-dark">Prix d'Achat :</dt>
-                        <dd class="col-sm-7">@Model.PurchasePrice.ToString("N2").Replace(".", ",") $</dd>
-
-                        <dt class="col-sm-5 fw-bold text-dark">Prix de Vente :</dt>
-                        <dd class="col-sm-7 fw-bold h5" style="color: #FF8C00;">
-                            @Model.SalePrice.ToString("N2").Replace(".", ",") $
-                        </dd>
-
-                        <dt class="col-sm-5 fw-bold text-dark">Marge Estimée :</dt>
-                        <dd class="col-sm-7 text-success fw-bold">
-                            @((Model.SalePrice - Model.PurchasePrice).ToString("N2").Replace(".", ",")) $
-                        </dd>
-                    </dl>
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 px-4">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="icon-wrapper orange" style="width: 56px; height: 56px; border-radius: 16px; background: #fff3e0; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-box fa-2x" style="color: #FF8C00;"></i>
+                    </div>
+                    <div>
+                        <h1 class="display-6 fw-bold mb-0">@Model.Name</h1>
+                        <p class="text-muted small">ID Produit : #@Model.Id</p>
+                    </div>
                 </div>
             </div>
+            <div class="card-body p-4 p-lg-5">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <h5 class="fw-bold text-muted mb-3">📊 Informations générales</h5>
+                        <dl class="row">
+                            <dt class="col-sm-5 fw-bold text-dark">Nom :</dt>
+                            <dd class="col-sm-7">@Model.Name</dd>
 
-            <hr class="my-4" />
+                            <dt class="col-sm-5 fw-bold text-dark">En stock :</dt>
+                            <dd class="col-sm-7">
+                                @{
+                                    var stockClass = Model.StockQuantity <= Model.LowStockThreshold ? "badge-status danger" : "badge-status success";
+                                }
+                                <span class="@stockClass">@Model.StockQuantity unités</span>
+                            </dd>
 
-            <div class="d-flex justify-content-between">
-                <a asp-action="Index" class="btn btn-outline-secondary px-4 shadow-sm">
-                    <i class="fas fa-arrow-left me-1"></i> Retour
-                </a>
-                <div class="btn-group">
-                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn text-white px-4 shadow-sm" style="background-color: #FF8C00;">
-                        <i class="fas fa-edit me-1"></i> Modifier
-                    </a>
+                            <dt class="col-sm-5 fw-bold text-dark">Seuil d'alerte :</dt>
+                            <dd class="col-sm-7">
+                                @if (Model.StockAlertThreshold > 0)
+                                {
+                                    <span>@Model.StockAlertThreshold</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Non défini</span>
+                                }
+                            </dd>
+
+                            <dt class="col-sm-5 fw-bold text-dark">Code-barres :</dt>
+                            <dd class="col-sm-7">
+                                @if (!string.IsNullOrEmpty(Model.Barcode))
+                                {
+                                    <span>@Model.Barcode</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Non défini</span>
+                                }
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="fw-bold text-muted mb-3">💰 Analyse financière</h5>
+                        <dl class="row">
+                            <dt class="col-sm-5 fw-bold text-dark">Prix d'achat :</dt>
+                            <dd class="col-sm-7">@Model.PurchasePrice.ToString("N2") $</dd>
+
+                            <dt class="col-sm-5 fw-bold text-dark">Prix de vente :</dt>
+                            <dd class="col-sm-7 fw-bold h5" style="color: #FF8C00;">@Model.SalePrice.ToString("N2") $</dd>
+
+                            <dt class="col-sm-5 fw-bold text-dark">Marge estimée :</dt>
+                            <dd class="col-sm-7 text-success fw-bold">
+                                @((Model.SalePrice - Model.PurchasePrice).ToString("N2")) $
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
+                    <div>
+                        <a asp-action="PrintBarcode" asp-route-id="@Model.Id" class="btn btn-primary-gradient">
+                            <i class="fas fa-tag me-2"></i>Étiquette
+                        </a>
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary-gradient">
+                            <i class="fas fa-edit me-2"></i>Modifier
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

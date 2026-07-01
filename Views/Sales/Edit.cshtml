@@ -1,53 +1,48 @@
-﻿@model AdGestionHub.Models.Sale
+﻿<!-- ==================== FILE: Views/Sales/Edit.cshtml ==================== -->
+@model AdGestionHub.Models.Sale
 
 @{
     ViewData["Title"] = "Modifier la Vente";
 }
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0">
-        <div class="card-header text-white py-3" style="background-color: #FF8C00 !important; border: none;">
-            <h4 class="mb-0"><i class="fas fa-edit me-2"></i> Modifier les infos de la Vente</h4>
-        </div>
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 px-4">
+                <h3 class="fw-bold mb-0"><i class="fas fa-edit text-primary me-2"></i>Modifier la vente</h3>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Edit">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <input type="hidden" asp-for="Id" />
+                    <input type="hidden" asp-for="BoutiqueId" />
 
-        <div class="card-body p-4">
-            <form asp-action="Edit">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                <input type="hidden" asp-for="Id" />
-                <input type="hidden" asp-for="BoutiqueId" />
-
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label asp-for="CustomerName" class="form-label fw-bold">Nom du Client</label>
-                        <input asp-for="CustomerName" class="form-control" />
-                        <span asp-validation-for="CustomerName" class="text-danger"></span>
+                    <div class="mb-3">
+                        <label asp-for="CustomerName" class="form-label fw-semibold">Nom du client</label>
+                        <input asp-for="CustomerName" class="form-control form-control-modern" />
                     </div>
 
-                    <div class="col-md-6">
-                        <label asp-for="PaymentMethod" class="form-label fw-bold">Moyen de Paiement</label>
-                        <input asp-for="PaymentMethod" class="form-control" />
-                        <span asp-validation-for="PaymentMethod" class="text-danger"></span>
+                    <div class="mb-3">
+                        <label asp-for="PaymentMethod" class="form-label fw-semibold">Moyen de paiement</label>
+                        <input asp-for="PaymentMethod" class="form-control form-control-modern" />
                     </div>
 
-                    <div class="col-md-6">
-                        <label asp-for="FinalPrice" class="form-label fw-bold">Total Final ($)</label>
-                        <input asp-for="FinalPrice" class="form-control border-warning" type="number" step="0.01" />
-                        <span asp-validation-for="FinalPrice" class="text-danger"></span>
+                    <div class="mb-3">
+                        <label asp-for="FinalPrice" class="form-label fw-semibold">Total final ($)</label>
+                        <input asp-for="FinalPrice" class="form-control form-control-modern" type="number" step="0.01" />
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label fw-bold text-muted">Date (Non modifiable)</label>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted">Date (non modifiable)</label>
                         <input asp-for="SaleDate" class="form-control bg-light" readonly />
                     </div>
-                </div>
 
-                <div class="mt-4 pt-3 border-top d-flex justify-content-between">
-                    <a asp-action="Index" class="btn btn-light border">Annuler</a>
-                    <button type="submit" class="btn text-white shadow-sm" style="background-color: #FF8C00; min-width: 150px; border: none;">
-                        Enregistrer
-                    </button>
-                </div>
-            </form>
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                        <a asp-action="Index" class="btn btn-soft">Annuler</a>
+                        <button type="submit" class="btn btn-primary-gradient px-5">Enregistrer</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>

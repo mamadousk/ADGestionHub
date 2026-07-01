@@ -1,4 +1,4 @@
-﻿using System;
+﻿// ==================== FILE: Areas/Identity/Pages/Account/Login.cshtml.cs ====================
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
-using AdGestionHub.Models; // Ajouté pour ApplicationUser
+using AdGestionHub.Models; // Important pour ApplicationUser
 
 namespace AdGestionHub.Areas.Identity.Pages.Account
 {

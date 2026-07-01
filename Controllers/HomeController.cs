@@ -1,10 +1,14 @@
+// ==================== FILE: Controllers/HomeController.cs ====================
 using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -13,11 +17,22 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IProfitService _profitService;
+        private readonly IStockService _stockService;
+        private readonly ICacheService _cacheService;
 
-        public HomeController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public HomeController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            IProfitService profitService,
+            IStockService stockService,
+            ICacheService cacheService)
         {
             _context = context;
             _userManager = userManager;
+            _profitService = profitService;
+            _stockService = stockService;
+            _cacheService = cacheService;
         }
 
         [AllowAnonymous]
@@ -38,56 +53,69 @@ namespace AdGestionHub.Controllers
             }
 
             var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
 
-            var sales = await _context.Sales
-                .Include(s => s.Items)
-                .Where(s => s.BoutiqueId == user.BoutiqueId)
-                .OrderByDescending(s => s.SaleDate)
-                .ToListAsync();
+            var boutiqueId = user.BoutiqueId.Value;
+            var cacheKey = $"Dashboard_{boutiqueId}";
 
-            var products = await _context.Products
-                .Where(p => p.BoutiqueId == user.BoutiqueId)
-                .ToListAsync();
-
-            var expenses = await _context.Expenses
-                .Where(e => e.BoutiqueId == user.BoutiqueId)
-                .OrderByDescending(e => e.Date)
-                .ToListAsync();
-
-            var debts = await _context.Debts
-                .Where(d => d.BoutiqueId == user.BoutiqueId)
-                .ToListAsync();
-
-            decimal totalSales = sales.Sum(s => s.FinalPrice);
-            decimal totalExpenses = expenses.Sum(e => e.Amount);
-
-            // CALCUL DU PROFIT RÉEL
-            decimal grossProfit = 0;
-            foreach (var sale in sales)
+            // Tentative de récupérer les données depuis le cache
+            var cachedData = await _cacheService.GetOrSetAsync(cacheKey, async () =>
             {
-                foreach (var item in sale.Items)
+                // Requêtes optimisées avec AsNoTracking()
+                var sales = await _context.Sales
+                    .AsNoTracking()
+                    .Include(s => s.Items)
+                    .Where(s => s.BoutiqueId == boutiqueId)
+                    .OrderByDescending(s => s.SaleDate)
+                    .ToListAsync();
+
+                var products = await _context.Products
+                    .AsNoTracking()
+                    .Where(p => p.BoutiqueId == boutiqueId)
+                    .ToListAsync();
+
+                var expenses = await _context.Expenses
+                    .AsNoTracking()
+                    .Where(e => e.BoutiqueId == boutiqueId)
+                    .OrderByDescending(e => e.Date)
+                    .ToListAsync();
+
+                var debts = await _context.Debts
+                    .AsNoTracking()
+                    .Where(d => d.BoutiqueId == boutiqueId && !d.IsArchived)
+                    .ToListAsync();
+
+                var totalSales = sales.Sum(s => s.FinalPrice);
+                var totalExpenses = expenses.Sum(e => e.Amount);
+                var grossProfit = await _profitService.CalculateGrossProfitAsync(boutiqueId);
+                var netProfit = grossProfit - totalExpenses;
+                var lowStockCount = await _stockService.GetLowStockCountAsync(boutiqueId);
+
+                return new
                 {
-                    var product = products.FirstOrDefault(p => p.Id == item.ProductId);
+                    TotalSales = totalSales,
+                    TotalExpenses = totalExpenses,
+                    TotalProfit = netProfit,
+                    TotalTransactions = sales.Count,
+                    LowStockCount = lowStockCount,
+                    RecentSales = sales.Take(5).ToList(),
+                    RecentExpenses = expenses.Take(5).ToList(),
+                    TotalDebts = debts.Sum(d => d.Amount)
+                };
+            }, TimeSpan.FromMinutes(2)); // Cache de 2 minutes
 
-                    // Sécurité : si le produit existe, on déduit le prix d'achat. 
-                    // Si c'est une saisie libre (product == null), on considère la marge sur le prix total.
-                    decimal purchaseCost = (product?.PurchasePrice ?? 0) * item.Quantity;
-                    grossProfit += (item.UnitPrice * item.Quantity) - purchaseCost;
-                }
-            }
-
-            ViewBag.TotalDebts = debts.Sum(d => d.Amount);
+            ViewBag.TotalDebts = cachedData.TotalDebts;
 
             var model = new DashboardViewModel
             {
-                TotalSales = totalSales,
-                TotalExpenses = totalExpenses,
-                TotalProfit = grossProfit - totalExpenses,
-                TotalTransactions = sales.Count,
-                LowStockCount = products.Count(p => p.StockQuantity <= p.LowStockThreshold),
-                RecentSales = sales.Take(5).ToList(),
-                RecentExpenses = expenses.Take(5).ToList()
+                TotalSales = cachedData.TotalSales,
+                TotalExpenses = cachedData.TotalExpenses,
+                TotalProfit = cachedData.TotalProfit,
+                TotalTransactions = cachedData.TotalTransactions,
+                LowStockCount = cachedData.LowStockCount,
+                RecentSales = cachedData.RecentSales,
+                RecentExpenses = cachedData.RecentExpenses
             };
 
             return View(model);

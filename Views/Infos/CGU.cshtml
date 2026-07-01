@@ -1,25 +1,115 @@
 ﻿@{
-    ViewData["Title"] = "Conditions Générales";
+    ViewData["Title"] = "Conditions Générales d'Utilisation (CGU)";
 }
 
-<div class="container mt-5 shadow-sm p-5 bg-white rounded border-top border-warning border-5">
-    <h1 class="text-orange fw-bold mb-4">📜 @ViewData["Title"] (CGU/CGV)</h1>
-    <hr />
-    <div class="legal-text" style="line-height: 1.8; color: #333;">
-        <h4 class="fw-bold">OBJET DU SERVICE</h4>
-        <p>AdGestionHub est une solution SaaS de gestion de stock et de facturation destinée aux commerçants.</p>
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 py-4 px-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="icon-wrapper orange" style="width: 56px; height: 56px; border-radius: 16px; background: #fff3e0; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-file-contract fa-2x" style="color: #FF8C00;"></i>
+                        </div>
+                        <div>
+                            <h1 class="display-6 fw-bold mb-0">Conditions Générales d'Utilisation</h1>
+                            <p class="text-muted small">CGU applicables à compter du @DateTime.Now.ToString("dd/MM/yyyy")</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-4 p-lg-5">
+                    <div class="legal-content" style="line-height: 1.8; color: #1e293b;">
 
-        <h4 class="fw-bold mt-4">ACCÈS ET RESPONSABILITÉ</h4>
-        <ul>
-            <li><strong>Disponibilité :</strong> Le service est accessible 24h/24, sauf maintenance technique.</li>
-            <li><strong>Responsabilité :</strong> Adhilix ne pourra être tenu responsable en cas d'interruption liée à la connexion internet de l'utilisateur ou d'erreur de saisie dans les ventes.</li>
-        </ul>
+                        <!-- Préambule -->
+                        <p class="lead" style="font-size: 1.1rem; color: #475569;">
+                            Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès et l'utilisation de la plateforme <strong>AdGestionHub</strong>, éditée par <strong>Adhil Digital</strong>.
+                        </p>
 
-        <h4 class="fw-bold mt-4">CONDITIONS DE VENTE</h4>
-        <ul>
-            <li><strong>Tarifs :</strong> Actuellement en version gratuite. Des offres payantes seront introduites ultérieurement.</li>
-            <li><strong>Paiements :</strong> Acceptés via Mobile Money (M-Pesa, Airtel, Orange) et cartes bancaires.</li>
-            <li><strong>Résiliation :</strong> L'utilisateur peut arrêter quand il veut. Le mois entamé n'est pas remboursé.</li>
-        </ul>
+                        <hr class="my-4" />
+
+                        <!-- Article 1 -->
+                        <h4 class="fw-bold" style="color: #FF8C00;">
+                            <i class="fas fa-check-circle me-2"></i> Article 1 – Objet du service
+                        </h4>
+                        <p>
+                            AdGestionHub est une solution SaaS (Software as a Service) de gestion de stock, de ventes, de dépenses et de facturation, destinée aux commerçants et entrepreneurs en République Démocratique du Congo. La plateforme permet :
+                        </p>
+                        <ul>
+                            <li>La gestion centralisée des produits et des stocks</li>
+                            <li>L'enregistrement des ventes et des dépenses</li>
+                            <li>Le suivi des bénéfices et des marges</li>
+                            <li>La génération de rapports et de reçus professionnels</li>
+                            <li>La gestion multi-utilisateurs (Admin, Employé)</li>
+                        </ul>
+
+                        <!-- Article 2 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-user-check me-2"></i> Article 2 – Accès et inscription
+                        </h4>
+                        <p>
+                            L'accès à la plateforme est gratuit pendant la phase bêta. L'utilisateur s'engage à fournir des informations exactes lors de l'inscription (email, nom de la boutique). Il est responsable de la confidentialité de ses identifiants de connexion.
+                        </p>
+                        <div class="bg-light p-3 rounded-4 border-start border-warning border-4">
+                            <i class="fas fa-info-circle me-2" style="color:#FF8C00;"></i>
+                            <strong>Note :</strong> Chaque compte est associé à une boutique unique. Les données d'une boutique ne sont pas accessibles aux autres utilisateurs.
+                        </div>
+
+                        <!-- Article 3 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-database me-2"></i> Article 3 – Données et propriété intellectuelle
+                        </h4>
+                        <p>
+                            Toutes les données saisies par l'utilisateur (produits, ventes, clients, paramètres) lui appartiennent. AdGestionHub s'engage à ne pas utiliser, vendre ou partager ces données avec des tiers sans le consentement explicite de l'utilisateur.
+                        </p>
+
+                        <!-- Article 4 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-shield-alt me-2"></i> Article 4 – Sécurité et confidentialité
+                        </h4>
+                        <p>
+                            AdGestionHub met en œuvre des mesures de sécurité techniques et organisationnelles conformes aux standards du secteur (chiffrement SSL, sauvegarde automatique, contrôle d'accès). L'utilisateur est informé que la plateforme est hébergée dans un environnement sécurisé.
+                        </p>
+
+                        <!-- Article 5 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-ban me-2"></i> Article 5 – Responsabilités
+                        </h4>
+                        <ul>
+                            <li><strong>Responsabilité de l'utilisateur :</strong> Il est seul responsable de l'exactitude des données saisies et des conséquences de leur utilisation dans son activité commerciale.</li>
+                            <li><strong>Responsabilité de l'éditeur :</strong> AdGestionHub s'efforce d'assurer la disponibilité du service 24h/24, mais ne saurait être tenu responsable en cas d'interruption pour maintenance ou force majeure.</li>
+                            <li><strong>Absence de garantie :</strong> La plateforme est fournie "en l'état" sans garantie explicite de performance ou de rentabilité.</li>
+                        </ul>
+
+                        <!-- Article 6 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-euro-sign me-2"></i> Article 6 – Tarifs et paiements
+                        </h4>
+                        <p>
+                            Actuellement en phase de lancement, la plateforme est <strong>gratuite</strong>. Des offres payantes seront proposées ultérieurement avec des fonctionnalités avancées. Toute modification tarifaire sera notifiée aux utilisateurs au moins 30 jours à l'avance.
+                        </p>
+
+                        <!-- Article 7 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-trash-alt me-2"></i> Article 7 – Résiliation
+                        </h4>
+                        <p>
+                            L'utilisateur peut résilier son compte à tout moment depuis son espace personnel. Les données seront alors supprimées définitivement, sauf obligation légale de conservation.
+                        </p>
+
+                        <!-- Article 8 -->
+                        <h4 class="fw-bold" style="color: #FF8C00; margin-top: 2rem;">
+                            <i class="fas fa-gavel me-2"></i> Article 8 – Droit applicable et litiges
+                        </h4>
+                        <p>
+                            Les présentes CGU sont régies par le droit congolais. En cas de litige, une solution amiable sera privilégiée. À défaut, les tribunaux de Kinshasa seront compétents.
+                        </p>
+
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-0 py-3 px-4 text-muted small">
+                    <i class="fas fa-clock me-1"></i> Dernière mise à jour : @DateTime.Now.ToString("dd/MM/yyyy")
+                </div>
+            </div>
+        </div>
     </div>
 </div>

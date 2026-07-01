@@ -42,6 +42,10 @@ namespace AdGestionHub.Data
             // Optionnel : Index sur les logs pour la maintenance
             modelBuilder.Entity<SystemLog>().HasIndex(sl => sl.BoutiqueId);
             modelBuilder.Entity<ErrorLog>().HasIndex(el => el.BoutiqueId);
+            modelBuilder.Entity<Product>()
+    .HasIndex(p => p.Barcode)
+    .IsUnique()
+    .HasFilter("[Barcode] IS NOT NULL");
         }
     }
 }

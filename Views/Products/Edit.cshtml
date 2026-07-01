@@ -2,69 +2,76 @@
 @model Product
 
 @{
-    ViewData["Title"] = "Modifier le Produit";
+    ViewData["Title"] = "Modifier le produit";
 }
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0">
-        <div class="card-header text-white py-3" style="background-color: #FF8C00 !important; border: none;">
-            <h4 class="mb-0"><i class="fas fa-edit me-2"></i> Modification du Produit</h4>
-        </div>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 px-4">
+                <h3 class="fw-bold mb-0"><i class="fas fa-edit text-primary me-2"></i>Modifier le produit</h3>
+                <p class="text-muted small">Mettez à jour les informations de <strong>@Model.Name</strong></p>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Edit" method="post">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <input type="hidden" asp-for="Id" />
 
-        <div class="card-body p-4">
-            <form asp-action="Edit" method="post">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <label asp-for="Name" class="form-label fw-semibold">Nom du produit</label>
+                            <input asp-for="Name" class="form-control form-control-modern" />
+                            <span asp-validation-for="Name" class="text-danger small"></span>
+                        </div>
 
-                @* ID masqué pour la mise à jour *@
-                <input type="hidden" asp-for="Id" />
+                        <div class="col-md-6">
+                            <label asp-for="PurchasePrice" class="form-label fw-semibold">Prix d'achat (USD)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0">$</span>
+                                <input asp-for="PurchasePrice" class="form-control form-control-modern border-start-0" type="number" step="0.01" />
+                            </div>
+                            <span asp-validation-for="PurchasePrice" class="text-danger small"></span>
+                        </div>
 
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label asp-for="Name" class="form-label fw-bold">Désignation du produit</label>
-                        <input asp-for="Name" class="form-control border-warning" />
-                        <span asp-validation-for="Name" class="text-danger"></span>
-                    </div>
+                        <div class="col-md-6">
+                            <label asp-for="SalePrice" class="form-label fw-semibold">Prix de vente (USD)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent border-end-0">$</span>
+                                <input asp-for="SalePrice" class="form-control form-control-modern border-start-0" type="number" step="0.01" />
+                            </div>
+                            <span asp-validation-for="SalePrice" class="text-danger small"></span>
+                        </div>
 
-                    <div class="col-md-6">
-                        <label asp-for="PurchasePrice" class="form-label fw-bold">Prix d'Achat</label>
-                        <div class="input-group">
-                            <input asp-for="PurchasePrice" class="form-control" />
-                            <span class="input-group-text">USD</span>
+                        <div class="col-md-6">
+                            <label asp-for="StockQuantity" class="form-label fw-semibold">Quantité en stock</label>
+                            <input asp-for="StockQuantity" class="form-control form-control-modern" type="number" />
+                            <span asp-validation-for="StockQuantity" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="StockAlertThreshold" class="form-label fw-semibold">Seuil d'alerte</label>
+                            <input asp-for="StockAlertThreshold" class="form-control form-control-modern" type="number" />
+                            <small class="text-muted">Alerte à partir de ce seuil.</small>
+                            <span asp-validation-for="StockAlertThreshold" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <label asp-for="Variations" class="form-label fw-semibold">Variations (optionnel)</label>
+                            <input asp-for="Variations" class="form-control form-control-modern" placeholder="Ex: Rouge, XL, 500g" />
+                            <span asp-validation-for="Variations" class="text-danger small"></span>
                         </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label asp-for="SalePrice" class="form-label fw-bold">Prix de Vente</label>
-                        <div class="input-group">
-                            <input asp-for="SalePrice" class="form-control" />
-                            <span class="input-group-text">USD</span>
-                        </div>
-                    </div>
+                    <hr class="my-4" />
 
-                    <div class="col-md-6">
-                        <label asp-for="StockQuantity" class="form-label fw-bold">Quantité disponible</label>
-                        <input asp-for="StockQuantity" class="form-control" type="number" />
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
+                        <button type="submit" class="btn btn-primary-gradient px-5">
+                            <i class="fas fa-save me-2"></i>Mettre à jour
+                        </button>
                     </div>
-
-                    <div class="col-md-6">
-                        <label asp-for="StockAlertThreshold" class="form-label fw-bold text-orange" style="color: #FF8C00;">Seuil d'alerte stock</label>
-                        <input asp-for="StockAlertThreshold" class="form-control border-orange" type="number" />
-                        <small class="text-muted">Alerte active à partir de @Model.StockAlertThreshold unités.</small>
-                    </div>
-
-                    <div class="col-12">
-                        <label asp-for="Variations" class="form-label fw-bold">Variations (Pointures/Tailles)</label>
-                        <textarea asp-for="Variations" class="form-control" rows="2"></textarea>
-                    </div>
-                </div>
-
-                <div class="mt-4 pt-3 border-top d-flex justify-content-between">
-                    <a asp-action="Index" class="btn btn-light border">Annuler</a>
-                    <button type="submit" class="btn text-white shadow-sm" style="background-color: #FF8C00; min-width: 150px;">
-                        Mettre à jour
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
 </div>

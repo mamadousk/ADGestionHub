@@ -1,5 +1,6 @@
 ﻿using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Rotativa.AspNetCore;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -18,17 +20,27 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IStockService _stockService;
 
-        public SalesController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public SalesController(
+            ApplicationDbContext context,
+            UserManager<ApplicationUser> userManager,
+            IStockService stockService)
         {
             _context = context;
             _userManager = userManager;
+            _stockService = stockService;
         }
 
+        // ========== LISTE DES VENTES ==========
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
+
             var sales = await _context.Sales
+                .AsNoTracking()
                 .Include(s => s.Items)
                 .Where(s => s.BoutiqueId == user.BoutiqueId)
                 .OrderByDescending(s => s.SaleDate)
@@ -36,12 +48,17 @@ namespace AdGestionHub.Controllers
             return View(sales);
         }
 
+        // ========== DÉTAILS ==========
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
 
             var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
+
             var sale = await _context.Sales
+                .AsNoTracking()
                 .Include(s => s.Items)
                 .FirstOrDefaultAsync(m => m.Id == id && m.BoutiqueId == user.BoutiqueId);
 
@@ -49,10 +66,15 @@ namespace AdGestionHub.Controllers
             return View(sale);
         }
 
+        // ========== CRÉER UNE VENTE (GET) ==========
         public async Task<IActionResult> Create()
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
+
             var products = await _context.Products
+                .AsNoTracking()
                 .Where(p => p.BoutiqueId == user.BoutiqueId)
                 .OrderBy(p => p.Name)
                 .ToListAsync();
@@ -61,11 +83,14 @@ namespace AdGestionHub.Controllers
             return View();
         }
 
+        // ========== CRÉER UNE VENTE (POST) ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(Sale sale)
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
 
             if (sale.Items == null || !sale.Items.Any())
             {
@@ -82,72 +107,140 @@ namespace AdGestionHub.Controllers
             {
                 try
                 {
+                    // Vérification des stocks
+                    foreach (var item in itemsToProcess.Where(i => i.ProductId.HasValue))
+                    {
+                        var product = await _context.Products
+                            .FirstOrDefaultAsync(p => p.Id == item.ProductId && p.BoutiqueId == user.BoutiqueId);
+
+                        if (product == null)
+                        {
+                            ModelState.AddModelError("", $"Produit '{item.ProductName}' introuvable.");
+                            var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
+                            ViewBag.ProductId = new SelectList(products, "Id", "Name");
+                            return View(sale);
+                        }
+
+                        if (!await _stockService.CheckStockAvailabilityAsync(product.Id, item.Quantity))
+                        {
+                            ModelState.AddModelError("", $"Stock insuffisant pour '{product.Name}'. Disponible : {product.StockQuantity}, demandé : {item.Quantity}");
+                            var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
+                            ViewBag.ProductId = new SelectList(products, "Id", "Name");
+                            return View(sale);
+                        }
+                    }
+
+                    // Création de la vente
                     sale.SaleDate = DateTime.Now;
-                    sale.BoutiqueId = user.BoutiqueId ?? 0;
-                    
-                    // CORRECTION : Recalcul strict du prix final (Total = Σ Prix * Qté)
-                    sale.FinalPrice = itemsToProcess.Sum(i => i.UnitPrice * i.Quantity);
+                    sale.BoutiqueId = user.BoutiqueId.Value;
+
+                    var culture = CultureInfo.InvariantCulture;
+                    sale.FinalPrice = itemsToProcess.Sum(i =>
+                    {
+                        decimal unitPrice = Convert.ToDecimal(i.UnitPrice, culture);
+                        return unitPrice * i.Quantity;
+                    });
 
                     _context.Sales.Add(sale);
                     await _context.SaveChangesAsync();
 
+                    // Ajout des articles et déduction des stocks
                     foreach (var item in itemsToProcess)
                     {
                         var newItem = new SaleItem
                         {
                             SaleId = sale.Id,
                             ProductName = item.ProductName,
-                            UnitPrice = item.UnitPrice,
+                            UnitPrice = Convert.ToDecimal(item.UnitPrice, CultureInfo.InvariantCulture),
                             Quantity = item.Quantity,
-                            ProductId = item.ProductId <= 0 ? null : item.ProductId
+                            ProductId = item.ProductId <= 0 ? null : item.ProductId,
+                            BoutiqueId = user.BoutiqueId.Value
                         };
 
                         if (newItem.ProductId != null)
                         {
-                            var productInStock = await _context.Products
-                                .FirstOrDefaultAsync(p => p.Id == newItem.ProductId && p.BoutiqueId == user.BoutiqueId);
-
-                            if (productInStock != null)
-                            {
-                                productInStock.StockQuantity -= newItem.Quantity;
-                                _context.Update(productInStock);
-                            }
+                            await _stockService.DeductStockAsync(newItem.ProductId.Value, newItem.Quantity);
                         }
+
                         _context.SaleItems.Add(newItem);
                     }
 
                     await _context.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    TempData["SuccessMessage"] = "Vente enregistrée avec succès !";
                     return RedirectToAction(nameof(Index));
                 }
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    ModelState.AddModelError("", "Erreur base de données : " + (ex.InnerException?.Message ?? ex.Message));
+                    ModelState.AddModelError("", "Erreur : " + (ex.InnerException?.Message ?? ex.Message));
                 }
             }
 
-            var prods = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
-            ViewBag.ProductId = new SelectList(prods, "Id", "Name");
+            var productsList = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
+            ViewBag.ProductId = new SelectList(productsList, "Id", "Name");
             return View(sale);
         }
 
+        // ========== RECHERCHE DES PRODUITS (AUTOCOMPLÉTION) ==========
+        [HttpGet]
+        public async Task<IActionResult> GetProducts(string term)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Json(new List<object>());
+
+            var products = await _context.Products
+                .Where(p => p.BoutiqueId == user.BoutiqueId && p.Name.Contains(term))
+                .Select(p => new { id = p.Id, label = p.Name, price = p.SalePrice })
+                .Take(10)
+                .ToListAsync();
+
+            return Json(products);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetProductByBarcode(string barcode)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Json(new { success = false, message = "Authentification requise" });
+
+            var product = await _context.Products
+                .FirstOrDefaultAsync(p => p.BoutiqueId == user.BoutiqueId && p.Barcode == barcode);
+
+            if (product == null)
+                return Json(new { success = false, message = "Aucun produit trouvé avec ce code" });
+
+            return Json(new
+            {
+                success = true,
+                id = product.Id,
+                name = product.Name,
+                price = product.SalePrice
+            });
+        }
+
+        // ========== TÉLÉCHARGER LE REÇU ==========
         public async Task<IActionResult> DownloadReceipt(int id)
         {
             var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
+
             var sale = await _context.Sales
+                .AsNoTracking()
                 .Include(s => s.Items)
                 .FirstOrDefaultAsync(m => m.Id == id && m.BoutiqueId == user.BoutiqueId);
 
             if (sale == null) return NotFound();
 
-            // Calcul du numéro de reçu propre à la boutique (ex: 1, 2, 3...)
             var sequenceNumber = await _context.Sales
+                .AsNoTracking()
                 .Where(s => s.BoutiqueId == sale.BoutiqueId && s.Id <= sale.Id)
-            .CountAsync();
+                .CountAsync();
 
-            // On stocke le numéro dans le ViewBag pour la vue HTML
             ViewBag.StoreInvoiceNumber = sequenceNumber;
 
             return new ViewAsPdf("Receipt", sale)
@@ -157,34 +250,48 @@ namespace AdGestionHub.Controllers
             };
         }
 
-        [HttpPost, ActionName("Delete")]
+        // ========== SUPPRIMER UNE VENTE ==========
+        [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Challenge();
+
             var sale = await _context.Sales
                 .Include(s => s.Items)
-                .FirstOrDefaultAsync(m => m.Id == id);
+                .FirstOrDefaultAsync(m => m.Id == id && m.BoutiqueId == user.BoutiqueId);
 
             if (sale != null)
             {
-                // 1. Remettre les articles dans le stock avant de supprimer
-                foreach (var item in sale.Items)
+                using (var transaction = await _context.Database.BeginTransactionAsync())
                 {
-                    var product = await _context.Products.FindAsync(item.ProductId);
-                    if (product != null)
+                    try
                     {
-                        product.StockQuantity += item.Quantity;
-                        _context.Update(product);
+                        foreach (var item in sale.Items)
+                        {
+                            if (item.ProductId != null)
+                            {
+                                await _stockService.RestoreStockAsync(item.ProductId.Value, item.Quantity);
+                            }
+                        }
+
+                        _context.Sales.Remove(sale);
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        TempData["SuccessMessage"] = "Vente supprimée et stocks restaurés.";
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        TempData["ErrorMessage"] = "Erreur lors de la suppression : " + ex.Message;
                     }
                 }
-
-                // 2. Supprimer la vente
-                _context.Sales.Remove(sale);
-                await _context.SaveChangesAsync();
             }
 
             return RedirectToAction(nameof(Index));
         }
-
     }
 }

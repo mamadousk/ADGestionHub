@@ -1,203 +1,394 @@
-﻿@model AdGestionHub.Models.Sale
+﻿@using AdGestionHub.Models
+@model Sale
 
 @{
     ViewData["Title"] = "Nouvelle Vente";
 }
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0">
-        <div class="card-header text-white py-3" style="background-color: #FF8C00;">
-            <h4 class="mb-0"><i class="fas fa-cart-plus me-2"></i> Enregistrer une Vente</h4>
-        </div>
-        <div class="card-body p-4">
-            <form asp-action="Create" id="saleForm">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
 
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label asp-for="CustomerName" class="form-label fw-bold">Nom du Client</label>
-                        <input asp-for="CustomerName" class="form-control" placeholder="Client au comptoir" />
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="PaymentMethod" class="form-label fw-bold">Moyen de Paiement</label>
-                        <select asp-for="PaymentMethod" class="form-select">
-                            <option value="Cash">Cash</option>
-                            <option value="M-Pesa">M-Pesa</option>
-                            <option value="Airtel Money">Airtel Money</option>
-                            <option value="Orange Money">Orange Money</option>
-                            <option value="Carte Bancaire">Carte Bancaire</option>
-                        </select>
-                    </div>
-                </div>
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 px-4">
+                <h3 class="fw-bold mb-0"><i class="fas fa-cart-plus text-primary me-2"></i>Enregistrer une vente</h3>
+                <p class="text-muted small">Ajoutez des produits au panier et finalisez la transaction.</p>
+            </div>
+            <div class="card-body p-4">
+                <form asp-action="Create" id="saleForm">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-                <hr />
+                    <!-- Infos client -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="CustomerName" class="form-label fw-semibold">Nom du client</label>
+                            <input asp-for="CustomerName" class="form-control form-control-modern" placeholder="Client au comptoir" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="PaymentMethod" class="form-label fw-semibold">Moyen de paiement</label>
+                            <select asp-for="PaymentMethod" class="form-select form-control-modern">
+                                <option value="Cash">💵 Cash</option>
+                                <option value="M-Pesa">📱 M-Pesa</option>
+                                <option value="Airtel Money">📱 Airtel Money</option>
+                                <option value="Orange Money">📱 Orange Money</option>
+                                <option value="Carte Bancaire">💳 Carte Bancaire</option>
+                            </select>
+                        </div>
+                    </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="text-muted mb-0">Ajouter des produits au panier</h5>
-                    <button type="button" id="btnClearCart" class="btn btn-sm btn-outline-danger">
-                        <i class="fas fa-trash-alt me-1"></i> Vider le panier
-                    </button>
-                </div>
+                    <hr class="my-4" />
 
-                <div class="row g-2 align-items-end mb-4">
-                    <div class="col-md-5">
-                        <label class="form-label small fw-bold">Produit (Recherche)</label>
-                        <input type="text" id="productInput" class="form-control" placeholder="Taper le nom du produit..." list="existingProducts">
-                        <datalist id="existingProducts">
-                            @if (ViewBag.ProductId != null)
-                            {
-                                foreach (var item in (IEnumerable<SelectListItem>)ViewBag.ProductId)
-                                {
-                                    <option value="@item.Text" data-id="@item.Value"></option>
-                                }
-                            }
-                        </datalist>
+                    <!-- Scanner code-barres -->
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-semibold">🔍 Scanner le code-barres</label>
+                            <div class="input-group">
+                                <input type="text" id="barcodeScanner" class="form-control form-control-modern" placeholder="Scannez ou saisissez le code..." />
+                                <button type="button" id="btnScan" class="btn btn-primary-gradient">
+                                    <i class="fas fa-camera me-1"></i> Scanner
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold">Prix Unitaire ($)</label>
-                        <input type="number" id="tempPrice" class="form-control" step="0.01" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold">Quantité</label>
-                        <input type="number" id="tempQty" class="form-control" value="1" min="1" />
-                    </div>
-                    <div class="col-md-3">
-                        <button type="button" id="btnAddItem" class="btn btn-dark w-100">
-                            <i class="fas fa-plus"></i> Ajouter au panier
+
+                    <!-- Zone de scan avec ZBar -->
+                    <div id="scannerContainer" style="display: none; margin-top: 10px;">
+                        <div style="position: relative; width: 100%; max-width: 500px; margin: 0 auto;">
+                            <video id="video" muted autoplay playsinline style="width: 100%; border-radius: 12px; background: #000;"></video>
+                            <canvas id="canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
+                            <div id="scan-result" style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #fff; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 8px; font-size: 14px;">
+                                📷 En attente de scan...
+                            </div>
+                        </div>
+                        <button type="button" id="btnStopScan" class="btn btn-danger btn-sm mt-2">
+                            <i class="fas fa-times"></i> Fermer
                         </button>
                     </div>
-                </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover border" id="cartTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Produit</th>
-                                <th class="text-center">Prix</th>
-                                <th class="text-center">Quantité</th>
-                                <th class="text-end">Total</th>
-                                <th class="text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cartBody">
-                        </tbody>
-                        <tfoot>
-                            <tr class="fw-bold fs-5">
-                                <td colspan="3" class="text-end">TOTAL GÉNÉRAL :</td>
-                                <td class="text-end text-success"><span id="grandTotal">0.00</span> $</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                    <!-- Ajout au panier -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-shopping-cart me-2"></i>Panier</h5>
+                        <button type="button" id="btnClearCart" class="btn btn-soft text-danger btn-sm">
+                            <i class="fas fa-trash-alt me-1"></i> Vider
+                        </button>
+                    </div>
 
-                <input type="hidden" asp-for="FinalPrice" id="inputFinalPrice" />
+                    <div class="row g-2 align-items-end mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Produit</label>
+                            <input type="text" id="productInput" class="form-control form-control-modern" placeholder="Rechercher..." />
+                            <input type="hidden" id="selectedProductId" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Prix unitaire ($)</label>
+                            <input type="number" id="tempPrice" class="form-control form-control-modern" step="0.01" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Qté</label>
+                            <input type="number" id="tempQty" class="form-control form-control-modern" value="1" min="1" />
+                        </div>
+                        <div class="col-md-3">
+                            <button type="button" id="btnAddItem" class="btn btn-primary-gradient w-100">
+                                <i class="fas fa-plus me-2"></i> Ajouter
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="mt-4 pt-3 border-top d-flex justify-content-between">
-                    <a asp-action="Index" class="btn btn-light border">Annuler</a>
-                    <button type="submit" class="btn text-white px-5 shadow-sm" style="background-color: #FF8C00;">
-                        Valider la vente
-                    </button>
-                </div>
-            </form>
+                    <!-- Tableau du panier -->
+                    <div class="table-responsive">
+                        <table class="table table-modern" id="cartTable">
+                            <thead>
+                                <tr>
+                                    <th>Produit</th>
+                                    <th class="text-center">Prix</th>
+                                    <th class="text-center">Quantité</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cartBody">
+                            </tbody>
+                            <tfoot>
+                                <tr class="fw-bold fs-5">
+                                    <td colspan="3" class="text-end">TOTAL GÉNÉRAL :</td>
+                                    <td class="text-end text-success"><span id="grandTotal">0.00</span> $</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <input type="hidden" asp-for="FinalPrice" id="inputFinalPrice" />
+
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                        <a asp-action="Index" class="btn btn-soft">Annuler</a>
+                        <button type="submit" class="btn btn-primary-gradient px-5">
+                            <i class="fas fa-check-circle me-2"></i> Valider la vente
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@undecaf/zbar-wasm@@0.11.0/dist/index.js">
+    </script>
+
     <script>
         let itemIndex = 0;
+        let scannerActive = false;
+        let stream = null;
+        let scanInterval = null;
+        let zbarScanner = null;
 
-        document.getElementById('btnAddItem').addEventListener('click', function() {
-            const input = document.getElementById('productInput');
-            const productName = input.value;
+        // Références DOM
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scanResult = document.getElementById('scan-result');
+        const scannerContainer = document.getElementById('scannerContainer');
+        const btnScan = document.getElementById('btnScan');
+        const btnStop = document.getElementById('btnStopScan');
 
-            // Correction 1 : On force le point pour le calcul JS interne
-            const rawPriceStr = document.getElementById('tempPrice').value.replace(',', '.');
-            const price = parseFloat(rawPriceStr);
-            const qty = parseInt(document.getElementById('tempQty').value);
-
-            const datalist = document.getElementById('existingProducts');
-            const option = Array.from(datalist.options).find(opt => opt.value === productName);
-            const productId = option ? option.getAttribute('data-id') : "";
-
-            if (!productName || isNaN(price) || isNaN(qty)) {
-                alert("Veuillez remplir le nom, le prix et la quantité.");
-                return;
-            }
-
-            const subtotal = price * qty;
-            const tbody = document.getElementById('cartBody');
-
-            // Correction 2 : On formate avec la virgule pour que le serveur C# comprenne
-            const priceForServer = price.toFixed(2).replace('.', ',');
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>
-                    ${productName}
-                    <input type="hidden" name="Items[${itemIndex}].ProductId" value="${productId}" />
-                    <input type="hidden" name="Items[${itemIndex}].ProductName" value="${productName}" />
-                </td>
-                <td class="text-center">
-                    ${price.toFixed(2)} $
-                    <input type="hidden" name="Items[${itemIndex}].UnitPrice" value="${priceForServer}" />
-                </td>
-                <td class="text-center">
-                    ${qty}
-                    <input type="hidden" name="Items[${itemIndex}].Quantity" value="${qty}" />
-                </td>
-                <td class="text-end fw-bold">${subtotal.toFixed(2)} $</td>
-                <td class="text-center">
-                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </td>
-            `;
-
-            tbody.appendChild(row);
-            itemIndex++;
-            updateTotal();
-
-            input.value = "";
-            document.getElementById('tempPrice').value = "";
-            document.getElementById('tempQty').value = "1";
-            input.focus();
+        // ===== AUTOCOMPLÉTION =====
+        $(function () {
+        $("#productInput").autocomplete({
+        source: function (request, response) {
+        $.ajax({
+        url: '@Url.Action("GetProducts", "Sales")',
+        dataType: "json",
+        data: { term: request.term },
+        success: function (data) {
+        response($.map(data, function (item) {
+        return {
+        label: item.label,
+        value: item.label,
+        id: item.id,
+        price: item.price
+        };
+        }));
+        }
+        });
+        },
+        minLength: 1,
+        delay: 200,
+        select: function (event, ui) {
+        $('#selectedProductId').val(ui.item.id);
+        $('#tempPrice').val(ui.item.price);
+        $('#tempQty').focus();
+        }
         });
 
-        document.getElementById('btnClearCart').addEventListener('click', function() {
-            if (confirm("Voulez-vous vraiment vider tout le panier ?")) {
-                document.getElementById('cartBody').innerHTML = "";
-                itemIndex = 0;
-                updateTotal();
-            }
+        // ===== SCANNER MANUEL =====
+        $('#barcodeScanner').on('change', function () {
+        var code = $(this).val().trim();
+        if (code.length > 0) {
+        searchAndAddProduct(code);
+        $(this).val('');
+        }
         });
 
-        document.getElementById('cartBody').addEventListener('click', function(e) {
-            if (e.target.closest('.btn-remove')) {
-                e.target.closest('tr').remove();
-                updateTotal();
-            }
+        // ===== BOUTON SCANNER =====
+        btnScan.addEventListener('click', function () {
+        if (!scannerActive) startScanner();
+        else stopScanner();
         });
 
+        btnStop.addEventListener('click', stopScanner);
+        });
+
+        // ===== RECHERCHE ET AJOUT PAR CODE-BARRES =====
+        function searchAndAddProduct(barcode) {
+        $.ajax({
+        url: '@Url.Action("GetProductByBarcode", "Sales")',
+        data: { barcode: barcode },
+        success: function (response) {
+        if (response.success) {
+        $('#productInput').val(response.name);
+        $('#selectedProductId').val(response.id);
+        $('#tempPrice').val(response.price);
+        $('#tempQty').val(1);
+        $('#btnAddItem').click();
+        } else {
+        alert('Produit non trouvé. Veuillez le créer manuellement.');
+        }
+        }
+        });
+        }
+
+        // ===== DÉMARRER LE SCANNER =====
+        async function startScanner() {
+        if (scannerActive) return;
+
+        try {
+        // 1. Demander l'accès à la caméra
+        stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+        facingMode: "environment",
+        width: { ideal: 640 },
+        height: { ideal: 480 }
+        }
+        });
+
+        video.srcObject = stream;
+        await video.play();
+
+        // 2. Afficher le conteneur
+        scannerContainer.style.display = 'block';
+        btnScan.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Arrêter';
+        btnStop.style.display = 'inline-block';
+        scanResult.textContent = '📷 Initialisation du scanner...';
+        scannerActive = true;
+
+        // 3. Initialiser ZBar WASM
+        zbarScanner = new ZBarScanner();
+        await zbarScanner.init();
+
+        scanResult.textContent = '📷 Scan en cours... Placez un code-barres devant la caméra.';
+
+        // 4. Lancer le scan à intervalles réguliers
+        scanInterval = setInterval(async () => {
+        if (!scannerActive) return;
+
+        // Capturer une image depuis la vidéo
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Analyser l'image
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const results = await zbarScanner.scanImageData(imageData);
+
+        if (results && results.length > 0) {
+        const code = results[0].data;
+        scanResult.textContent = '✅ Code détecté : ' + code;
+        stopScanner();
+        searchAndAddProduct(code);
+        }
+        }, 150);
+
+        } catch (err) {
+        console.error('Erreur scanner:', err);
+        scanResult.textContent = '❌ Erreur : ' + (err.message || 'Impossible d\'accéder à la caméra.');
+        btnScan.innerHTML = '<i class="fas fa-camera me-1"></i> Scanner';
+        btnStop.style.display = 'none';
+        scannerContainer.style.display = 'none';
+        if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        }
+        scannerActive = false;
+        }
+        }
+
+        // ===== ARRÊTER LE SCANNER =====
+        function stopScanner() {
+        if (!scannerActive) return;
+
+        scannerActive = false;
+
+        // Arrêter l'intervalle de scan
+        if (scanInterval) {
+        clearInterval(scanInterval);
+        scanInterval = null;
+        }
+
+        // Arrêter la caméra
+        if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        video.srcObject = null;
+        }
+
+        // Réinitialiser l'interface
+        scannerContainer.style.display = 'none';
+        btnScan.innerHTML = '<i class="fas fa-camera me-1"></i> Scanner';
+        btnStop.style.display = 'none';
+        scanResult.textContent = '📷 Scan arrêté';
+
+        // Libérer ZBar
+        if (zbarScanner) {
+        try { zbarScanner.destroy(); } catch (e) { }
+        zbarScanner = null;
+        }
+        }
+
+        // ===== AJOUTER AU PANIER =====
+        document.getElementById('btnAddItem').addEventListener('click', function () {
+        const productName = document.getElementById('productInput').value;
+        const productId = document.getElementById('selectedProductId').value;
+        const rawPriceStr = document.getElementById('tempPrice').value.replace(',', '.');
+        const price = parseFloat(rawPriceStr);
+        const qty = parseInt(document.getElementById('tempQty').value);
+
+        if (!productName || isNaN(price) || isNaN(qty) || !productId) {
+        alert("Veuillez sélectionner un produit, un prix et une quantité.");
+        return;
+        }
+
+        const subtotal = price * qty;
+        const tbody = document.getElementById('cartBody');
+        const priceForServer = price.toFixed(2).replace('.', ',');
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+        <td>
+        ${productName}
+        <input type="hidden" name="Items[${itemIndex}].ProductId" value="${productId}" />
+        <input type="hidden" name="Items[${itemIndex}].ProductName" value="${productName}" />
+        </td>
+        <td class="text-center">${price.toFixed(2)} $<input type="hidden" name="Items[${itemIndex}].UnitPrice" value="${priceForServer}" /></td>
+        <td class="text-center">${qty}<input type="hidden" name="Items[${itemIndex}].Quantity" value="${qty}" /></td>
+        <td class="text-end fw-bold">${subtotal.toFixed(2)} $</td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-soft text-danger btn-remove"><i class="fas fa-trash"></i></button></td>
+        `;
+
+        tbody.appendChild(row);
+        itemIndex++;
+        updateTotal();
+
+        document.getElementById('productInput').value = '';
+        document.getElementById('selectedProductId').value = '';
+        document.getElementById('tempPrice').value = '';
+        document.getElementById('tempQty').value = '1';
+        document.getElementById('productInput').focus();
+        });
+
+        // ===== VIDER LE PANIER =====
+        document.getElementById('btnClearCart').addEventListener('click', function () {
+        if (confirm("Vider tout le panier ?")) {
+        document.getElementById('cartBody').innerHTML = "";
+        itemIndex = 0;
+        updateTotal();
+        }
+        });
+
+        // ===== SUPPRIMER UNE LIGNE =====
+        document.getElementById('cartBody').addEventListener('click', function (e) {
+        if (e.target.closest('.btn-remove')) {
+        e.target.closest('tr').remove();
+        updateTotal();
+        }
+        });
+
+        // ===== METTRE À JOUR LE TOTAL =====
         function updateTotal() {
-            let total = 0;
-            const rows = document.querySelectorAll('#cartBody tr');
-            rows.forEach(row => {
-                const pInput = row.querySelector('input[name*="UnitPrice"]');
-                const qInput = row.querySelector('input[name*="Quantity"]');
-                if (pInput && qInput) {
-                    // Correction 3 : JS a besoin du point pour faire l'addition
-                    const p = parseFloat(pInput.value.replace(',', '.'));
-                    const q = parseInt(qInput.value);
-                    if (!isNaN(p) && !isNaN(q)) {
-                        total += (p * q);
-                    }
-                }
-            });
-            document.getElementById('grandTotal').innerText = total.toFixed(2);
-            // Correction 4 : On renvoie bien le prix final au C# avec la virgule
-            document.getElementById('inputFinalPrice').value = total.toFixed(2).replace('.', ',');
+        let total = 0;
+        const rows = document.querySelectorAll('#cartBody tr');
+        rows.forEach(row => {
+        const pInput = row.querySelector('input[name*="UnitPrice"]');
+        const qInput = row.querySelector('input[name*="Quantity"]');
+        if (pInput && qInput) {
+        const p = parseFloat(pInput.value.replace(',', '.'));
+        const q = parseInt(qInput.value);
+        if (!isNaN(p) && !isNaN(q)) total += (p * q);
+        }
+        });
+        document.getElementById('grandTotal').innerText = total.toFixed(2);
+        document.getElementById('inputFinalPrice').value = total.toFixed(2).replace('.', ',');
         }
     </script>
 }
