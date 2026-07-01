@@ -29,15 +29,47 @@
 </head>
 <body>
     <header>
-        <!-- Notification Globale -->
+        <!-- ===== BANDEAU D'ANNONCE GLOBAL ===== -->
+        @inject AdGestionHub.Data.ApplicationDbContext _context
+        @{
+            AdGestionHub.Models.GlobalNotification activeNotification = null;
+            try
+            {
+                activeNotification = _context.GlobalNotifications
+                    .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
+            }
+            catch { /* Ignorer les erreurs si la table n'existe pas */ }
+        }
+
         @if (activeNotification != null)
         {
-            <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") text-center mb-0 py-2" style="border-radius:0; position: fixed; top: 0; width: 100%; z-index: 1060; font-weight: 500;">
-                <i class="fas fa-bullhorn me-2"></i> @activeNotification.Message
+            <div id="globalAnnouncement" class="announcement-banner @(activeNotification.IsCritical ? "critical" : "info")" role="alert">
+                <div class="container d-flex align-items-center justify-content-between py-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="announcement-icon">
+                            <i class="fas @(activeNotification.IsCritical ? "fa-exclamation-triangle" : "fa-bullhorn")"></i>
+                        </span>
+                        <span class="announcement-text">@activeNotification.Message</span>
+                        @if (activeNotification.ExpiryDate != null)
+                        {
+                            <span class="announcement-expiry badge bg-light text-dark ms-2">
+                                <i class="far fa-clock me-1"></i> @activeNotification.ExpiryDate.ToString("HH:mm")
+                            </span>
+                        }
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Fermer" onclick="document.getElementById('globalAnnouncement').style.display='none'"></button>
+                </div>
             </div>
             <style>
+                        /* Ajustement du padding-top du body pour compenser la hauteur du bandeau */
                         body {
                             padding-top: 110px;
+                        }
+
+                        @@media (max-width: 768px) {
+                            body {
+                                padding-top: 130px;
+                            }
                         }
             </style>
         }

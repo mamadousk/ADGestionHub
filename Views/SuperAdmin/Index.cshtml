@@ -1,174 +1,231 @@
-﻿@model IEnumerable<AdGestionHub.Models.Boutique>
+﻿@using AdGestionHub.Models
+@using AdGestionHub.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+@model IEnumerable<Boutique>
+
 @{
     ViewData["Title"] = "Console SuperAdmin";
+    var notifications = ViewBag.Notifications as IEnumerable<GlobalNotification>;
+    var feedbacks = ViewBag.Feedbacks as IEnumerable<UserFeedback>;
+    var boutiqueCount = Model?.Count() ?? 0;
+    var globalSales = ViewBag.GlobalSales ?? 0m;
+    var totalProducts = ViewBag.TotalProducts ?? 0;
 }
 
-<div class="container-fluid mt-4">
-    @* En-tête *@
+<div class="container-fluid">
+    <!-- En-tête -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold text-dark"><i class="fas fa-chart-line text-orange"></i> Console AdGestionHub</h2>
-        <span class="badge bg-danger p-2 px-3 rounded-pill">Accès Fondateur (Mamadou Sacko)</span>
+        <div>
+            <h1 class="display-5 fw-bold mb-0">🚀 Console SuperAdmin</h1>
+            <p class="text-muted">Vue d'ensemble de votre écosystème AdGestionHub</p>
+        </div>
+        <span class="badge bg-danger bg-gradient p-2 px-3 rounded-pill fs-6">
+            <i class="fas fa-shield-alt me-1"></i> Accès Fondateur
+        </span>
     </div>
 
-    @* Section Annonces Globales *@
-    <div class="card border-0 shadow-sm mb-4 bg-light">
-        <div class="card-body">
-            <h6 class="fw-bold"><i class="fas fa-bullhorn text-danger me-2"></i>Diffuser une annonce à toutes les boutiques</h6>
+    <!-- Statistiques KPI -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard" style="border-left: 5px solid #FF8C00;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper orange me-3" style="width: 50px; height: 50px; border-radius: 12px; background: #fff3e0; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fas fa-store" style="color: #FF8C00;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Boutiques</div>
+                        <div class="stat-number fw-bold fs-2">@boutiqueCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard" style="border-left: 5px solid #10b981;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper green me-3" style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fas fa-dollar-sign" style="color: #10b981;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Ventes globales</div>
+                        <div class="stat-number fw-bold fs-2">@globalSales.ToString("N0") $</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard" style="border-left: 5px solid #3b82f6;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper blue me-3" style="width: 50px; height: 50px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fas fa-boxes" style="color: #3b82f6;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Produits</div>
+                        <div class="stat-number fw-bold fs-2">@totalProducts</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard" style="border-left: 5px solid #8b5cf6;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper purple me-3" style="width: 50px; height: 50px; border-radius: 12px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fas fa-star" style="color: #8b5cf6;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Avis reçus</div>
+                        <div class="stat-number fw-bold fs-2">@(feedbacks?.Count() ?? 0)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Notifications globales -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+        <div class="card-header bg-white border-0 py-3 px-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0"><i class="fas fa-bullhorn text-danger me-2"></i>Annonces globales</h5>
+                <span class="badge bg-secondary">@(notifications?.Count() ?? 0) active</span>
+            </div>
+        </div>
+        <div class="card-body p-3">
             <form asp-action="SendNotification" method="post" class="row g-2 mb-3">
-                <div class="col-md-7">
-                    <input type="text" name="message" class="form-control" placeholder="Ex: Maintenance de la plateforme ce soir à 22h..." required />
+                <div class="col-md-5">
+                    <input type="text" name="message" class="form-control form-control-modern" placeholder="Ex: Maintenance ce soir à 22h..." required />
                 </div>
                 <div class="col-md-2">
-                    <select name="isCritical" class="form-select">
-                        <option value="false">Information (Orange)</option>
-                        <option value="true">Urgent / Maintenance (Rouge)</option>
+                    <select name="isCritical" class="form-select form-control-modern">
+                        <option value="false">Information</option>
+                        <option value="true">⚠️ Urgent</option>
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <input type="number" name="hoursActive" class="form-control" value="2" placeholder="Heures" title="Durée de l'affichage" />
+                    <input type="number" name="hoursActive" class="form-control form-control-modern" value="2" placeholder="Heures" min="1" />
                 </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-danger w-100">Publier</button>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary-gradient w-100"><i class="fas fa-paper-plane me-2"></i>Publier</button>
                 </div>
             </form>
 
-            @if (ViewBag.Notifications != null)
+            @if (notifications != null && notifications.Any())
             {
-                var notifications = (IEnumerable<AdGestionHub.Models.GlobalNotification>)ViewBag.Notifications;
-                if (notifications.Any())
-                {
-                    <div class="mt-3">
-                        <p class="small fw-bold text-muted mb-2 text-uppercase">Annonces en cours :</p>
-                        @foreach (var notif in notifications)
-                        {
-                            <div class="alert @(notif.IsCritical ? "alert-danger" : "alert-warning") d-flex justify-content-between align-items-center py-2 shadow-sm border-0 mb-2">
-                                <div>
-                                    <i class="fas @(notif.IsCritical ? "fa-exclamation-triangle" : "fa-info-circle") me-2"></i>
-                                    @notif.Message
-                                    <small class="ms-2 opacity-75">(Expire : @notif.ExpiryDate.ToString("HH:mm"))</small>
-                                </div>
-                                <form asp-action="DeleteNotification" asp-route-id="@notif.Id" method="post">
-                                    <button type="submit" class="btn btn-sm text-danger border-0 p-0" onclick="return confirm('Retirer ?')">
-                                        <i class="fas fa-times-circle"></i> Retirer
-                                    </button>
-                                </form>
+                <div class="mt-2">
+                    @foreach (var notif in notifications)
+                    {
+                        <div class="alert @(notif.IsCritical ? "alert-danger" : "alert-warning") d-flex justify-content-between align-items-center py-2 mb-2 border-0 rounded-3" style="background: @(notif.IsCritical ? "#fef2f2" : "#fffbeb");">
+                            <div>
+                                <i class="fas @(notif.IsCritical ? "fa-exclamation-triangle" : "fa-info-circle") me-2"></i>
+                                @notif.Message
+                                <small class="text-muted ms-2">(Expire : @notif.ExpiryDate.ToString("HH:mm"))</small>
                             </div>
-                        }
-                    </div>
-                }
+                            <form asp-action="DeleteNotification" asp-route-id="@notif.Id" method="post" class="d-inline" onsubmit="return confirm('Retirer cette annonce ?');">
+                                <button type="submit" class="btn btn-sm btn-soft text-danger p-0 border-0">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted small mb-0"><i class="fas fa-circle-check text-success me-2"></i>Aucune annonce active</p>
             }
         </div>
     </div>
 
-    @* Cartes de statistiques *@
-    <div class="row g-4 mb-5">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm p-3" style="border-left: 5px solid #FF8C00 !important;">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-light p-3 rounded-circle me-3">
-                        <i class="fas fa-store fa-2x" style="color:#FF8C00;"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted mb-0">Boutiques</h6>
-                        <h3 class="fw-bold mb-0">@(ViewBag.BoutiqueCount ?? 0)</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm p-3" style="border-left: 5px solid #28a745 !important;">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-light p-3 rounded-circle me-3">
-                        <i class="fas fa-dollar-sign fa-2x text-success"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted mb-0">Ventes Globales</h6>
-                        <h3 class="fw-bold mb-0">@((ViewBag.GlobalSales ?? 0m).ToString("N0")) $</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm p-3" style="border-left: 5px solid #17a2b8 !important;">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0 bg-light p-3 rounded-circle me-3">
-                        <i class="fas fa-boxes fa-2x text-info"></i>
-                    </div>
-                    <div>
-                        <h6 class="text-muted mb-0">Total Produits</h6>
-                        <h3 class="fw-bold mb-0">@(ViewBag.TotalProducts ?? 0)</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
+    <!-- Boutiques & Activité récente -->
+    <div class="row g-4">
+        <!-- Liste des boutiques -->
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-3 d-flex justify-content-between">
-                    <h5 class="mb-0 fw-bold">🏢 Parc Boutiques</h5>
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0"><i class="fas fa-store-alt me-2"></i>Boutiques</h5>
+                    <span class="badge bg-light text-dark">@boutiqueCount inscrites</span>
                 </div>
-                <div class="table-responsive p-3">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th>ID</th>
-                                <th>Nom</th>
-                                <th>Ville</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (Model != null && Model.Any())
-                            {
-                                foreach (var item in Model)
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-modern mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Boutique</th>
+                                    <th>Propriétaire</th>
+                                    <th>Produits</th>
+                                    <th>Ventes</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Model != null && Model.Any())
                                 {
-                                    <tr>
-                                        <td><strong>#@item.Id</strong></td>
-                                        <td>@item.Name</td>
-                                        <td><span class="badge bg-light text-dark">Kinshasa</span></td>
-                                        <td>
-                                            <a asp-action="BoutiqueDetails" asp-route-id="@item.Id" class="btn btn-sm btn-outline-warning rounded-pill px-3">
-                                                <i class="fas fa-eye"></i> Inspecter
-                                            </a>
-                                        </td>
-                                    </tr>
+                                    foreach (var item in Model)
+                                    {
+                                        var productCount = await DbContext.Products.CountAsync(p => p.BoutiqueId == item.Id);
+                                        var salesCount = await DbContext.Sales.CountAsync(s => s.BoutiqueId == item.Id);
+                                        <tr>
+                                            <td class="fw-bold">@item.Name</td>
+                                            <td>@item.OwnerEmail</td>
+                                            <td>
+                                                <span class="badge-status info">@productCount</span>
+                                            </td>
+                                            <td>
+                                                <span class="badge-status success">@salesCount</span>
+                                            </td>
+                                            <td class="text-end">
+                                                <a asp-action="BoutiqueDetails" asp-route-id="@item.Id" class="btn btn-sm btn-soft">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                <tr><td colspan="4" class="text-center text-muted">Aucune boutique enregistrée.</td></tr>
-                            }
-                        </tbody>
-                    </table>
+                                else
+                                {
+                                    <tr><td colspan="5" class="text-center py-4 text-muted">Aucune boutique enregistrée.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- Derniers avis -->
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white py-3">
-                    <h5 class="mb-0 fw-bold">⭐ Derniers Avis</h5>
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h5 class="fw-bold mb-0"><i class="fas fa-comment-dots me-2"></i>Derniers avis</h5>
                 </div>
-                <div class="card-body">
-                    @if (ViewBag.Feedbacks != null)
+                <div class="card-body p-3">
+                    @if (feedbacks != null && feedbacks.Any())
                     {
-                        foreach (var f in (IEnumerable<AdGestionHub.Models.UserFeedback>)ViewBag.Feedbacks)
+                        foreach (var f in feedbacks.Take(5))
                         {
                             <div class="mb-3 p-2 border-bottom">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <span class="badge bg-warning text-dark">Note: @f.Note/5</span>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="fw-semibold">@f.UserName</span>
+                                        <div>
+                                            @for (int i = 0; i < f.Note; i++)
+                                            {
+                                                <span class="text-warning">★</span>
+                                            }
+                                            @for (int i = f.Note; i < 5; i++)
+                                            {
+                                                <span class="text-muted">☆</span>
+                                            }
+                                        </div>
+                                    </div>
                                     <small class="text-muted">@f.DateEnvoi.ToString("dd/MM")</small>
                                 </div>
-                                <p class="small fst-italic mb-0 text-dark">"@f.Commentaire"</p>
+                                <p class="small mb-0 text-muted">"@f.Commentaire"</p>
                             </div>
                         }
                     }
                     else
                     {
-                        <p class="text-center text-muted small">Aucun avis pour le moment.</p>
+                        <p class="text-center text-muted small py-3">Aucun avis pour le moment.</p>
                     }
                 </div>
             </div>

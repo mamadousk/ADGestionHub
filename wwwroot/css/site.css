@@ -434,3 +434,127 @@ h1, h2, h3, h4, h5, h6 {
         font-size: 1.3rem !important;
     }
 }
+/* Couleurs pour les icônes SuperAdmin */
+.icon-wrapper.green {
+    background: #ecfdf5;
+    color: #10b981;
+}
+
+.icon-wrapper.blue {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.icon-wrapper.purple {
+    background: #f5f3ff;
+    color: #8b5cf6;
+}
+
+.icon-wrapper.orange {
+    background: #fff3e0;
+    color: #FF8C00;
+}
+
+/* Badges de statut */
+.badge-status.success {
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+.badge-status.danger {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.badge-status.warning {
+    background: #fffbeb;
+    color: #92400e;
+}
+
+.badge-status.info {
+    background: #eff6ff;
+    color: #1e40af;
+}
+/* ===== BANDEAU D'ANNONCE GLOBAL ===== */
+.announcement-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    padding: 0.5rem 0;
+    font-weight: 500;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+    .announcement-banner.info {
+        background: rgba(255, 140, 0, 0.92);
+        color: #fff;
+        border-bottom-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .announcement-banner.critical {
+        background: rgba(220, 38, 38, 0.92);
+        color: #fff;
+        border-bottom-color: rgba(255, 200, 200, 0.3);
+        animation: pulseCritical 1.5s infinite;
+    }
+
+    .announcement-banner .announcement-icon {
+        font-size: 1.2rem;
+        margin-right: 0.5rem;
+    }
+
+    .announcement-banner .announcement-text {
+        font-size: 0.95rem;
+        letter-spacing: 0.3px;
+    }
+
+    .announcement-banner .announcement-expiry {
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.15) !important;
+        color: #fff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 0.2rem 0.6rem;
+        border-radius: 50px;
+    }
+
+    .announcement-banner .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+        .announcement-banner .btn-close:hover {
+            opacity: 1;
+        }
+
+/* Animation pour les annonces critiques */
+@@keyframes pulseCritical {
+    0% {
+        background: rgba(220, 38, 38, 0.92);
+    }
+
+    50% {
+        background: rgba(220, 38, 38, 0.8);
+    }
+
+    100% {
+        background: rgba(220, 38, 38, 0.92);
+    }
+}
+
+/* Responsive */
+@@media (max-width: 576px) {
+    .announcement-banner .announcement-text {
+        font-size: 0.85rem;
+    }
+
+    .announcement-banner .announcement-expiry {
+        display: none;
+    }
+}

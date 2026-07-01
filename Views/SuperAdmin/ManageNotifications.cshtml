@@ -1,22 +1,26 @@
 ﻿@using AdGestionHub.Models
-@model IEnumerable<AdGestionHub.Models.GlobalNotification>
+@model IEnumerable<GlobalNotification>
 
 @{
-    ViewData["Title"] = "Historique des Notifications";
+    ViewData["Title"] = "Historique des notifications";
 }
 
-<div class="container mt-4">
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="fas fa-history me-2"></i> Historique des Notifications Globales</h5>
-            <a asp-action="Index" class="btn btn-sm btn-outline-light">Retour Console</a>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-5 fw-bold mb-0"><i class="fas fa-history me-2"></i>Historique des notifications</h1>
+            <p class="text-muted">Liste de toutes les annonces globales envoyées</p>
         </div>
-        <div class="card-body">
+        <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-light">
+                <table class="table table-modern mb-0">
+                    <thead>
                         <tr>
-                            <th>Date d'expiration</th>
+                            <th>Expiration</th>
                             <th>Message</th>
                             <th>Importance</th>
                             <th class="text-end">Action</th>
@@ -28,23 +32,24 @@
                             foreach (var item in Model)
                             {
                                 <tr>
-                                    @* Note : On utilise ExpiryDate car CreatedAt n'existe peut-être pas dans ton modèle *@
-                                    <td><small class="text-muted">@item.ExpiryDate.ToString("dd/MM/yyyy HH:mm")</small></td>
-                                    <td><strong>@item.Message</strong></td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">@item.ExpiryDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </td>
+                                    <td class="fw-semibold">@item.Message</td>
                                     <td>
                                         @if (item.IsCritical)
                                         {
-                                            <span class="badge bg-danger">Critique</span>
+                                            <span class="badge-status danger"><i class="fas fa-exclamation-circle me-1"></i> Critique</span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-warning text-dark">Information</span>
+                                            <span class="badge-status info"><i class="fas fa-info-circle me-1"></i> Information</span>
                                         }
                                     </td>
                                     <td class="text-end">
-                                        <form asp-action="DeleteNotification" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Supprimer définitivement cette annonce ?');">
-                                            <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill">
-                                                <i class="fas fa-trash"></i> Supprimer
+                                        <form asp-action="DeleteNotification" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Supprimer définitivement cette annonce ?');" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-soft text-danger">
+                                                <i class="fas fa-trash"></i>
                                             </button>
                                         </form>
                                     </td>
@@ -53,9 +58,7 @@
                         }
                         else
                         {
-                            <tr>
-                                <td colspan="4" class="text-center text-muted py-4">Aucune notification enregistrée dans l'historique.</td>
-                            </tr>
+                            <tr><td colspan="4" class="text-center py-4 text-muted">Aucune notification enregistrée.</td></tr>
                         }
                     </tbody>
                 </table>

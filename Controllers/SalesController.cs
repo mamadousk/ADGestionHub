@@ -48,7 +48,7 @@ namespace AdGestionHub.Controllers
             return View(sales);
         }
 
-        // ========== DÉTAILS ==========
+        // ========== DÉTAILS D'UNE VENTE ==========
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
@@ -107,7 +107,7 @@ namespace AdGestionHub.Controllers
             {
                 try
                 {
-                    // Vérification des stocks
+                    // 1. Vérification des stocks
                     foreach (var item in itemsToProcess.Where(i => i.ProductId.HasValue))
                     {
                         var product = await _context.Products
@@ -115,7 +115,7 @@ namespace AdGestionHub.Controllers
 
                         if (product == null)
                         {
-                            ModelState.AddModelError("", $"Produit '{item.ProductName}' introuvable.");
+                            ModelState.AddModelError("", $"Produit '{item.ProductName}' introuvable dans votre boutique.");
                             var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
                             ViewBag.ProductId = new SelectList(products, "Id", "Name");
                             return View(sale);
@@ -123,14 +123,14 @@ namespace AdGestionHub.Controllers
 
                         if (!await _stockService.CheckStockAvailabilityAsync(product.Id, item.Quantity))
                         {
-                            ModelState.AddModelError("", $"Stock insuffisant pour '{product.Name}'. Disponible : {product.StockQuantity}, demandé : {item.Quantity}");
+                            ModelState.AddModelError("", $"Stock insuffisant pour le produit '{product.Name}'. Disponible : {product.StockQuantity}, demandé : {item.Quantity}");
                             var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
                             ViewBag.ProductId = new SelectList(products, "Id", "Name");
                             return View(sale);
                         }
                     }
 
-                    // Création de la vente
+                    // 2. Création de la vente
                     sale.SaleDate = DateTime.Now;
                     sale.BoutiqueId = user.BoutiqueId.Value;
 
@@ -144,7 +144,7 @@ namespace AdGestionHub.Controllers
                     _context.Sales.Add(sale);
                     await _context.SaveChangesAsync();
 
-                    // Ajout des articles et déduction des stocks
+                    // 3. Ajout des articles et déduction des stocks
                     foreach (var item in itemsToProcess)
                     {
                         var newItem = new SaleItem
@@ -174,52 +174,13 @@ namespace AdGestionHub.Controllers
                 catch (Exception ex)
                 {
                     await transaction.RollbackAsync();
-                    ModelState.AddModelError("", "Erreur : " + (ex.InnerException?.Message ?? ex.Message));
+                    ModelState.AddModelError("", "Erreur base de données : " + (ex.InnerException?.Message ?? ex.Message));
                 }
             }
 
             var productsList = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
             ViewBag.ProductId = new SelectList(productsList, "Id", "Name");
             return View(sale);
-        }
-
-        // ========== RECHERCHE DES PRODUITS (AUTOCOMPLÉTION) ==========
-        [HttpGet]
-        public async Task<IActionResult> GetProducts(string term)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null || user.BoutiqueId == null)
-                return Json(new List<object>());
-
-            var products = await _context.Products
-                .Where(p => p.BoutiqueId == user.BoutiqueId && p.Name.Contains(term))
-                .Select(p => new { id = p.Id, label = p.Name, price = p.SalePrice })
-                .Take(10)
-                .ToListAsync();
-
-            return Json(products);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetProductByBarcode(string barcode)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null || user.BoutiqueId == null)
-                return Json(new { success = false, message = "Authentification requise" });
-
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.BoutiqueId == user.BoutiqueId && p.Barcode == barcode);
-
-            if (product == null)
-                return Json(new { success = false, message = "Aucun produit trouvé avec ce code" });
-
-            return Json(new
-            {
-                success = true,
-                id = product.Id,
-                name = product.Name,
-                price = product.SalePrice
-            });
         }
 
         // ========== TÉLÉCHARGER LE REÇU ==========
@@ -281,7 +242,7 @@ namespace AdGestionHub.Controllers
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
-                        TempData["SuccessMessage"] = "Vente supprimée et stocks restaurés.";
+                        TempData["SuccessMessage"] = "La vente a été supprimée et les stocks restaurés.";
                     }
                     catch (Exception ex)
                     {
@@ -292,6 +253,24 @@ namespace AdGestionHub.Controllers
             }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // ========== RECHERCHE DE PRODUITS POUR L'AUTOCOMPLÉTION (gardée car utile) ==========
+        [HttpGet]
+        public async Task<IActionResult> GetProducts(string term)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null || user.BoutiqueId == null)
+                return Json(new List<object>());
+
+            var products = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.BoutiqueId == user.BoutiqueId && p.Name.Contains(term))
+                .Select(p => new { id = p.Id, label = p.Name, price = p.SalePrice })
+                .Take(10)
+                .ToListAsync();
+
+            return Json(products);
         }
     }
 }

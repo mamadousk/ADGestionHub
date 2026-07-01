@@ -27,7 +27,6 @@
                             <th>Prix de vente</th>
                             <th class="text-center">Stock</th>
                             <th class="text-center">Statut</th>
-                            <th>Code-barres</th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -56,16 +55,6 @@
                                         <span class="badge-status success">Disponible</span>
                                     }
                                 </td>
-                                <td>
-                                    @if (!string.IsNullOrEmpty(item.Barcode))
-                                    {
-                                        <span class="small text-muted">@item.Barcode</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted fst-italic">Non défini</span>
-                                    }
-                                </td>
                                 <td class="text-center">
                                     <div class="btn-group" role="group">
                                         <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Modifier">
@@ -73,9 +62,6 @@
                                         </a>
                                         <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Détails">
                                             <i class="fas fa-eye"></i>
-                                        </a>
-                                        <a asp-action="PrintBarcode" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Imprimer l'étiquette">
-                                            <i class="fas fa-tag"></i>
                                         </a>
                                         <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-soft text-danger" title="Supprimer">
                                             <i class="fas fa-trash"></i>

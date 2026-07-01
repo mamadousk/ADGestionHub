@@ -91,13 +91,10 @@ namespace AdGestionHub.Controllers
 
             if (boutique == null) return NotFound();
 
-            // CORRECTION ICI : Utilisation de boutique.Id au lieu de BoutiqueId
             var settings = await _context.StoreSettings
                 .FirstOrDefaultAsync(s => s.BoutiqueId == boutique.Id);
 
             ViewBag.Settings = settings;
-
-            // CORRECTION ICI : Utilisation de boutique.Id pour filtrer les produits et ventes
             ViewBag.ProductCount = await _context.Products.CountAsync(p => p.BoutiqueId == boutique.Id);
             ViewBag.SalesCount = await _context.Sales.CountAsync(s => s.BoutiqueId == boutique.Id);
 

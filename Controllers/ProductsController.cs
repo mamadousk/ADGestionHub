@@ -31,17 +31,6 @@ namespace AdGestionHub.Controllers
             _logger = logger;
         }
 
-        // ========== GÉNÉRATION DU CODE-BARRES ==========
-        private string GenerateBarcode(int boutiqueId, int productId)
-        {
-            var baseCode = $"ADG{boutiqueId.ToString("D2")}{productId.ToString("D6")}";
-            int sum = 0;
-            foreach (char c in baseCode)
-                if (char.IsDigit(c)) sum += int.Parse(c.ToString());
-            int checksum = sum % 10;
-            return baseCode + checksum.ToString();
-        }
-
         // ========== INDEX ==========
         public async Task<IActionResult> Index()
         {
@@ -84,7 +73,7 @@ namespace AdGestionHub.Controllers
         // ========== CREATE (POST) ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations,Barcode")] Product product)
+        public async Task<IActionResult> Create([Bind("Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations")] Product product)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return Challenge();
@@ -95,13 +84,6 @@ namespace AdGestionHub.Controllers
                 product.UserId = user.Id;
                 _context.Add(product);
                 await _context.SaveChangesAsync();
-
-                if (string.IsNullOrEmpty(product.Barcode))
-                {
-                    product.Barcode = GenerateBarcode(product.BoutiqueId.Value, product.Id);
-                    _context.Update(product);
-                    await _context.SaveChangesAsync();
-                }
 
                 await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
                 TempData["SuccessMessage"] = "Produit créé avec succès !";
@@ -129,7 +111,7 @@ namespace AdGestionHub.Controllers
         // ========== EDIT (POST) ==========
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations,Barcode")] Product product)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations")] Product product)
         {
             if (id != product.Id) return NotFound();
 
@@ -153,7 +135,6 @@ namespace AdGestionHub.Controllers
                 existingProduct.LowStockThreshold = product.LowStockThreshold;
                 existingProduct.StockAlertThreshold = product.StockAlertThreshold;
                 existingProduct.Variations = product.Variations;
-                existingProduct.Barcode = product.Barcode;
 
                 _context.Update(existingProduct);
                 await _context.SaveChangesAsync();
@@ -171,34 +152,6 @@ namespace AdGestionHub.Controllers
             }
         }
 
-        // ========== IMPRESSION ÉTIQUETTE ==========
-        public async Task<IActionResult> PrintBarcode(int id)
-        {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
-
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
-
-            if (product == null) return NotFound();
-
-            if (string.IsNullOrEmpty(product.Barcode))
-            {
-                product.Barcode = GenerateBarcode(product.BoutiqueId.Value, product.Id);
-                _context.Update(product);
-                await _context.SaveChangesAsync();
-            }
-
-            var storeName = await _context.StoreSettings
-                .Where(s => s.BoutiqueId == user.BoutiqueId)
-                .Select(s => s.StoreName)
-                .FirstOrDefaultAsync() ?? "Ma Boutique";
-
-            ViewBag.StoreName = storeName;
-
-            return View(product);
-        }
-
         // ========== DELETE ==========
         public async Task<IActionResult> Delete(int? id)
         {
@@ -214,23 +167,6 @@ namespace AdGestionHub.Controllers
             if (product == null) return NotFound();
 
             return View(product);
-        }
-
-        private string GenerateEAN13Barcode(int boutiqueId, int productId)
-        {
-            // Prefixe "ADG" n'est pas EAN, on utilise un code interne pour les produits sans code.
-            // Mais pour que le scanner le reconnaisse, on peut générer un EAN-13 avec un préfixe réservé.
-            // Solution : on génère un code de 13 chiffres avec un préfixe "200" pour les produits internes.
-            string baseCode = "200" + boutiqueId.ToString("D3") + productId.ToString("D6");
-            // Ajouter le chiffre de contrôle
-            int sum = 0;
-            for (int i = 0; i < 12; i++)
-            {
-                int digit = int.Parse(baseCode[i].ToString());
-                sum += (i % 2 == 0) ? digit : digit * 3;
-            }
-            int checksum = (10 - (sum % 10)) % 10;
-            return baseCode + checksum.ToString();
         }
 
         [HttpPost, ActionName("Delete")]

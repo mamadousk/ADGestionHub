@@ -12,6 +12,5 @@ public class Product
     public int StockAlertThreshold { get; set; } = 5; // Seuil d'alerte (par défaut 5)
     public int? BoutiqueId { get; set; } // Le "?" permet d'accepter des produits sans boutique si besoin
     public string UserId { get; set; } = string.Empty;
-    public string? Barcode { get; set; } // Code-barres unique (interne ou externe)
 
 }

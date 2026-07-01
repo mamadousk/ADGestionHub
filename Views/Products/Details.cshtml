@@ -46,18 +46,6 @@
                                     <span class="text-muted">Non défini</span>
                                 }
                             </dd>
-
-                            <dt class="col-sm-5 fw-bold text-dark">Code-barres :</dt>
-                            <dd class="col-sm-7">
-                                @if (!string.IsNullOrEmpty(Model.Barcode))
-                                {
-                                    <span>@Model.Barcode</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Non défini</span>
-                                }
-                            </dd>
                         </dl>
                     </div>
                     <div class="col-md-6">
@@ -82,9 +70,6 @@
                 <div class="d-flex justify-content-between">
                     <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
                     <div>
-                        <a asp-action="PrintBarcode" asp-route-id="@Model.Id" class="btn btn-primary-gradient">
-                            <i class="fas fa-tag me-2"></i>Étiquette
-                        </a>
                         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary-gradient">
                             <i class="fas fa-edit me-2"></i>Modifier
                         </a>

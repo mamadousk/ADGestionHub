@@ -1,116 +1,112 @@
 ﻿@model AdGestionHub.Models.Boutique
 @{
-    // Utilisation du nom personnalisé si disponible
     var displayName = ViewBag.Settings?.StoreName ?? Model.Name;
-    ViewData["Title"] = "Détails Boutique - " + displayName;
+    ViewData["Title"] = "Détails boutique - " + displayName;
 }
 
-<div class="container mt-4">
-    <nav aria-label="breadcrumb">
+<div class="container-fluid">
+    <!-- Fil d'Ariane -->
+    <nav aria-label="breadcrumb" class="mb-3">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a asp-action="Index" class="text-orange text-decoration-none">Console SuperAdmin</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Fiche Boutique</li>
+            <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none" style="color:#FF8C00;">Console SuperAdmin</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Fiche boutique</li>
         </ol>
     </nav>
 
-    <div class="card border-0 shadow-sm mb-4">
+    <!-- En-tête -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
         <div class="card-body p-4">
             <div class="row align-items-center">
                 <div class="col-md-2 text-center">
                     <div class="bg-light p-4 rounded-circle d-inline-block">
-                        <i class="fas fa-store fa-3x text-orange"></i>
+                        <i class="fas fa-store fa-3x" style="color:#FF8C00;"></i>
                     </div>
                 </div>
                 <div class="col-md-6">
                     <h2 class="fw-bold mb-1">@displayName</h2>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-user-tie me-2"></i><strong>Propriétaire :</strong> @Model.OwnerEmail
-                    </p>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-map-marker-alt me-2"></i><strong>Localisation :</strong> @(ViewBag.Settings?.Address ?? "Kinshasa, RDC")
-                    </p>
+                    <p class="text-muted mb-0"><i class="fas fa-user-tie me-2"></i><strong>Propriétaire :</strong> @Model.OwnerEmail</p>
+                    <p class="text-muted mb-0"><i class="fas fa-map-marker-alt me-2"></i><strong>Localisation :</strong> @(ViewBag.Settings?.Address ?? "Kinshasa, RDC")</p>
                 </div>
                 <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                    <span class="badge bg-success p-2 px-3 rounded-pill">Compte Actif</span>
+                    <span class="badge bg-success p-2 px-3 rounded-pill"><i class="fas fa-check-circle me-1"></i> Compte actif</span>
                     <p class="small text-muted mt-2">Inscrit le @Model.CreatedAt.ToString("dd/MM/yyyy")</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body text-center p-4">
-                    <h6 class="text-uppercase text-muted small fw-bold mb-3">Activité Commerciale</h6>
-                    <div class="display-5 fw-bold text-success mb-2">@ViewBag.SalesCount</div>
-                    <p class="text-muted">Ventes réalisées au total</p>
-                    <hr>
-                    <div class="d-flex justify-content-around">
-                        <div>
-                            <div class="fw-bold">@ViewBag.ProductCount</div>
-                            <div class="small text-muted">Produits</div>
-                        </div>
-                        <div class="border-start ps-3">
-                            <div class="fw-bold">@(ViewBag.EmployeeCount ?? 0)</div>
-                            <div class="small text-muted">Employés</div>
-                        </div>
+    <!-- Cartes statistiques -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card-dashboard" style="border-left: 5px solid #3b82f6;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper blue me-3" style="width: 45px; height: 45px; border-radius: 12px; background: #eff6ff; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-box" style="color: #3b82f6;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Produits</div>
+                        <div class="stat-number fw-bold fs-3">@ViewBag.ProductCount</div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <div class="col-lg-8">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white py-3 border-0">
-                    <h5 class="mb-0 fw-bold"><i class="fas fa-tools me-2 text-secondary"></i>Actions d'administration</h5>
-                </div>
-                <div class="card-body">
-                    <p class="text-muted small mb-4">En tant que SuperAdmin, vous pouvez intervenir directement sur ce compte client.</p>
-
-                    <div class="d-grid gap-3 d-md-flex">
-                        <a href="mailto:@Model.OwnerEmail" class="btn btn-outline-dark rounded-pill px-4">
-                            <i class="fas fa-envelope me-2"></i>Contacter le client
-                        </a>
-                        <button class="btn btn-warning text-white rounded-pill px-4">
-                            <i class="fas fa-edit me-2"></i>Modifier les infos
-                        </button>
-                        <button class="btn btn-danger rounded-pill px-4" onclick="return confirm('Voulez-vous vraiment suspendre cette boutique ?')">
-                            <i class="fas fa-ban me-2"></i>Suspendre l'accès
-                        </button>
+        <div class="col-md-4">
+            <div class="card-dashboard" style="border-left: 5px solid #10b981;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper green me-3" style="width: 45px; height: 45px; border-radius: 12px; background: #ecfdf5; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-shopping-cart" style="color: #10b981;"></i>
                     </div>
-
-                    <div class="mt-4 p-3 bg-light rounded border-start border-warning border-4">
-                        <h6 class="fw-bold"><i class="fas fa-info-circle me-2"></i>Note technique</h6>
-                        <p class="small mb-0 text-muted">
-                            Cette boutique utilise actuellement la version <strong>Bêta 1.0</strong> d'AdGestionHub.
-                            Aucun incident technique majeur n'a été signalé par cet utilisateur.
-                        </p>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Ventes</div>
+                        <div class="stat-number fw-bold fs-3">@ViewBag.SalesCount</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-dashboard" style="border-left: 5px solid #8b5cf6;">
+                <div class="d-flex align-items-center">
+                    <div class="icon-wrapper purple me-3" style="width: 45px; height: 45px; border-radius: 12px; background: #f5f3ff; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-users" style="color: #8b5cf6;"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label text-muted small text-uppercase fw-bold">Employés</div>
+                        <div class="stat-number fw-bold fs-3">@(ViewBag.EmployeeCount ?? 0)</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="text-center mt-5">
-        <a asp-action="Index" class="btn btn-link text-muted text-decoration-none">
-            <i class="fas fa-arrow-left me-2"></i>Retour à la liste des boutiques
-        </a>
+    <!-- Actions -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4">
+            <h5 class="fw-bold mb-0"><i class="fas fa-tools me-2"></i>Actions d'administration</h5>
+        </div>
+        <div class="card-body p-4">
+            <p class="text-muted small mb-4">En tant que SuperAdmin, vous pouvez intervenir directement sur ce compte client.</p>
+            <div class="d-flex flex-wrap gap-3">
+                <a href="mailto:@Model.OwnerEmail" class="btn btn-outline-dark rounded-pill px-4">
+                    <i class="fas fa-envelope me-2"></i>Contacter le client
+                </a>
+                <button class="btn btn-warning text-white rounded-pill px-4" onclick="alert('Fonctionnalité à venir : modification des informations.')">
+                    <i class="fas fa-edit me-2"></i>Modifier
+                </button>
+                <button class="btn btn-danger rounded-pill px-4" onclick="if(confirm('Voulez-vous vraiment suspendre cette boutique ?')) alert('Action suspendue (à implémenter).');">
+                    <i class="fas fa-ban me-2"></i>Suspendre
+                </button>
+            </div>
+            <div class="mt-4 p-3 bg-light rounded-3 border-start border-warning border-4">
+                <h6 class="fw-bold"><i class="fas fa-info-circle me-2"></i>Note technique</h6>
+                <p class="small mb-0 text-muted">
+                    Cette boutique utilise actuellement la version <strong>Bêta 1.0</strong> d'AdGestionHub.
+                    Aucun incident technique majeur signalé.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour à la liste</a>
     </div>
 </div>
-
-<style>
-    .text-orange {
-        color: #FF8C00 !important;
-    }
-
-    .breadcrumb-item + .breadcrumb-item::before {
-        content: "›";
-        font-size: 1.2rem;
-        vertical-align: middle;
-    }
-
-    .bg-light {
-        background-color: #f8f9fa !important;
-    }
-</style>
