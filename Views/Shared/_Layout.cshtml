@@ -1,5 +1,4 @@
-﻿<!-- ==================== FILE: Views/Shared/_Layout.cshtml ==================== -->
-@inject AdGestionHub.Data.ApplicationDbContext _context
+﻿@inject AdGestionHub.Data.ApplicationDbContext _context
 @{
     AdGestionHub.Models.GlobalNotification activeNotification = null;
     try
@@ -8,10 +7,6 @@
             .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
     }
     catch { /* Ignorer les erreurs de DB si la table n'existe pas encore */ }
-
-    // Récupérer le contrôleur et l'action courants pour la navigation active
-    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
-    var action = ViewContext.RouteData.Values["action"]?.ToString();
 }
 <!DOCTYPE html>
 <html lang="fr">
@@ -20,57 +15,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - AdGestionHub</title>
 
+    <!-- Preload des polices pour un chargement plus rapide -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" as="style" />
+
     <!-- Bootstrap & FontAwesome -->
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-    <!-- Notre CSS sur mesure (MODERN) -->
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <!-- Notre CSS sur mesure (version optimisée) -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AdGestionHub.styles.css" asp-append-version="true" />
+
+    <!-- Chargement différé des scripts non critiques -->
+    <script defer src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script defer src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="~/js/site.js" asp-append-version="true"></script>
 </head>
 <body>
     <header>
-        <!-- ===== BANDEAU D'ANNONCE GLOBAL ===== -->
-        @inject AdGestionHub.Data.ApplicationDbContext _context
-        @{
-            AdGestionHub.Models.GlobalNotification activeNotification = null;
-            try
-            {
-                activeNotification = _context.GlobalNotifications
-                    .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
-            }
-            catch { /* Ignorer les erreurs si la table n'existe pas */ }
-        }
-
+        <!-- Notification Globale -->
         @if (activeNotification != null)
         {
-            <div id="globalAnnouncement" class="announcement-banner @(activeNotification.IsCritical ? "critical" : "info")" role="alert">
-                <div class="container d-flex align-items-center justify-content-between py-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="announcement-icon">
-                            <i class="fas @(activeNotification.IsCritical ? "fa-exclamation-triangle" : "fa-bullhorn")"></i>
-                        </span>
-                        <span class="announcement-text">@activeNotification.Message</span>
-                        @if (activeNotification.ExpiryDate != null)
-                        {
-                            <span class="announcement-expiry badge bg-light text-dark ms-2">
-                                <i class="far fa-clock me-1"></i> @activeNotification.ExpiryDate.ToString("HH:mm")
-                            </span>
-                        }
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Fermer" onclick="document.getElementById('globalAnnouncement').style.display='none'"></button>
-                </div>
+            <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") text-center mb-0 py-2" style="border-radius:0; position: fixed; top: 0; width: 100%; z-index: 1060; font-weight: 500;">
+                <i class="fas fa-bullhorn me-2"></i> @activeNotification.Message
             </div>
             <style>
-                        /* Ajustement du padding-top du body pour compenser la hauteur du bandeau */
-                        body {
-                            padding-top: 110px;
-                        }
-
-                        @@media (max-width: 768px) {
-                            body {
-                                padding-top: 130px;
-                            }
-                        }
+                body {
+                padding-top: 110px;
+                }
             </style>
         }
 
@@ -85,47 +58,44 @@
                 </button>
 
                 <div class="collapse navbar-collapse" id="mainNavbar">
-                   <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-    @if (User.Identity.IsAuthenticated)
-    {
-        @if (User.IsInRole("SuperAdmin"))
-        {
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle fw-semibold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                    <i class="fas fa-user-shield text-danger me-1"></i> Console Système
-                </a>
-                <ul class="dropdown-menu border-0 shadow-lg rounded-3 mt-2">
-                    <li><a class="dropdown-item" asp-controller="SuperAdmin" asp-action="Index"><i class="fas fa-home me-2"></i>Vue d'ensemble</a></li>
-                    <li><a class="dropdown-item text-danger" asp-controller="SuperAdmin" asp-action="Logs"><i class="fas fa-exclamation-circle me-2"></i>Journal des Erreurs</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item" asp-controller="SuperAdmin" asp-action="ManageNotifications"><i class="fas fa-bullhorn me-2"></i>Notifications Globales</a></li>
-                </ul>
-            </li>
-        }
-        else
-        {
-            // Déclaration des classes dynamiques
-            var isDashboard = ViewContext.RouteData.Values["controller"]?.ToString() == "Home" && ViewContext.RouteData.Values["action"]?.ToString() == "Index";
-            var isProducts = ViewContext.RouteData.Values["controller"]?.ToString() == "Products";
-            var isSales = ViewContext.RouteData.Values["controller"]?.ToString() == "Sales";
-            var isDebts = ViewContext.RouteData.Values["controller"]?.ToString() == "Debts";
-            var isUsers = ViewContext.RouteData.Values["controller"]?.ToString() == "Users";
-            var isSettings = ViewContext.RouteData.Values["controller"]?.ToString() == "Settings";
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        @if (User.Identity.IsAuthenticated)
+                        {
+                            @if (User.IsInRole("SuperAdmin"))
+                            {
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle fw-semibold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-user-shield text-danger me-1"></i> Console Système
+                                    </a>
+                                    <ul class="dropdown-menu border-0 shadow-lg rounded-3 mt-2">
+                                        <li><a class="dropdown-item" asp-controller="SuperAdmin" asp-action="Index"><i class="fas fa-home me-2"></i>Vue d'ensemble</a></li>
+                                        <li><a class="dropdown-item text-danger" asp-controller="SuperAdmin" asp-action="Logs"><i class="fas fa-exclamation-circle me-2"></i>Journal des Erreurs</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" asp-controller="SuperAdmin" asp-action="ManageNotifications"><i class="fas fa-bullhorn me-2"></i>Notifications Globales</a></li>
+                                    </ul>
+                                </li>
+                            }
+                            else
+                            {
+                                var isDashboard = ViewContext.RouteData.Values["controller"]?.ToString() == "Home";
+                                var isProducts = ViewContext.RouteData.Values["controller"]?.ToString() == "Products";
+                                var isSales = ViewContext.RouteData.Values["controller"]?.ToString() == "Sales";
+                                var isDebts = ViewContext.RouteData.Values["controller"]?.ToString() == "Debts";
+                                var isUsers = ViewContext.RouteData.Values["controller"]?.ToString() == "Users";
+                                var isSettings = ViewContext.RouteData.Values["controller"]?.ToString() == "Settings";
 
-            <li class="nav-item"><a class="nav-link @(isDashboard ? "active" : "")" asp-controller="Home" asp-action="Index"><i class="fas fa-chart-pie me-1"></i> Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link @(isProducts ? "active" : "")" asp-controller="Products" asp-action="Index"><i class="fas fa-box me-1"></i> Produits</a></li>
-            <li class="nav-item"><a class="nav-link @(isSales ? "active" : "")" asp-controller="Sales" asp-action="Index"><i class="fas fa-coins me-1"></i> Ventes</a></li>
-            
-            @if (User.IsInRole("Admin"))
-            {
-                <li class="nav-item"><a class="nav-link @(isUsers ? "active" : "")" asp-controller="Users" asp-action="Index"><i class="fas fa-users me-1"></i> Employés</a></li>
-                <li class="nav-item"><a class="nav-link @(isSettings ? "active" : "")" asp-controller="Settings" asp-action="Index"><i class="fas fa-sliders-h me-1"></i> Paramètres</a></li>
-                <li class="nav-item"><a class="nav-link @(isDebts ? "active" : "")" asp-controller="Debts" asp-action="Index"><i class="fas fa-hand-holding-usd me-1"></i> Dettes</a></li>
-            }
-        }
-    }
-</ul>
-          
+                                <li class="nav-item"><a class="nav-link @(isDashboard ? "active" : "")" asp-controller="Home" asp-action="Index"><i class="fas fa-chart-pie me-1"></i> Dashboard</a></li>
+                                <li class="nav-item"><a class="nav-link @(isProducts ? "active" : "")" asp-controller="Products" asp-action="Index"><i class="fas fa-box me-1"></i> Produits</a></li>
+                                <li class="nav-item"><a class="nav-link @(isSales ? "active" : "")" asp-controller="Sales" asp-action="Index"><i class="fas fa-coins me-1"></i> Ventes</a></li>
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <li class="nav-item"><a class="nav-link @(isUsers ? "active" : "")" asp-controller="Users" asp-action="Index"><i class="fas fa-users me-1"></i> Employés</a></li>
+                                    <li class="nav-item"><a class="nav-link @(isSettings ? "active" : "")" asp-controller="Settings" asp-action="Index"><i class="fas fa-sliders-h me-1"></i> Paramètres</a></li>
+                                    <li class="nav-item"><a class="nav-link @(isDebts ? "active" : "")" asp-controller="Debts" asp-action="Index"><i class="fas fa-hand-holding-usd me-1"></i> Dettes</a></li>
+                                }
+                            }
+                        }
+                    </ul>
 
                     <ul class="navbar-nav ms-auto align-items-center gap-2">
                         @if (User.Identity.IsAuthenticated)
@@ -162,9 +132,8 @@
             </div>
         </nav>
     </header>
-    
+
     <main role="main" class="pb-5">
-        <!-- Container pour les messages de succès/erreur -->
         @if (TempData["SuccessMessage"] != null)
         {
             <div class="container mt-3">
@@ -191,12 +160,9 @@
         </div>
     </main>
 
-    <partial name="_CookieConsentPartial" />
-    <!-- ==================== SECTION FOOTER MODERNISÉ ==================== -->
     <footer class="footer-modern">
         <div class="container">
             <div class="row g-5">
-                <!-- Colonne 1 : Marque et description -->
                 <div class="col-lg-4">
                     <h5 class="text-white fw-bold mb-3" style="font-size: 1.5rem;">
                         Ad<span style="color: #FF8C00;">GestionHub</span>
@@ -211,8 +177,6 @@
                         </span>
                     </div>
                 </div>
-
-                <!-- Colonne 2 : Liens légaux -->
                 <div class="col-lg-4">
                     <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
                         <i class="fas fa-gavel me-2"></i> Informations légales
@@ -232,8 +196,6 @@
                         </a>
                     </div>
                 </div>
-
-                <!-- Colonne 3 : Contact et réseaux sociaux -->
                 <div class="col-lg-4">
                     <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
                         <i class="fas fa-address-card me-2"></i> Contact
@@ -245,23 +207,13 @@
                         <i class="fas fa-envelope me-2" style="width: 20px;"></i> contact@adhil-digital.com
                     </p>
                     <div class="d-flex gap-3 fs-5 mt-2">
-                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="Facebook">
-                            <i class="fab fa-facebook"></i>
-                        </a>
-                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="LinkedIn">
-                            <i class="fab fa-linkedin"></i>
-                        </a>
-                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="YouTube">
-                            <i class="fab fa-youtube"></i>
-                        </a>
-                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="WhatsApp">
-                            <i class="fab fa-whatsapp"></i>
-                        </a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="Facebook"><i class="fab fa-facebook"></i></a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="LinkedIn"><i class="fab fa-linkedin"></i></a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="YouTube"><i class="fab fa-youtube"></i></a>
+                        <a href="#" class="text-light" style="opacity: 0.7; transition: opacity 0.2s;" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>
                     </div>
                 </div>
             </div>
-
-            <!-- Séparateur et copyright -->
             <hr class="border-secondary opacity-25 my-4" />
             <div class="text-center small text-light" style="opacity: 0.7;">
                 &copy; @DateTime.Now.Year <strong>AdGestionHub</strong>. Un produit de
@@ -271,9 +223,8 @@
         </div>
     </footer>
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
+    <partial name="_CookieConsentPartial" />
+
     @await RenderSectionAsync("Scripts", required: false)
 
     <!-- Modal Feedback (Global) -->
@@ -308,5 +259,11 @@
             </div>
         </div>
     </div>
+
+    <!-- Scripts chargés dynamiquement pour les pages qui en ont besoin -->
+    @if (IsSectionDefined("Scripts"))
+    {
+        @await RenderSectionAsync("Scripts", required: false)
+    }
 </body>
 </html>

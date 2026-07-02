@@ -1,13 +1,13 @@
-// ==================== FILE: Program.cs ====================
 using AdGestionHub.Data;
 using AdGestionHub.Middlewares;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Rotativa.AspNetCore;
 using System.Globalization;
+using System.IO.Compression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,80 +24,91 @@ builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICacheService, CacheService>();
 
-// --- HEALTH CHECKS (sans package externe) ---
+// --- COMPRESSION GZIP / BROTLI (RÉDUIT LA TAILLE DES RÉPONSES DE 70%) ---
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true; // Activer la compression même en HTTPS
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "text/css",
+        "application/javascript",
+        "image/svg+xml",
+        "font/woff2",
+        "font/woff",
+        "application/json"
+    });
+});
+
+// Configuration de la compression Brotli (meilleure que Gzip)
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest; // Vitesse vs compression : Fastest pour KINSHASA
+});
+
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+
+// --- HEALTH CHECKS ---
 builder.Services.AddHealthChecks()
     .AddCheck<DbHealthCheck>("Database");
 
-// --- IDENTITÉ AVEC SÉCURISATION RENFORCÉE ---
+// --- IDENTITÉ ---
 builder.Services.AddDefaultIdentity<AdGestionHub.Models.ApplicationUser>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
-
-    // Paramètres de mot de passe sécurisés
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 8;
-
-    // Verrouillage de compte (anti-brute force)
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.AllowedForNewUsers = true;
-
-    // Confirmation email et utilisateur
     options.User.RequireUniqueEmail = true;
 })
-    .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+.AddRoles<IdentityRole>()
+.AddEntityFrameworkStores<ApplicationDbContext>();
 
-// --- CONFIGURATION DES COOKIES (SÉCURITÉ) ---
+// --- COOKIES SÉCURISÉS ---
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    // Le cookie ne sera accessible qu'en HTTPS
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-
-    // Empêche l'accès au cookie via JavaScript (anti-XSS)
     options.Cookie.HttpOnly = true;
-
-    // Politique SameSite : protège contre les attaques CSRF
     options.Cookie.SameSite = SameSiteMode.Lax;
-
-    // Le cookie expire après 30 jours d'inactivité
     options.ExpireTimeSpan = TimeSpan.FromDays(30);
-
-    // Renouvelle automatiquement le cookie à chaque requête
     options.SlidingExpiration = true;
 });
 
-// --- CONFIGURATION CORS (SÉCURITÉ) ---
+// --- CORS ---
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("StrictCorsPolicy", policy =>
     {
-        // En production, remplacez par votre domaine exact
-        // Exemple : .WithOrigins("https://mon-domaine.com", "https://www.mon-domaine.com")
-        policy.WithOrigins("https://localhost:7221", "http://localhost:5216") // Pour le développement
+        policy.WithOrigins("https://localhost:7221", "http://localhost:5216")
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials(); // Attention : ne pas utiliser AllowCredentials avec des origines génériques (*)
+              .AllowCredentials();
     });
 });
 
+// --- CONTROLEURS ---
 builder.Services.AddControllersWithViews();
 
-// --- POLITIQUE DES COOKIES (Consentement) ---
-builder.Services.Configure<CookiePolicyOptions>(options =>
+// --- SÉCURITÉ HSTS ---
+builder.Services.AddHsts(options =>
 {
-    // Ce lambda détermine si le consentement de l'utilisateur est requis pour les cookies non essentiels.
-    options.CheckConsentNeeded = context => true;
-    options.MinimumSameSitePolicy = SameSiteMode.Lax;
-    options.Secure = CookieSecurePolicy.Always;
+    options.Preload = true;
+    options.IncludeSubDomains = true;
+    options.MaxAge = TimeSpan.FromDays(365);
 });
 
 var app = builder.Build();
 
-// --- Configuration de la Culture (pour les nombres décimaux) ---
+// --- Configuration de la Culture ---
 var supportedCultures = new[] { new CultureInfo("fr-FR") };
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
@@ -129,43 +140,36 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Home/Error");
-    // HSTS : force le navigateur à utiliser HTTPS pendant 1 an
     app.UseHsts();
 }
 
-// --- MIDDLEWARES (ORDRE CRUCIAL POUR LA SÉCURITÉ) ---
-// 1. Redirection HTTPS (le plus important)
+// --- MIDDLEWARES (ORDRE OPTIMISÉ POUR LA VITESSE) ---
+app.UseResponseCompression(); // ⚡ Compression des réponses (doit être le plus tôt possible)
 app.UseHttpsRedirection();
-
-// 2. Middleware de Security Headers (juste après HSTS, avant toute génération de contenu)
 app.UseMiddleware<SecurityHeadersMiddleware>();
-
-// 3. Gestion des erreurs (déjà placé)
 app.UseMiddleware<ExceptionMiddleware>();
-
-// 4. Rate Limiting (protection contre les abus)
 app.UseMiddleware<RateLimitingMiddleware>();
-
-// 5. CORS (doit être placé avant UseAuthorization)
 app.UseCors("StrictCorsPolicy");
 
-// 6. Fichiers statiques
-app.UseStaticFiles();
-// Configuration de Rotativa pour les PDF (après UseStaticFiles)
-RotativaConfiguration.Setup(app.Environment.WebRootPath, "Rotativa");
-app.UseCookiePolicy();
+// --- FICHIERS STATIQUES AVEC CACHE NAVIGATEUR (1 AN) ---
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Mettre en cache les fichiers statiques pendant 1 an (pour les assets versionnés)
+        ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=31536000");
+        ctx.Context.Response.Headers.Append("Expires", DateTime.UtcNow.AddYears(1).ToString("R"));
+    }
+});
 
-// 7. Routage
 app.UseRouting();
-
-// 8. Authentification et Autorisation
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 9. Health Checks
+// --- HEALTH CHECKS ---
 app.MapHealthChecks("/health");
 
-// 10. Controllers et Razor Pages
+// --- ROUTES ---
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Welcome}/{id?}");
@@ -173,15 +177,11 @@ app.MapRazorPages();
 
 app.Run();
 
-// --- Health Check personnalisé pour la base de données ---
+// --- Health Check personnalisé ---
 public class DbHealthCheck : IHealthCheck
 {
     private readonly ApplicationDbContext _context;
-
-    public DbHealthCheck(ApplicationDbContext context)
-    {
-        _context = context;
-    }
+    public DbHealthCheck(ApplicationDbContext context) => _context = context;
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
