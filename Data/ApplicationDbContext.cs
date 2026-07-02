@@ -28,21 +28,25 @@ namespace AdGestionHub.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // Relation entre ApplicationUser et Boutique
+            modelBuilder.Entity<ApplicationUser>()
+                .HasOne(u => u.Boutique)
+                .WithMany(b => b.Users) // Ajouter la navigation dans Boutique
+                .HasForeignKey(u => u.BoutiqueId)
+                .OnDelete(DeleteBehavior.Restrict); // Empêcher la suppression d'une boutique avec des utilisateurs
+
             // --- INDEXATION POUR PERFORMANCE MULTI-TENANT ---
             // On crée un index sur BoutiqueId pour chaque table qui stocke des données par boutique.
-            // Cela permet à SQL de filtrer instantanément les données de l'utilisateur connecté.
-
             modelBuilder.Entity<StoreSettings>().HasIndex(s => s.BoutiqueId);
             modelBuilder.Entity<Product>().HasIndex(p => p.BoutiqueId);
             modelBuilder.Entity<Sale>().HasIndex(s => s.BoutiqueId);
             modelBuilder.Entity<SaleItem>().HasIndex(si => si.BoutiqueId);
             modelBuilder.Entity<Expense>().HasIndex(e => e.BoutiqueId);
             modelBuilder.Entity<Debt>().HasIndex(d => d.BoutiqueId);
-
-            // Optionnel : Index sur les logs pour la maintenance
             modelBuilder.Entity<SystemLog>().HasIndex(sl => sl.BoutiqueId);
             modelBuilder.Entity<ErrorLog>().HasIndex(el => el.BoutiqueId);
-           
+
+            // Ajoutez d'autres index si nécessaire
         }
     }
 }

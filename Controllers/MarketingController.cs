@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using AdGestionHub.Models; // Assure-toi que c'est le bon namespace
-using AdGestionHub.Data;
-using System.Security.Claims;
-using Microsoft.EntityFrameworkCore; // Nécessaire pour ToListAsync()
+﻿using AdGestionHub.Data;
+using AdGestionHub.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+using System.Text;
 
 namespace AdGestionHub.Controllers
 {
@@ -15,30 +17,53 @@ namespace AdGestionHub.Controllers
             _context = context;
         }
 
-        // Action pour la Liste d'Attente Pro
+        // ========== LISTE D'ATTENTE PRO (publique, appelée depuis la page d'accueil) ==========
         [HttpPost]
-        public async Task<IActionResult> JoinWaitingList(string email)
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> JoinWaitingList(string? email)
         {
-            if (string.IsNullOrWhiteSpace(email)) return BadRequest();
+            email = email?.Trim();
 
-            var entry = new WaitingListPro { Email = email };
-            _context.WaitingListPros.Add(entry);
-            await _context.SaveChangesAsync();
+            if (string.IsNullOrWhiteSpace(email)
+                || email.Length > 254
+                || !new EmailAddressAttribute().IsValid(email))
+            {
+                return BadRequest();
+            }
+
+            var normalized = email.ToLowerInvariant();
+
+            // Pas de doublon. Même réponse si l'adresse est déjà inscrite,
+            // pour ne pas révéler qui figure dans la liste.
+            var alreadyThere = await _context.WaitingListPros.AnyAsync(w => w.Email == normalized);
+            if (!alreadyThere)
+            {
+                _context.WaitingListPros.Add(new WaitingListPro { Email = normalized });
+                await _context.SaveChangesAsync();
+            }
 
             return Ok();
         }
 
-        // Action pour le Feedback Bêta
+        // ========== FEEDBACK BÊTA (formulaire du layout, utilisateur connecté ou non) ==========
         [HttpPost]
-        public async Task<IActionResult> SubmitFeedback(int note, string commentaire)
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SubmitFeedback(int note, string? commentaire)
         {
-            // 1. On récupère le nom de l'utilisateur connecté
-            var userName = User.Identity?.Name ?? "Anonyme";
+            commentaire = commentaire?.Trim();
 
-            // 2. On crée l'objet feedback avec les bons noms
+            if (note < 1 || note > 5
+                || string.IsNullOrWhiteSpace(commentaire)
+                || commentaire.Length > 2000)
+            {
+                return BadRequest();
+            }
+
             var feedback = new UserFeedback
             {
-                UserName = userName, // Utilise la variable qu'on vient de créer
+                UserName = User.Identity?.Name ?? "Anonyme",
                 Note = note,
                 Commentaire = commentaire,
                 DateEnvoi = DateTime.Now
@@ -50,40 +75,62 @@ namespace AdGestionHub.Controllers
             return Ok();
         }
 
-        // Ajoute ceci dans ton MarketingController.cs
+        // ========== TABLEAU DE BORD MARKETING (SuperAdmin uniquement) ==========
+        [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> AdminDashboard()
         {
-            // Sécurité : On peut filtrer par ton email spécifique pour être sûr que seul toi y accède
-            // if (User.Identity.Name != "ton-email@gmail.com") return Forbid();
-
             var feedbacks = await _context.UserFeedbacks
+                                          .AsNoTracking()
                                           .OrderByDescending(f => f.DateEnvoi)
                                           .ToListAsync();
 
             var waitingList = await _context.WaitingListPros
+                                            .AsNoTracking()
                                             .OrderByDescending(w => w.DateInscription)
                                             .ToListAsync();
 
-            // On passe les deux listes à la vue via un ViewModel ou un ViewBag
             ViewBag.WaitingList = waitingList;
             return View(feedbacks);
         }
+
+        // ========== EXPORT CSV DES CONTACTS (SuperAdmin uniquement) ==========
+        [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> ExportLeads()
         {
-            var leads = await _context.WaitingListPros.OrderByDescending(w => w.DateInscription).ToListAsync();
+            var leads = await _context.WaitingListPros
+                                      .AsNoTracking()
+                                      .OrderByDescending(w => w.DateInscription)
+                                      .ToListAsync();
 
-            // Création du contenu CSV
-            var builder = new System.Text.StringBuilder();
-            builder.AppendLine("Email;Date d'inscription"); // Entêtes
+            var builder = new StringBuilder();
+            builder.AppendLine("Email;Date d'inscription");
 
             foreach (var lead in leads)
             {
-                builder.AppendLine($"{lead.Email};{lead.DateInscription:dd/MM/yyyy HH:mm}");
+                builder.AppendLine($"{CsvSafe(lead.Email)};{lead.DateInscription:dd/MM/yyyy HH:mm}");
             }
 
-            // Envoi du fichier au navigateur
-            var csvContent = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(builder.ToString())).ToArray();
+            var csvContent = Encoding.UTF8.GetPreamble()
+                .Concat(Encoding.UTF8.GetBytes(builder.ToString()))
+                .ToArray();
+
             return File(csvContent, "text/csv", "AdGestionHub_Leads_Pro.csv");
+        }
+
+        // Neutralise l'injection de formules Excel (=, +, -, @) et échappe le séparateur et les guillemets.
+        private static string CsvSafe(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+
+            var v = value.Replace("\r", " ").Replace("\n", " ");
+
+            if ("=+-@\t".IndexOf(v[0]) >= 0)
+                v = "'" + v;
+
+            if (v.Contains(';') || v.Contains('"'))
+                v = "\"" + v.Replace("\"", "\"\"") + "\"";
+
+            return v;
         }
     }
 }

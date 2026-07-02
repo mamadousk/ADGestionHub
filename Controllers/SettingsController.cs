@@ -1,5 +1,6 @@
 ﻿using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,85 +9,86 @@ using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin, SuperAdmin")]
     public class SettingsController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IBoutiqueService _boutiqueService;
 
-        public SettingsController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public SettingsController(ApplicationDbContext context, IBoutiqueService boutiqueService)
         {
             _context = context;
-            _userManager = userManager;
+            _boutiqueService = boutiqueService;
         }
 
-        [HttpGet]
+        // GET: Settings
         public async Task<IActionResult> Index()
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
+            // Récupérer la boutique
+            var boutique = await _context.Boutiques.FindAsync(boutiqueId.Value);
+            if (boutique == null) return NotFound();
+
+            // Récupérer ou créer StoreSettings
             var settings = await _context.StoreSettings
-                .FirstOrDefaultAsync(s => s.BoutiqueId == user.BoutiqueId);
+                .FirstOrDefaultAsync(s => s.BoutiqueId == boutiqueId);
 
             if (settings == null)
             {
-                var boutique = await _context.Boutiques.FindAsync(user.BoutiqueId);
                 settings = new StoreSettings
                 {
-                    StoreName = boutique?.Name ?? "Mon Enseigne",
-                    BoutiqueId = user.BoutiqueId ?? 0
+                    BoutiqueId = boutiqueId.Value,
+                    StoreName = boutique.Nom,
+                    Address = boutique.Adresse,
+                    Phone = boutique.Telephone,
+                    ContactEmail = boutique.Email,
+                    IsActive = true
                 };
+                _context.StoreSettings.Add(settings);
+                await _context.SaveChangesAsync();
             }
+
+            // Passer le nom de la boutique au ViewBag pour affichage en lecture seule
+            ViewBag.BoutiqueNom = boutique.Nom;
 
             return View(settings);
         }
 
+        // POST: Settings/Edit
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Index(StoreSettings model)
+        public async Task<IActionResult> Edit(StoreSettings settings)
         {
-            if (!ModelState.IsValid)
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
+
+            if (settings.BoutiqueId != boutiqueId) return Forbid();
+
+            if (ModelState.IsValid)
             {
-                return View(model);
-            }
-
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
-
-            var settingsInDb = await _context.StoreSettings
-                .FirstOrDefaultAsync(s => s.BoutiqueId == user.BoutiqueId);
-
-            if (settingsInDb != null)
-            {
-                // Mise à jour de l'existant
-                settingsInDb.StoreName = model.StoreName;
-                settingsInDb.Address = model.Address;
-                settingsInDb.PhoneNumber = model.PhoneNumber;
-                settingsInDb.Email = model.Email;
-                settingsInDb.ReceiptFooterMessage = model.ReceiptFooterMessage;
-
-                _context.Update(settingsInDb);
-            }
-            else
-            {
-                // Premier enregistrement : On force l'ID de la boutique de l'utilisateur actuel
-                model.BoutiqueId = user.BoutiqueId ?? 0;
-                _context.StoreSettings.Add(model);
-            }
-
-            try
-            {
-                await _context.SaveChangesAsync();
-                TempData["Success"] = "Enregistré avec succès !";
-                // On redirige vers l'Index pour rafraîchir proprement les données de la base
+                try
+                {
+                    _context.Update(settings);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Paramètres mis à jour avec succès.";
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!StoreSettingsExists(settings.Id))
+                        return NotFound();
+                    else
+                        throw;
+                }
                 return RedirectToAction(nameof(Index));
             }
-            catch (Exception ex)
-            {
-                ModelState.AddModelError("", "Erreur de sauvegarde : " + ex.Message);
-                return View(model);
-            }
+            return View(settings);
+        }
+
+        private bool StoreSettingsExists(int id)
+        {
+            return _context.StoreSettings.Any(e => e.Id == id);
         }
     }
 }

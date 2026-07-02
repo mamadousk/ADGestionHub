@@ -1,9 +1,5 @@
-﻿// ==================== FILE: Data/DbInitializer.cs ====================
-using AdGestionHub.Models;
+﻿using AdGestionHub.Models;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Threading.Tasks;
 
 namespace AdGestionHub.Data
 {
@@ -13,7 +9,8 @@ namespace AdGestionHub.Data
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
+            var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+            var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
 
             // 1. Création des rôles
             string[] roleNames = { "Admin", "Employé", "SuperAdmin" };
@@ -25,34 +22,49 @@ namespace AdGestionHub.Data
                 }
             }
 
-            // 2. Création du SuperAdmin par défaut
-            var superAdminEmail = "mamadousacko716@gmail.com";
-            var superAdminUser = await userManager.FindByEmailAsync(superAdminEmail);
+            // 2. Création du SuperAdmin, uniquement si ses identifiants sont fournis par la configuration
+            //    (variables d'environnement SuperAdmin__Email / SuperAdmin__Password, ou User Secrets en développement).
+            var superAdminEmail = configuration["mamadousacko716@gmail.com"];
+            var superAdminPassword = configuration["Mamadousacko22@"];
 
-            if (superAdminUser == null)
+            if (string.IsNullOrWhiteSpace(superAdminEmail) || string.IsNullOrWhiteSpace(superAdminPassword))
             {
-                // Création de l'utilisateur
-                var user = new ApplicationUser
-                {
-                    UserName = superAdminEmail,
-                    Email = superAdminEmail,
-                    EmailConfirmed = true,
-                    FullName = "Super Administrateur",
-                    StoreName = "AdGestionHub Global",
-                    BoutiqueId = null // Le SuperAdmin n'a pas de boutique attitrée, il voit tout
-                };
+                logger.LogWarning(
+                    "SuperAdmin:Email ou SuperAdmin:Password n'est pas configuré : aucun compte SuperAdmin n'a été créé.");
+                return;
+            }
 
-                var result = await userManager.CreateAsync(user, "Mamadousacko22@"); // Mot de passe par défaut (à changer à la première connexion)
+            var existing = await userManager.FindByEmailAsync(superAdminEmail);
+            if (existing != null)
+            {
+                // Le compte existe déjà : on ne touche jamais à son mot de passe.
+                return;
+            }
 
-                if (result.Succeeded)
-                {
-                    // Attribution du rôle SuperAdmin
-                    await userManager.AddToRoleAsync(user, "SuperAdmin");
+            var user = new ApplicationUser
+            {
+                UserName = superAdminEmail,
+                Email = superAdminEmail,
+                EmailConfirmed = true,
+                FullName = "Super Administrateur",
+                StoreName = "AdGestionHub Global",
+                BoutiqueId = null // Le SuperAdmin n'a pas de boutique attitrée
+            };
 
-                    // Optionnel : créer une boutique "démo" si vous voulez, mais le SuperAdmin n'en a pas besoin.
-                    // On peut juste laisser BoutiqueId = null.
-                }
+            var result = await userManager.CreateAsync(user, superAdminPassword);
+
+            if (result.Succeeded)
+            {
+                await userManager.AddToRoleAsync(user, "SuperAdmin");
+                logger.LogInformation("Compte SuperAdmin créé.");
+            }
+            else
+            {
+                // On journalise les raisons (mot de passe trop faible, etc.) sans jamais écrire le mot de passe.
+                logger.LogError("Création du SuperAdmin impossible : {Errors}",
+                    string.Join(" | ", result.Errors.Select(e => e.Description)));
             }
         }
     }
 }
+

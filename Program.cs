@@ -23,11 +23,13 @@ builder.Services.AddScoped<IStockService, StockService>();
 // --- CACHE ---
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICacheService, CacheService>();
+builder.Services.AddScoped<IBoutiqueService, BoutiqueService>();
+builder.Services.AddHttpContextAccessor();
 
-// --- COMPRESSION GZIP / BROTLI (RÉDUIT LA TAILLE DES RÉPONSES DE 70%) ---
+// --- COMPRESSION GZIP / BROTLI ---
 builder.Services.AddResponseCompression(options =>
 {
-    options.EnableForHttps = true; // Activer la compression même en HTTPS
+    options.EnableForHttps = true;
     options.Providers.Add<BrotliCompressionProvider>();
     options.Providers.Add<GzipCompressionProvider>();
     options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
@@ -41,10 +43,9 @@ builder.Services.AddResponseCompression(options =>
     });
 });
 
-// Configuration de la compression Brotli (meilleure que Gzip)
 builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
 {
-    options.Level = CompressionLevel.Fastest; // Vitesse vs compression : Fastest pour KINSHASA
+    options.Level = CompressionLevel.Fastest;
 });
 
 builder.Services.Configure<GzipCompressionProviderOptions>(options =>
@@ -106,9 +107,39 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(365);
 });
 
+// =====================================================================
+//  POLITIQUES D'AUTORISATION
+// =====================================================================
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SuperAdminOnly", policy =>
+        policy.RequireRole("SuperAdmin"));
+
+    options.AddPolicy("AdminOrSuperAdmin", policy =>
+        policy.RequireRole("Admin", "SuperAdmin"));
+
+    options.AddPolicy("Authenticated", policy =>
+        policy.RequireAuthenticatedUser());
+
+    options.AddPolicy("ManageUsers", policy =>
+        policy.RequireRole("Admin", "SuperAdmin"));
+
+    options.AddPolicy("ManageShopSettings", policy =>
+        policy.RequireRole("Admin", "SuperAdmin"));
+
+    options.AddPolicy("ViewDashboard", policy =>
+        policy.RequireAuthenticatedUser());
+
+    options.AddPolicy("ManageGlobalNotifications", policy =>
+        policy.RequireRole("SuperAdmin"));
+
+    options.AddPolicy("ViewLogs", policy =>
+        policy.RequireRole("SuperAdmin"));
+});
+
 var app = builder.Build();
 
-// --- Configuration de la Culture ---
+// --- Culture ---
 var supportedCultures = new[] { new CultureInfo("fr-FR") };
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
@@ -132,7 +163,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure the HTTP request pipeline.
+// --- Pipeline HTTP ---
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -143,20 +174,17 @@ else
     app.UseHsts();
 }
 
-// --- MIDDLEWARES (ORDRE OPTIMISÉ POUR LA VITESSE) ---
-app.UseResponseCompression(); // ⚡ Compression des réponses (doit être le plus tôt possible)
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<RateLimitingMiddleware>();
 app.UseCors("StrictCorsPolicy");
 
-// --- FICHIERS STATIQUES AVEC CACHE NAVIGATEUR (1 AN) ---
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        // Mettre en cache les fichiers statiques pendant 1 an (pour les assets versionnés)
         ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=31536000");
         ctx.Context.Response.Headers.Append("Expires", DateTime.UtcNow.AddYears(1).ToString("R"));
     }
@@ -166,14 +194,33 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// --- HEALTH CHECKS ---
-app.MapHealthChecks("/health");
-
 // --- ROUTES ---
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Welcome}/{id?}");
 app.MapRazorPages();
+
+// ============================================================
+//  🚀 ENDPOINT DE RÉINITIALISATION DU MOT DE PASSE SUPERADMIN
+//  (À SUPPRIMER APRÈS AVOIR RÉUSSI LA CONNEXION)
+// ============================================================
+app.MapGet("/resetpassword", async (UserManager<AdGestionHub.Models.ApplicationUser> userManager) =>
+{
+    const string email = "mamadousacko716@gmail.com";
+    var user = await userManager.FindByEmailAsync(email);
+    if (user == null)
+        return Results.NotFound($"Utilisateur avec l'email {email} introuvable.");
+
+    var token = await userManager.GeneratePasswordResetTokenAsync(user);
+    var result = await userManager.ResetPasswordAsync(user, token, "Mamadousacko22@");
+    if (result.Succeeded)
+        return Results.Ok("✅ Mot de passe réinitialisé avec succès ! Vous pouvez maintenant vous connecter.");
+    else
+        return Results.BadRequest($"❌ Erreur : {string.Join(", ", result.Errors.Select(e => e.Description))}");
+});
+
+// --- HEALTH CHECKS ---
+app.MapHealthChecks("/health");
 
 app.Run();
 

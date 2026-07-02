@@ -401,3 +401,221 @@ h1, h2, h3, h4, h5, h6 {
         font-size: 1.3rem !important
     }
 }
+/* ============================================
+   COULEURS ORANGE - MARQUE ADGESTIONHUB
+   ============================================ */
+
+.text-orange {
+    color: #FF8C00 !important;
+}
+
+.bg-gradient-orange {
+    background: linear-gradient(135deg, #FF8C00 0%, #E67600 100%) !important;
+}
+
+.btn-orange-gradient {
+    background: linear-gradient(135deg, #FF8C00 0%, #E67600 100%);
+    color: white;
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-weight: 600;
+}
+
+    .btn-orange-gradient:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(255, 140, 0, 0.4);
+        color: white;
+    }
+
+    .btn-orange-gradient:active {
+        transform: translateY(0px);
+    }
+
+/* Formulaires modernes */
+.form-control-modern {
+    border-radius: 12px !important;
+    border: 2px solid #e9ecef;
+    padding: 14px 18px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+    .form-control-modern:focus {
+        border-color: #FF8C00;
+        box-shadow: 0 0 0 4px rgba(255, 140, 0, 0.15);
+        background-color: #ffffff;
+    }
+
+    .form-control-modern::placeholder {
+        color: #adb5bd;
+        font-weight: 300;
+    }
+
+/* Flottant personnalisé */
+.form-floating > .form-control-modern {
+    padding: 14px 18px;
+    height: auto;
+}
+
+    .form-floating > .form-control-modern:focus ~ label,
+    .form-floating > .form-control-modern:not(:placeholder-shown) ~ label {
+        transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+        color: #FF8C00;
+        font-weight: 500;
+    }
+
+.form-floating > label {
+    color: #6c757d;
+    font-weight: 400;
+}
+
+    .form-floating > label i {
+        color: #FF8C00;
+    }
+
+/* Cartes */
+.card-modern {
+    border-radius: 20px !important;
+    border: none !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08) !important;
+    overflow: hidden;
+}
+
+/* Checkbox personnalisée */
+.form-check-input:checked {
+    background-color: #FF8C00;
+    border-color: #FF8C00;
+}
+
+.form-check-input:focus {
+    border-color: #FF8C00;
+    box-shadow: 0 0 0 0.25rem rgba(255, 140, 0, 0.25);
+}
+
+/* Alertes */
+.alert-modern {
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* Animation d'entrée */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Toggle password */
+.toggle-password {
+    cursor: pointer;
+    z-index: 10;
+    color: #adb5bd;
+    transition: color 0.2s;
+    padding: 8px;
+}
+
+    .toggle-password:hover {
+        color: #FF8C00;
+    }
+/* Masquer la bande d'erreur quand elle est vide */
+.validation-summary-valid {
+    display: none !important;
+}
+
+.validation-summary-errors {
+    display: block !important;
+    border-radius: 12px !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+/* ========== COULEURS DOUCES ========== */
+.bg-gradient-orange-soft {
+    background: linear-gradient(135deg, #FF8C00 0%, #FFA94D 100%) !important;
+}
+
+.btn-primary-gradient {
+    background: linear-gradient(135deg, #FF8C00 0%, #FFA94D 100%);
+    color: white;
+    border: none;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    font-weight: 600;
+}
+
+    .btn-primary-gradient:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 140, 0, 0.3);
+        color: white;
+    }
+
+.text-orange {
+    color: #FF8C00 !important;
+}
+
+/* Formulaires modernes */
+.form-control-modern {
+    border-radius: 12px !important;
+    border: 2px solid #e9ecef;
+    padding: 14px 18px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    background-color: #f8f9fa;
+}
+
+    .form-control-modern:focus {
+        border-color: #FF8C00;
+        box-shadow: 0 0 0 4px rgba(255, 140, 0, 0.15);
+        background-color: #ffffff;
+    }
+
+/* Masquer la bande d'erreur quand elle est vide */
+.validation-summary-valid {
+    display: none !important;
+}
+
+.validation-summary-errors {
+    display: block !important;
+    border-radius: 12px !important;
+    border: none !important;
+}
+
+/* Animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* Toggle password */
+.toggle-password {
+    cursor: pointer;
+    z-index: 10;
+    color: #adb5bd;
+    transition: color 0.2s;
+}
+
+    .toggle-password:hover {
+        color: #FF8C00;
+    }

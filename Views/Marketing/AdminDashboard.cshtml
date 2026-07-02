@@ -3,7 +3,7 @@
 
 @{
     ViewData["Title"] = "Super Admin";
-    var waitingList = ViewBag.WaitingList as IEnumerable<AdGestionHub.Models.WaitingListPro>;
+    var waitingList = ViewBag.WaitingList as IEnumerable<WaitingListPro>;
 }
 
 <div class="container py-5">
@@ -11,64 +11,96 @@
         <h1 class="fw-bold" style="color:#FF8C00;">🚀 Centre de Contrôle Adilix</h1>
         <span class="badge bg-dark rounded-pill px-3 py-2">Mode Fondateur</span>
     </div>
-    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-        <span class="fw-bold">📧 Liste d'attente Pro</span>
-        <a asp-action="ExportLeads" class="btn btn-sm btn-success rounded-pill">
-            <i class="fas fa-file-excel"></i> Exporter CSV
-        </a>
+
+    <!-- Carte de la liste d'attente Pro -->
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center rounded-top-4">
+            <span class="fw-bold">📧 Liste d'attente Pro</span>
+            <a asp-action="ExportLeads" class="btn btn-sm btn-success rounded-pill">
+                <i class="fas fa-file-excel"></i> Exporter CSV
+            </a>
+        </div>
+        <div class="card-body">
+            @if (waitingList != null && waitingList.Any())
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var lead in waitingList)
+                    {
+                        <div class="list-group-item border-bottom">
+                            <p class="mb-0 fw-bold">@lead.Email</p>
+                            <small class="text-muted">Inscrit le @lead.DateInscription.ToString("dd/MM/yyyy")</small>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted mb-0">Aucun lead en liste d'attente pour le moment.</p>
+            }
+        </div>
     </div>
+
     <div class="row g-4">
         <div class="col-lg-8">
+            <!-- Carte des avis -->
             <div class="card shadow-sm border-0 rounded-4">
                 <div class="card-header bg-white border-bottom-0 pt-4">
                     <h5 class="fw-bold">⭐ Avis des utilisateurs Bêta</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table align-middle">
-                            <thead class="text-muted small">
-                                <tr>
-                                    <th>NOTE</th>
-                                    <th>COMMENTAIRE</th>
-                                    <th>DATE</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in Model)
-                                {
+                    @if (Model != null && Model.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead class="text-muted small">
                                     <tr>
-                                        <td>
-                                            @for (int i = 0; i < item.Note; i++)
-                                            {
-                                                <span class="text-warning">★</span>
-                                            }
-                                        </td>
-                                        <td>@item.Commentaire</td>
-                                        <td class="text-muted small">@item.DateEnvoi.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <th>NOTE</th>
+                                        <th>COMMENTAIRE</th>
+                                        <th>DATE</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Model)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @for (int i = 0; i < item.Note; i++)
+                                                {
+                                                    <span class="text-warning">★</span>
+                                                }
+                                                @if (item.Note < 5)
+                                                {
+                                                    for (int i = item.Note; i < 5; i++)
+                                                    {
+                                                        <span class="text-secondary">☆</span>
+                                                    }
+                                                }
+                                            </td>
+                                            <td>@item.Commentaire</td>
+                                            <td class="text-muted small">@item.DateEnvoi.ToString("dd/MM/yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">Aucun avis pour le moment.</p>
+                    }
                 </div>
             </div>
         </div>
 
         <div class="col-lg-4">
+            <!-- Bloc d'information supplémentaire (si besoin) -->
             <div class="card shadow-sm border-0 rounded-4 bg-light">
                 <div class="card-header bg-transparent border-0 pt-4">
-                    <h5 class="fw-bold">📧 Intéressés par le Plan Pro</h5>
+                    <h5 class="fw-bold">📊 Statistiques rapides</h5>
                 </div>
                 <div class="card-body">
-                    <div class="list-group list-group-flush">
-                        @foreach (var lead in waitingList)
-                        {
-                            <div class="list-group-item bg-transparent px-0 border-bottom">
-                                <p class="mb-0 fw-bold">@lead.Email</p>
-                                <small class="text-muted">Inscrit le @lead.DateInscription.ToString("dd/MM")</small>
-                            </div>
-                        }
-                    </div>
+                    <p><strong>Total avis :</strong> @(Model?.Count() ?? 0)</p>
+                    <p><strong>Total leads :</strong> @(waitingList?.Count() ?? 0)</p>
                 </div>
             </div>
         </div>

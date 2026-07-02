@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AdGestionHub.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260630172030_AddBarcodeToProduct")]
-    partial class AddBarcodeToProduct
+    [Migration("20260702131837_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -47,10 +47,6 @@ namespace AdGestionHub.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 
@@ -77,10 +73,6 @@ namespace AdGestionHub.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("StoreName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
@@ -89,6 +81,8 @@ namespace AdGestionHub.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BoutiqueId");
 
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
@@ -109,17 +103,25 @@ namespace AdGestionHub.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Adresse")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("Nom")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("OwnerEmail")
+                    b.Property<string>("Telephone")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -460,9 +462,6 @@ namespace AdGestionHub.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Barcode")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<int?>("BoutiqueId")
                         .HasColumnType("int");
 
@@ -493,10 +492,6 @@ namespace AdGestionHub.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Barcode")
-                        .IsUnique()
-                        .HasFilter("[Barcode] IS NOT NULL");
 
                     b.HasIndex("BoutiqueId");
 
@@ -640,10 +635,45 @@ namespace AdGestionHub.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.ApplicationUser", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", "Boutique")
+                        .WithMany("Users")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Boutique");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Debt", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany("Debts")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.ErrorLog", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany("ErrorLogs")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Expense", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany("Expenses")
+                        .HasForeignKey("BoutiqueId");
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.Sale", b =>
                 {
                     b.HasOne("AdGestionHub.Models.Boutique", "Boutique")
-                        .WithMany()
+                        .WithMany("Sales")
                         .HasForeignKey("BoutiqueId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -660,6 +690,31 @@ namespace AdGestionHub.Migrations
                         .IsRequired();
 
                     b.Navigation("Sale");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.StoreSettings", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany("StoreSettings")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.SystemLog", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany("SystemLogs")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Product", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany("Products")
+                        .HasForeignKey("BoutiqueId");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -711,6 +766,25 @@ namespace AdGestionHub.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Boutique", b =>
+                {
+                    b.Navigation("Debts");
+
+                    b.Navigation("ErrorLogs");
+
+                    b.Navigation("Expenses");
+
+                    b.Navigation("Products");
+
+                    b.Navigation("Sales");
+
+                    b.Navigation("StoreSettings");
+
+                    b.Navigation("SystemLogs");
+
+                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("AdGestionHub.Models.Sale", b =>

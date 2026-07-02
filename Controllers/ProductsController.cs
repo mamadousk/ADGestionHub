@@ -2,200 +2,169 @@
 using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "AdminOrSuperAdmin")]
     public class ProductsController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ICacheService _cacheService;
-        private readonly ILogger<ProductsController> _logger;
+        private readonly IBoutiqueService _boutiqueService;
 
-        public ProductsController(
-            ApplicationDbContext context,
-            UserManager<ApplicationUser> userManager,
-            ICacheService cacheService,
-            ILogger<ProductsController> logger)
+        public ProductsController(ApplicationDbContext context, IBoutiqueService boutiqueService)
         {
             _context = context;
-            _userManager = userManager;
-            _cacheService = cacheService;
-            _logger = logger;
+            _boutiqueService = boutiqueService;
         }
 
-        // ========== INDEX ==========
+        // GET: Products
         public async Task<IActionResult> Index()
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
-            var cacheKey = $"Products_List_{user.BoutiqueId ?? 0}";
-
-            var products = await _cacheService.GetOrSetAsync(cacheKey, async () =>
-            {
-                IQueryable<Product> query = _context.Products.AsNoTracking();
-                if (!User.IsInRole("SuperAdmin"))
-                    query = query.Where(p => p.BoutiqueId == user.BoutiqueId);
-                return await query.ToListAsync();
-            }, TimeSpan.FromMinutes(5));
+            var products = await _context.Products
+                .Where(p => p.BoutiqueId == boutiqueId)
+                .ToListAsync();
 
             return View(products);
         }
 
-        // ========== DETAILS ==========
+        // GET: Products/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
 
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
             var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
+                .Where(p => p.BoutiqueId == boutiqueId && p.Id == id)
+                .FirstOrDefaultAsync();
 
             if (product == null) return NotFound();
-
             return View(product);
         }
 
-        // ========== CREATE (GET) ==========
-        public IActionResult Create() => View();
+        // GET: Products/Create
+        public IActionResult Create()
+        {
+            return View();
+        }
 
-        // ========== CREATE (POST) ==========
+        // POST: Products/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations")] Product product)
+        public async Task<IActionResult> Create([Bind("Nom,Description,PrixAchat,PrixVente,Quantite,SeuilAlerte")] Product product)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
-
             if (ModelState.IsValid)
             {
-                product.BoutiqueId = user.BoutiqueId;
-                product.UserId = user.Id;
+                var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+                if (boutiqueId == null) return Unauthorized();
+
+                product.BoutiqueId = boutiqueId.Value;
                 _context.Add(product);
                 await _context.SaveChangesAsync();
 
-                await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
-                TempData["SuccessMessage"] = "Produit créé avec succès !";
+                TempData["SuccessMessage"] = "Produit ajouté avec succès.";
                 return RedirectToAction(nameof(Index));
             }
             return View(product);
         }
 
-        // ========== EDIT (GET) ==========
+        // GET: Products/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
 
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
             var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
+                .Where(p => p.BoutiqueId == boutiqueId && p.Id == id)
+                .FirstOrDefaultAsync();
 
             if (product == null) return NotFound();
-
             return View(product);
         }
 
-        // ========== EDIT (POST) ==========
+        // POST: Products/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Name,PurchasePrice,SalePrice,StockQuantity,LowStockThreshold,StockAlertThreshold,Variations")] Product product)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Nom,Description,PrixAchat,PrixVente,Quantite,SeuilAlerte,BoutiqueId")] Product product)
         {
             if (id != product.Id) return NotFound();
 
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
-            var existingProduct = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
+            if (product.BoutiqueId != boutiqueId)
+                return Forbid();
 
-            if (existingProduct == null) return NotFound();
-
-            if (!ModelState.IsValid)
-                return View(product);
-
-            try
+            if (ModelState.IsValid)
             {
-                existingProduct.Name = product.Name;
-                existingProduct.PurchasePrice = product.PurchasePrice;
-                existingProduct.SalePrice = product.SalePrice;
-                existingProduct.StockQuantity = product.StockQuantity;
-                existingProduct.LowStockThreshold = product.LowStockThreshold;
-                existingProduct.StockAlertThreshold = product.StockAlertThreshold;
-                existingProduct.Variations = product.Variations;
-
-                _context.Update(existingProduct);
-                await _context.SaveChangesAsync();
-
-                await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
-                await _cacheService.RemoveAsync($"Product_Details_{id}_{user.BoutiqueId ?? 0}");
-
-                TempData["SuccessMessage"] = "Produit mis à jour avec succès !";
+                try
+                {
+                    _context.Update(product);
+                    await _context.SaveChangesAsync();
+                    TempData["SuccessMessage"] = "Produit mis à jour.";
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!ProductExists(product.Id))
+                        return NotFound();
+                    else
+                        throw;
+                }
                 return RedirectToAction(nameof(Index));
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!await ProductExists(id)) return NotFound();
-                else throw;
-            }
+            return View(product);
         }
 
-        // ========== DELETE ==========
+        // GET: Products/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
 
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
             var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
+                .Where(p => p.BoutiqueId == boutiqueId && p.Id == id)
+                .FirstOrDefaultAsync();
 
             if (product == null) return NotFound();
-
             return View(product);
         }
 
+        // POST: Products/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null) return Challenge();
+            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
+            if (boutiqueId == null) return Unauthorized();
 
             var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == user.BoutiqueId);
+                .Where(p => p.BoutiqueId == boutiqueId && p.Id == id)
+                .FirstOrDefaultAsync();
 
             if (product != null)
             {
                 _context.Products.Remove(product);
                 await _context.SaveChangesAsync();
-
-                await _cacheService.RemoveAsync($"Products_List_{user.BoutiqueId ?? 0}");
-                await _cacheService.RemoveAsync($"Product_Details_{id}_{user.BoutiqueId ?? 0}");
-
-                TempData["SuccessMessage"] = "Produit supprimé avec succès !";
+                TempData["SuccessMessage"] = "Produit supprimé.";
             }
-
             return RedirectToAction(nameof(Index));
         }
 
-        private async Task<bool> ProductExists(int id)
+        private bool ProductExists(int id)
         {
-            return await _context.Products.AnyAsync(e => e.Id == id);
+            return _context.Products.Any(e => e.Id == id);
         }
     }
 }

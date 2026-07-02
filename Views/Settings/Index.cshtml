@@ -1,71 +1,103 @@
-﻿<!-- ==================== FILE: Views/Settings/Index.cshtml ==================== -->
-@model AdGestionHub.Models.StoreSettings
-
+﻿@model AdGestionHub.Models.StoreSettings
 @{
-    ViewData["Title"] = "Paramètres du Magasin";
+    ViewData["Title"] = "Paramètres de la boutique";
 }
 
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-white border-0 py-4 px-4">
-                <h3 class="fw-bold mb-0"><i class="fas fa-store text-primary me-2"></i>Configuration du profil</h3>
-                <p class="text-muted small">Ces informations apparaîtront sur vos factures et reçus de vente.</p>
-            </div>
-            <div class="card-body p-4">
-                @if (TempData["Success"] != null)
-                {
-                    <div class="alert alert-success border-0 shadow-sm rounded-4 d-flex align-items-center" role="alert">
-                        <i class="fas fa-check-circle me-3 fa-lg"></i>
-                        <div>@TempData["Success"]</div>
-                    </div>
-                }
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold" style="color:#FF8C00;"><i class="fas fa-sliders-h me-2"></i> Paramètres</h1>
+        <span class="badge bg-light text-dark border px-3 py-2">Gestion de votre boutique</span>
+    </div>
 
-                <form asp-action="Index" method="post">
-                    <input type="hidden" asp-for="Id" />
-                    <input type="hidden" asp-for="BoutiqueId" />
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-4" role="alert">
+            <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
 
-                    <div class="row g-4">
-                        <div class="col-12">
-                            <label asp-for="StoreName" class="form-label fw-semibold">Nom de l'enseigne</label>
-                            <input asp-for="StoreName" class="form-control form-control-modern" placeholder="Ex: AdGestion Boutique" />
-                            <span asp-validation-for="StoreName" class="text-danger"></span>
-                        </div>
+    <div class="card shadow-sm border-0 rounded-4">
+        <div class="card-body p-4 p-lg-5">
+            <form asp-action="Edit" method="post">
+                <!-- Champs cachés -->
+                <input type="hidden" asp-for="Id" />
+                <input type="hidden" asp-for="BoutiqueId" />
+                <input type="hidden" asp-for="StoreName" />
 
-                        <div class="col-md-6">
-                            <label asp-for="PhoneNumber" class="form-label fw-semibold">Téléphone</label>
-                            <input asp-for="PhoneNumber" class="form-control form-control-modern" placeholder="+243 81 00 00 000" />
-                        </div>
-
-                        <div class="col-md-6">
-                            <label asp-for="Email" class="form-label fw-semibold">Email de contact</label>
-                            <input asp-for="Email" class="form-control form-control-modern" type="email" />
-                        </div>
-
-                        <div class="col-12">
-                            <label asp-for="Address" class="form-label fw-semibold">Adresse complète</label>
-                            <input asp-for="Address" class="form-control form-control-modern" placeholder="Kinshasa, Gombe..." />
-                        </div>
-
-                        <div class="col-12">
-                            <label asp-for="ReceiptFooterMessage" class="form-label fw-semibold">Message de bas de facture</label>
-                            <textarea asp-for="ReceiptFooterMessage" class="form-control form-control-modern" rows="2" placeholder="Merci de votre visite !"></textarea>
+                <div class="row g-4">
+                    <!-- Nom de la boutique (lecture seule) -->
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <input type="text" class="form-control form-control-modern" value="@ViewBag.BoutiqueNom" readonly disabled style="background-color: #f8f9fa;" />
+                            <label><i class="fas fa-store me-2"></i>Nom de la boutique</label>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-end mt-4 pt-3 border-top">
-                        <button type="submit" class="btn btn-primary-gradient px-5">
-                            <i class="fas fa-save me-2"></i>Enregistrer
-                        </button>
+                    <!-- Adresse -->
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <input asp-for="Address" class="form-control form-control-modern" placeholder="Adresse" />
+                            <label asp-for="Address"><i class="fas fa-map-pin me-2"></i>Adresse</label>
+                            <span asp-validation-for="Address" class="text-danger small"></span>
+                        </div>
                     </div>
-                </form>
-            </div>
+
+                    <!-- Téléphone -->
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <input asp-for="Phone" class="form-control form-control-modern" placeholder="Téléphone" />
+                            <label asp-for="Phone"><i class="fas fa-phone me-2"></i>Téléphone</label>
+                            <span asp-validation-for="Phone" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Email de contact -->
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <input asp-for="ContactEmail" class="form-control form-control-modern" placeholder="Email de contact" />
+                            <label asp-for="ContactEmail"><i class="fas fa-envelope me-2"></i>Email de contact</label>
+                            <span asp-validation-for="ContactEmail" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="col-12">
+                        <div class="form-floating mb-3">
+                            <textarea asp-for="Description" class="form-control form-control-modern" placeholder="Description de la boutique" style="height: 120px;"></textarea>
+                            <label asp-for="Description"><i class="fas fa-align-left me-2"></i>Description</label>
+                            <span asp-validation-for="Description" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Message de pied de page pour reçu -->
+                    <div class="col-12">
+                        <div class="form-floating mb-3">
+                            <textarea asp-for="FooterMessage" class="form-control form-control-modern" placeholder="Message de remerciement pour les reçus" style="height: 80px;"></textarea>
+                            <label asp-for="FooterMessage"><i class="fas fa-pen me-2"></i>Message de pied de page (reçu)</label>
+                            <span asp-validation-for="FooterMessage" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Actif -->
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" asp-for="IsActive" />
+                            <label class="form-check-label" asp-for="IsActive">Boutique active</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-orange-gradient px-5 py-2">
+                        <i class="fas fa-save me-2"></i> Enregistrer les modifications
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    <partial name="_ValidationScriptsPartial" />
 }

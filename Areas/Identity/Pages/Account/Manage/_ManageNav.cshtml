@@ -1,50 +1,55 @@
-﻿@inject SignInManager<AdGestionHub.Models.ApplicationUser> SignInManager
-@inject UserManager<AdGestionHub.Models.ApplicationUser> UserManager
+﻿@using AdGestionHub.Models
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+
 @{
-    var hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
     var user = await UserManager.GetUserAsync(User);
+    var isAdmin = User.IsInRole("Admin");
+    var isSuperAdmin = User.IsInRole("SuperAdmin");
 }
 
-<div class="d-flex flex-column align-items-center mb-4 pb-3 border-bottom">
-    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mb-2" style="width: 64px; height: 64px; font-size: 1.8rem; font-weight: 600;">
-        @(user?.Email?.Substring(0, 1).ToUpper() ?? "U")
-    </div>
-    <h6 class="fw-bold mb-0">@user?.Email</h6>
-    <small class="text-muted">Gérer votre profil</small>
-</div>
-
-<ul class="nav nav-pills flex-column gap-1">
+<ul class="nav nav-pills flex-column">
     <li class="nav-item">
-        <a class="nav-link rounded-3 @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">
-            <i class="fas fa-user me-2"></i> Mon Profil
+        <a class="nav-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">
+            <i class="fas fa-user me-2"></i> Profil
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link rounded-3 @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">
+        <a class="nav-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">
             <i class="fas fa-envelope me-2"></i> Email
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link rounded-3 @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">
+        <a class="nav-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">
             <i class="fas fa-key me-2"></i> Mot de passe
         </a>
     </li>
-    @if (hasExternalLogins)
-    {
-        <li id="external-logins" class="nav-item">
-            <a id="external-login" class="nav-link rounded-3 @ManageNavPages.ExternalLoginsNavClass(ViewContext)" asp-page="./ExternalLogins">
-                <i class="fas fa-sign-in-alt me-2"></i> Connexions externes
-            </a>
-        </li>
-    }
     <li class="nav-item">
-        <a class="nav-link rounded-3 @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">
+        <a class="nav-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">
             <i class="fas fa-shield-alt me-2"></i> Authentification à deux facteurs
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link rounded-3 @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">
+        <a class="nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">
             <i class="fas fa-database me-2"></i> Données personnelles
         </a>
     </li>
+
+    @if (isAdmin || isSuperAdmin)
+    {
+        <li class="nav-item mt-3">
+            <a class="nav-link text-primary fw-bold" asp-controller="Settings" asp-action="Index">
+                <i class="fas fa-store me-2"></i> Gérer ma boutique
+            </a>
+        </li>
+    }
+    @if (isSuperAdmin)
+    {
+        <li class="nav-item">
+            <a class="nav-link text-danger fw-bold" asp-controller="SuperAdmin" asp-action="Index">
+                <i class="fas fa-user-shield me-2"></i> Console SuperAdmin
+            </a>
+        </li>
+    }
 </ul>

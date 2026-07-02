@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Rotativa.AspNetCore;
 using System;
 using System.Collections.Generic;
@@ -18,18 +19,24 @@ namespace AdGestionHub.Controllers
     [Authorize]
     public class SalesController : Controller
     {
+        private static readonly string[] AllowedPaymentMethods =
+            { "Cash", "M-Pesa", "Airtel Money", "Orange Money", "Carte Bancaire" };
+
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IStockService _stockService;
+        private readonly ILogger<SalesController> _logger;
 
         public SalesController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            IStockService stockService)
+            IStockService stockService,
+            ILogger<SalesController> logger)
         {
             _context = context;
             _userManager = userManager;
             _stockService = stockService;
+            _logger = logger;
         }
 
         // ========== LISTE DES VENTES ==========
@@ -84,103 +91,121 @@ namespace AdGestionHub.Controllers
         }
 
         // ========== CRÉER UNE VENTE (POST) ==========
+        // Le navigateur envoie seulement : produit, quantité (et un prix, pris en compte pour les Admin uniquement).
+        // Prix catalogue, nom du produit, boutique, date et total sont décidés ici, côté serveur.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Sale sale)
+        public async Task<IActionResult> Create(SaleCreateViewModel model)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null || user.BoutiqueId == null)
                 return Challenge();
 
-            if (sale.Items == null || !sale.Items.Any())
-            {
-                ModelState.AddModelError("", "Le panier ne peut pas être vide.");
-                var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
-                ViewBag.ProductId = new SelectList(products, "Id", "Name");
-                return View(sale);
-            }
+            var boutiqueId = user.BoutiqueId.Value;
+            var items = model.Items ?? new List<SaleCreateItemViewModel>();
 
-            var itemsToProcess = sale.Items.ToList();
-            sale.Items = new List<SaleItem>();
+            if (!ModelState.IsValid)
+                return await CreateViewWithErrorAsync(model, boutiqueId, null);
 
-            using (var transaction = await _context.Database.BeginTransactionAsync())
+            if (items.Count == 0)
+                return await CreateViewWithErrorAsync(model, boutiqueId, "Le panier ne peut pas être vide.");
+
+            var paymentMethod = string.IsNullOrWhiteSpace(model.PaymentMethod) ? "Cash" : model.PaymentMethod;
+            if (!AllowedPaymentMethods.Contains(paymentMethod))
+                return await CreateViewWithErrorAsync(model, boutiqueId, "Moyen de paiement invalide.");
+
+            // Seul un Admin peut vendre à un prix différent du prix catalogue (remise, négociation).
+            var canOverridePrice = User.IsInRole("Admin");
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                try
+                var sale = new Sale
                 {
-                    // 1. Vérification des stocks
-                    foreach (var item in itemsToProcess.Where(i => i.ProductId.HasValue))
+                    SaleDate = DateTime.Now,
+                    BoutiqueId = boutiqueId,
+                    CustomerName = string.IsNullOrWhiteSpace(model.CustomerName) ? null : model.CustomerName.Trim(),
+                    PaymentMethod = paymentMethod
+                };
+
+                decimal total = 0;
+
+                foreach (var line in items)
+                {
+                    var product = await _context.Products
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.Id == line.ProductId && p.BoutiqueId == boutiqueId);
+
+                    if (product == null)
                     {
-                        var product = await _context.Products
-                            .FirstOrDefaultAsync(p => p.Id == item.ProductId && p.BoutiqueId == user.BoutiqueId);
-
-                        if (product == null)
-                        {
-                            ModelState.AddModelError("", $"Produit '{item.ProductName}' introuvable dans votre boutique.");
-                            var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
-                            ViewBag.ProductId = new SelectList(products, "Id", "Name");
-                            return View(sale);
-                        }
-
-                        if (!await _stockService.CheckStockAvailabilityAsync(product.Id, item.Quantity))
-                        {
-                            ModelState.AddModelError("", $"Stock insuffisant pour le produit '{product.Name}'. Disponible : {product.StockQuantity}, demandé : {item.Quantity}");
-                            var products = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
-                            ViewBag.ProductId = new SelectList(products, "Id", "Name");
-                            return View(sale);
-                        }
+                        await transaction.RollbackAsync();
+                        return await CreateViewWithErrorAsync(model, boutiqueId,
+                            "Un des produits du panier est introuvable dans votre boutique.");
                     }
 
-                    // 2. Création de la vente
-                    sale.SaleDate = DateTime.Now;
-                    sale.BoutiqueId = user.BoutiqueId.Value;
-
-                    var culture = CultureInfo.InvariantCulture;
-                    sale.FinalPrice = itemsToProcess.Sum(i =>
+                    // Décrémentation atomique : échoue si le stock est insuffisant,
+                    // y compris quand le même produit apparaît sur plusieurs lignes.
+                    var deducted = await _stockService.TryDeductStockAsync(product.Id, boutiqueId, line.Quantity);
+                    if (!deducted)
                     {
-                        decimal unitPrice = Convert.ToDecimal(i.UnitPrice, culture);
-                        return unitPrice * i.Quantity;
+                        await transaction.RollbackAsync();
+                        return await CreateViewWithErrorAsync(model, boutiqueId,
+                            $"Stock insuffisant pour le produit '{product.Name}' (quantité demandée : {line.Quantity}).");
+                    }
+
+                    var unitPrice = product.SalePrice;
+                    if (canOverridePrice && line.UnitPrice.HasValue && line.UnitPrice.Value > 0)
+                        unitPrice = decimal.Round(line.UnitPrice.Value, 2);
+
+                    sale.Items.Add(new SaleItem
+                    {
+                        ProductId = product.Id,
+                        ProductName = product.Name,
+                        UnitPrice = unitPrice,
+                        Quantity = line.Quantity,
+                        BoutiqueId = boutiqueId
                     });
 
-                    _context.Sales.Add(sale);
-                    await _context.SaveChangesAsync();
-
-                    // 3. Ajout des articles et déduction des stocks
-                    foreach (var item in itemsToProcess)
-                    {
-                        var newItem = new SaleItem
-                        {
-                            SaleId = sale.Id,
-                            ProductName = item.ProductName,
-                            UnitPrice = Convert.ToDecimal(item.UnitPrice, CultureInfo.InvariantCulture),
-                            Quantity = item.Quantity,
-                            ProductId = item.ProductId <= 0 ? null : item.ProductId,
-                            BoutiqueId = user.BoutiqueId.Value
-                        };
-
-                        if (newItem.ProductId != null)
-                        {
-                            await _stockService.DeductStockAsync(newItem.ProductId.Value, newItem.Quantity);
-                        }
-
-                        _context.SaleItems.Add(newItem);
-                    }
-
-                    await _context.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    TempData["SuccessMessage"] = "Vente enregistrée avec succès !";
-                    return RedirectToAction(nameof(Index));
+                    total += unitPrice * line.Quantity;
                 }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    ModelState.AddModelError("", "Erreur base de données : " + (ex.InnerException?.Message ?? ex.Message));
-                }
+
+                sale.FinalPrice = total;
+
+                _context.Sales.Add(sale);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                TempData["SuccessMessage"] = "Vente enregistrée avec succès !";
+                return RedirectToAction(nameof(Index));
             }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Échec de l'enregistrement d'une vente pour la boutique {BoutiqueId}", boutiqueId);
+                return await CreateViewWithErrorAsync(model, boutiqueId,
+                    "Une erreur est survenue, la vente n'a pas été enregistrée. Veuillez réessayer.");
+            }
+        }
 
-            var productsList = await _context.Products.Where(p => p.BoutiqueId == user.BoutiqueId).ToListAsync();
-            ViewBag.ProductId = new SelectList(productsList, "Id", "Name");
-            return View(sale);
+        // Réaffiche le formulaire avec la liste des produits (le panier est reconstruit côté navigateur).
+        private async Task<IActionResult> CreateViewWithErrorAsync(SaleCreateViewModel model, int boutiqueId, string? error)
+        {
+            if (!string.IsNullOrEmpty(error))
+                ModelState.AddModelError(string.Empty, error);
+
+            var products = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.BoutiqueId == boutiqueId)
+                .OrderBy(p => p.Name)
+                .ToListAsync();
+
+            ViewBag.ProductId = new SelectList(products, "Id", "Name");
+
+            return View(new Sale
+            {
+                CustomerName = model.CustomerName,
+                PaymentMethod = model.PaymentMethod
+            });
         }
 
         // ========== TÉLÉCHARGER LE REÇU ==========

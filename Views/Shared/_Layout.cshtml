@@ -1,4 +1,5 @@
 ﻿@inject AdGestionHub.Data.ApplicationDbContext _context
+
 @{
     AdGestionHub.Models.GlobalNotification activeNotification = null;
     try
@@ -7,7 +8,13 @@
             .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
     }
     catch { /* Ignorer les erreurs de DB si la table n'existe pas encore */ }
+
+    // Déterminer si on est sur une page d'authentification (Identity/Account)
+    var isIdentityPage = ViewContext.RouteData.Values["area"]?.ToString() == "Identity";
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString()?.ToLower();
+    var isAuthPage = isIdentityPage && (currentPage?.Contains("login") == true || currentPage?.Contains("register") == true || currentPage?.Contains("logout") == true);
 }
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -15,26 +22,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - AdGestionHub</title>
 
-    <!-- Preload des polices pour un chargement plus rapide -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" as="style" />
 
-    <!-- Bootstrap & FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <!-- Notre CSS sur mesure (version optimisée) -->
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AdGestionHub.styles.css" asp-append-version="true" />
 
-    <!-- Chargement différé des scripts non critiques -->
     <script defer src="~/lib/jquery/dist/jquery.min.js"></script>
     <script defer src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script defer src="~/js/site.js" asp-append-version="true"></script>
 </head>
 <body>
     <header>
-        <!-- Notification Globale -->
         @if (activeNotification != null)
         {
             <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") text-center mb-0 py-2" style="border-radius:0; position: fixed; top: 0; width: 100%; z-index: 1060; font-weight: 500;">
@@ -47,12 +49,12 @@
             </style>
         }
 
-        <!-- Navbar Moderne -->
         <nav class="navbar navbar-expand-lg navbar-main fixed-top">
             <div class="container">
                 <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="@(User.Identity.IsAuthenticated ? "Index" : "Welcome")">
                     Ad<span>GestionHub</span>
                 </a>
+
                 <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -61,7 +63,7 @@
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         @if (User.Identity.IsAuthenticated)
                         {
-                            @if (User.IsInRole("SuperAdmin"))
+                            if (User.IsInRole("SuperAdmin"))
                             {
                                 <li class="nav-item dropdown">
                                     <a class="nav-link dropdown-toggle fw-semibold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
@@ -105,7 +107,7 @@
                                     <span class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.8rem; font-weight: 600;">
                                         @User.Identity.Name?.Substring(0, 1).ToUpper()
                                     </span>
-                                    <span class="d-none d-lg-inline">@User.Identity.Name</span>
+                                    <span class="d-none d-lg-inline">@(User.Identity.Name?.Split('@')[0] ?? "Utilisateur")</span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-3 mt-2">
                                     <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index"><i class="fas fa-user-cog me-2"></i> Mon Profil</a></li>
@@ -124,8 +126,15 @@
                         }
                         else
                         {
-                            <li class="nav-item"><a href="/Identity/Account/Login" class="btn btn-outline-orange btn-sm px-4">Connexion</a></li>
-                            <li class="nav-item"><a href="/Identity/Account/Register" class="btn btn-orange btn-sm px-4">Essayer Gratuitement</a></li>
+                            if (!isAuthPage)
+                            {
+                                <li class="nav-item">
+                                    <a class="btn btn-outline-orange btn-sm px-4" asp-area="Identity" asp-page="/Account/Login">Connexion</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="btn btn-orange btn-sm px-4" asp-area="Identity" asp-page="/Account/Register">Essayer Gratuitement</a>
+                                </li>
+                            }
                         }
                     </ul>
                 </div>
@@ -144,6 +153,7 @@
                 </div>
             </div>
         }
+
         @if (TempData["ErrorMessage"] != null)
         {
             <div class="container mt-3">
@@ -177,6 +187,7 @@
                         </span>
                     </div>
                 </div>
+
                 <div class="col-lg-4">
                     <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
                         <i class="fas fa-gavel me-2"></i> Informations légales
@@ -196,6 +207,7 @@
                         </a>
                     </div>
                 </div>
+
                 <div class="col-lg-4">
                     <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
                         <i class="fas fa-address-card me-2"></i> Contact
@@ -214,6 +226,7 @@
                     </div>
                 </div>
             </div>
+
             <hr class="border-secondary opacity-25 my-4" />
             <div class="text-center small text-light" style="opacity: 0.7;">
                 &copy; @DateTime.Now.Year <strong>AdGestionHub</strong>. Un produit de
@@ -224,9 +237,7 @@
     </footer>
 
     <partial name="_CookieConsentPartial" />
-
     @await RenderSectionAsync("Scripts", required: false)
-
     <!-- Modal Feedback (Global) -->
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -259,11 +270,5 @@
             </div>
         </div>
     </div>
-
-    <!-- Scripts chargés dynamiquement pour les pages qui en ont besoin -->
-    @if (IsSectionDefined("Scripts"))
-    {
-        @await RenderSectionAsync("Scripts", required: false)
-    }
 </body>
 </html>

@@ -39,6 +39,22 @@ namespace AdGestionHub.Services
             return true;
         }
 
+        public async Task<bool> TryDeductStockAsync(int productId, int boutiqueId, int quantity)
+        {
+            if (quantity <= 0)
+                return false;
+
+            // UPDATE ... WHERE StockQuantity >= quantity : deux ventes simultanées ne peuvent pas
+            // descendre sous zéro, la seconde obtient 0 ligne modifiée.
+            var rows = await _context.Products
+                .Where(p => p.Id == productId
+                         && p.BoutiqueId == boutiqueId
+                         && p.StockQuantity >= quantity)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity - quantity));
+
+            return rows == 1;
+        }
+
         public async Task<bool> RestoreStockAsync(int productId, int quantity)
         {
             var product = await _context.Products
