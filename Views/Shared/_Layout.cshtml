@@ -225,6 +225,7 @@
 
     <partial name="_CookieConsentPartial" />
 
+    <!-- UN SEUL APPEL À RenderSectionAsync pour la section Scripts -->
     @await RenderSectionAsync("Scripts", required: false)
 
     <!-- Modal Feedback (Global) -->
@@ -260,10 +261,5 @@
         </div>
     </div>
 
-    <!-- Scripts chargés dynamiquement pour les pages qui en ont besoin -->
-    @if (IsSectionDefined("Scripts"))
-    {
-        @await RenderSectionAsync("Scripts", required: false)
-    }
 </body>
 </html>
