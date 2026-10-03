@@ -237,6 +237,8 @@
     </footer>
 
     <partial name="_CookieConsentPartial" />
+
+    <!-- UN SEUL APPEL À RenderSectionAsync pour la section Scripts -->
     @await RenderSectionAsync("Scripts", required: false)
     <!-- Modal Feedback (Global) -->
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-hidden="true">
@@ -270,5 +272,6 @@
             </div>
         </div>
     </div>
+
 </body>
 </html>
