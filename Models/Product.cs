@@ -11,13 +11,24 @@ public class Product
     [Display(Name = "Nom du produit")]
     public string Name { get; set; } = string.Empty;
 
-    [Range(0, 100000000, ErrorMessage = "Le prix d'achat doit être positif ou nul.")]
+    [StringLength(60)]
+    [Display(Name = "Référence / SKU")]
+    public string? Sku { get; set; }
+
+    [Range(0, 100000000000, ErrorMessage = "Le prix d'achat doit être positif ou nul.")]
     [Display(Name = "Prix d'achat")]
     public decimal PurchasePrice { get; set; }
 
-    [Range(0, 100000000, ErrorMessage = "Le prix de vente doit être positif ou nul.")]
+    [Range(0, 100000000000, ErrorMessage = "Le prix de vente doit être positif ou nul.")]
     [Display(Name = "Prix de vente")]
     public decimal SalePrice { get; set; }
+
+    /// <summary>
+    /// Taux de TVA spécifique au produit (%). Si null et que la TVA est activée, le taux standard de la boutique s'applique.
+    /// Ignoré lorsque la TVA est désactivée.
+    /// </summary>
+    [Range(0, 100, ErrorMessage = "Le taux de TVA doit être compris entre 0 et 100.")]
+    public decimal? VatRate { get; set; }
 
     [Range(0, 10000000, ErrorMessage = "La quantité doit être positive ou nulle.")]
     [Display(Name = "Quantité en stock")]

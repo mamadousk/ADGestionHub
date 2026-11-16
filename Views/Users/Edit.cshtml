@@ -1,74 +1,69 @@
 @model AdGestionHub.Models.ViewModels.EditUserViewModel
 @{
-    ViewData["Title"] = "Modifier un employé";
+    ViewData["Title"] = L.T("Modifier l'utilisateur", "Edit Staff Account");
 }
 
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h4 class="fw-bold mb-0"><i class="fas fa-user-edit text-primary me-2"></i> Modifier @Model.UserName</h4>
-                <p class="text-muted small mb-0">Mettez à jour les coordonnées ou réinitialisez le mot de passe de l'employé.</p>
-            </div>
-            <div class="card-body p-4">
-                <form asp-action="Edit" method="post">
-                    <input type="hidden" asp-for="Id" />
-                    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-modern" role="alert"></div>
+    <div class="col-lg-7">
+        <div class="panel-card p-4">
+            <h1 class="h5 mb-1">@ViewData["Title"] — @Model.UserName</h1>
+            <p class="text-slate small mb-4">@L.T("Mettez à jour les informations ou réinitialisez le mot de passe.", "Update account information or reset password.")</p>
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label asp-for="UserName" class="form-label fw-semibold"></label>
-                            <input asp-for="UserName" class="form-control form-control-modern" />
-                            <span asp-validation-for="UserName" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="FullName" class="form-label fw-semibold"></label>
-                            <input asp-for="FullName" class="form-control form-control-modern" />
-                            <span asp-validation-for="FullName" class="text-danger small"></span>
-                        </div>
+            <form asp-action="Edit" method="post">
+                <input type="hidden" asp-for="Id" />
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3"></div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="UserName" class="form-label">@L.T("Identifiant", "Username")</label>
+                        <input asp-for="UserName" class="form-control" />
+                        <span asp-validation-for="UserName" class="text-sober-red small"></span>
                     </div>
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label asp-for="Email" class="form-label fw-semibold"></label>
-                            <input asp-for="Email" class="form-control form-control-modern" />
-                            <span asp-validation-for="Email" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="Role" class="form-label fw-semibold"></label>
-                            <select asp-for="Role" class="form-select form-control-modern" asp-items="@(new SelectList(ViewBag.Roles))">
-                            </select>
-                            <span asp-validation-for="Role" class="text-danger small"></span>
-                        </div>
+                    <div class="col-md-6">
+                        <label asp-for="FullName" class="form-label">@L.T("Nom complet", "Full Name")</label>
+                        <input asp-for="FullName" class="form-control" />
+                        <span asp-validation-for="FullName" class="text-sober-red small"></span>
                     </div>
+                </div>
 
-                    <hr class="my-4" />
-                    <h6 class="fw-bold mb-3">Changer le mot de passe (optionnel)</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="Email" class="form-label">Email</label>
+                        <input asp-for="Email" class="form-control" />
+                        <span asp-validation-for="Email" class="text-sober-red small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Role" class="form-label">@L.T("Rôle", "Role")</label>
+                        <select asp-for="Role" class="form-select" asp-items="@(new SelectList(ViewBag.Roles))"></select>
+                        <span asp-validation-for="Role" class="text-sober-red small"></span>
+                    </div>
+                </div>
+
+                <div class="border-top pt-3 mb-4">
+                    <div class="fw-semibold small mb-2">@L.T("Réinitialiser le mot de passe (optionnel)", "Reset Password (optional)")</div>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label asp-for="NewPassword" class="form-label fw-semibold">Nouveau mot de passe</label>
-                            <input asp-for="NewPassword" class="form-control form-control-modern" placeholder="Laisser vide pour conserver l'actuel" />
-                            <span asp-validation-for="NewPassword" class="text-danger small"></span>
+                            <label asp-for="NewPassword" class="form-label">@L.T("Nouveau mot de passe", "New password")</label>
+                            <input asp-for="NewPassword" class="form-control" />
+                            <span asp-validation-for="NewPassword" class="text-sober-red small"></span>
                         </div>
                         <div class="col-md-6">
-                            <label asp-for="ConfirmNewPassword" class="form-label fw-semibold">Confirmer</label>
-                            <input asp-for="ConfirmNewPassword" class="form-control form-control-modern" placeholder="Confirmer" />
-                            <span asp-validation-for="ConfirmNewPassword" class="text-danger small"></span>
+                            <label asp-for="ConfirmNewPassword" class="form-label">@L.T("Confirmer", "Confirm")</label>
+                            <input asp-for="ConfirmNewPassword" class="form-control" />
+                            <span asp-validation-for="ConfirmNewPassword" class="text-sober-red small"></span>
                         </div>
                     </div>
+                </div>
 
-                    <div class="d-flex gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary-gradient px-5 py-2">
-                            <i class="fas fa-save me-2"></i> Enregistrer
-                        </button>
-                        <a asp-action="Index" class="btn btn-soft px-4 py-2">Annuler</a>
-                    </div>
-                </form>
-            </div>
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Cancel"]</a>
+                    <button type="submit" class="btn btn-accent">@L["Action.Save"]</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <partial name="_ValidationScriptsPartial" />
 }

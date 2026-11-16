@@ -37,11 +37,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
-// --- SERVICES MÉTIER ---
+// --- SERVICES MÉTIER & LOCALISATION ---
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAppLocalizer, AppLocalizer>();
 builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<IBoutiqueService, BoutiqueService>();
+builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<IProfitService, ProfitService>();
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IPdfReportService, PdfReportService>();
@@ -94,7 +96,6 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>();
 
-// Revalidation rapide du SecurityStamp (changement de rôle, mot de passe ou révocation d'employé)
 builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 {
     options.ValidationInterval = TimeSpan.FromMinutes(5);
@@ -183,15 +184,26 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-// --- Culture ---
+// --- LOCALISATION FR / EN ---
 var frCulture = new CultureInfo("fr-FR");
-var supportedCultures = new[] { frCulture };
-app.UseRequestLocalization(new RequestLocalizationOptions
+var enCulture = new CultureInfo("en-US");
+var supportedCultures = new[] { frCulture, enCulture };
+var localizationOptions = new RequestLocalizationOptions
 {
     DefaultRequestCulture = new RequestCulture(frCulture),
     SupportedCultures = supportedCultures,
     SupportedUICultures = supportedCultures
-});
+};
+localizationOptions.RequestCultureProviders.Insert(0, new CustomRequestCultureProvider(ctx =>
+{
+    if (ctx.Request.Cookies.TryGetValue(AppLocalizer.LanguageCookieName, out var lang))
+    {
+        var culture = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase) ? "en-US" : "fr-FR";
+        return Task.FromResult<ProviderCultureResult?>(new ProviderCultureResult(culture, culture));
+    }
+    return Task.FromResult<ProviderCultureResult?>(null);
+}));
+app.UseRequestLocalization(localizationOptions);
 
 // --- Migration automatique & Seed des rôles / SuperAdmin ---
 using (var scope = app.Services.CreateScope())
@@ -230,7 +242,6 @@ app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        // Cache long uniquement lorsque le fichier est versionné (?v=...) ou dans /lib/
         var hasVersion = ctx.Context.Request.Query.ContainsKey("v")
                       || ctx.Context.Request.Path.StartsWithSegments("/lib");
         ctx.Context.Response.Headers["Cache-Control"] = hasVersion
@@ -251,13 +262,10 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Welcome}/{id?}");
 app.MapRazorPages();
-
-// --- HEALTH CHECKS (limité aux sondes internes / SuperAdmin ou diagnostic simple sans fuite d'info) ---
 app.MapHealthChecks("/health");
 
 app.Run();
 
-// --- Health Check personnalisé ---
 public class DbHealthCheck : IHealthCheck
 {
     private readonly ApplicationDbContext _context;

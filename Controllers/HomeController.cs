@@ -1,3 +1,7 @@
+using System;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
@@ -5,10 +9,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -17,20 +17,20 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IProfitService _profitService;
+        private readonly ITenantContextService _tenantContext;
         private readonly IStockService _stockService;
         private readonly ICacheService _cacheService;
 
         public HomeController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            IProfitService profitService,
+            ITenantContextService tenantContext,
             IStockService stockService,
             ICacheService cacheService)
         {
             _context = context;
             _userManager = userManager;
-            _profitService = profitService;
+            _tenantContext = tenantContext;
             _stockService = stockService;
             _cacheService = cacheService;
         }
@@ -57,6 +57,8 @@ namespace AdGestionHub.Controllers
                 return Challenge();
 
             var boutiqueId = user.BoutiqueId.Value;
+            var ctx = await _tenantContext.GetContextAsync();
+            var primaryCode = ctx.PrimaryCurrency.Code;
             var cacheKey = $"Dashboard_{boutiqueId}";
 
             var model = await _cacheService.GetOrSetAsync(cacheKey, async () =>
@@ -66,32 +68,33 @@ namespace AdGestionHub.Controllers
                 var currentMonthStart = new DateTime(today.Year, today.Month, 1);
                 var prevMonthStart = currentMonthStart.AddMonths(-1);
 
-                var totalSales = await _context.Sales
+                var activeSalesQuery = _context.Sales
                     .AsNoTracking()
-                    .Where(s => s.BoutiqueId == boutiqueId)
-                    .SumAsync(s => s.FinalPrice);
+                    .Where(s => s.BoutiqueId == boutiqueId && !s.IsCancelled && s.CurrencyCode == primaryCode);
+
+                var totalSales = await activeSalesQuery.SumAsync(s => s.FinalPrice);
+                var totalTax = await activeSalesQuery.SumAsync(s => s.TaxAmount);
+                var totalSubtotal = await activeSalesQuery.SumAsync(s =>
+                    s.SubtotalNet == 0m && s.TaxAmount == 0m ? s.FinalPrice : s.SubtotalNet);
 
                 var totalTransactions = await _context.Sales
                     .AsNoTracking()
-                    .CountAsync(s => s.BoutiqueId == boutiqueId);
+                    .CountAsync(s => s.BoutiqueId == boutiqueId && !s.IsCancelled);
 
-                var todaySales = await _context.Sales
-                    .AsNoTracking()
-                    .Where(s => s.BoutiqueId == boutiqueId && s.SaleDate >= today && s.SaleDate < tomorrow)
+                var todaySales = await activeSalesQuery
+                    .Where(s => s.SaleDate >= today && s.SaleDate < tomorrow)
                     .SumAsync(s => s.FinalPrice);
 
                 var todayTransactions = await _context.Sales
                     .AsNoTracking()
-                    .CountAsync(s => s.BoutiqueId == boutiqueId && s.SaleDate >= today && s.SaleDate < tomorrow);
+                    .CountAsync(s => s.BoutiqueId == boutiqueId && !s.IsCancelled && s.SaleDate >= today && s.SaleDate < tomorrow);
 
-                var currentMonthSales = await _context.Sales
-                    .AsNoTracking()
-                    .Where(s => s.BoutiqueId == boutiqueId && s.SaleDate >= currentMonthStart)
+                var currentMonthSales = await activeSalesQuery
+                    .Where(s => s.SaleDate >= currentMonthStart)
                     .SumAsync(s => s.FinalPrice);
 
-                var prevMonthSales = await _context.Sales
-                    .AsNoTracking()
-                    .Where(s => s.BoutiqueId == boutiqueId && s.SaleDate >= prevMonthStart && s.SaleDate < currentMonthStart)
+                var prevMonthSales = await activeSalesQuery
+                    .Where(s => s.SaleDate >= prevMonthStart && s.SaleDate < currentMonthStart)
                     .SumAsync(s => s.FinalPrice);
 
                 decimal? monthlyGrowth = prevMonthSales > 0m
@@ -100,15 +103,21 @@ namespace AdGestionHub.Controllers
 
                 var totalExpenses = await _context.Expenses
                     .AsNoTracking()
-                    .Where(e => e.BoutiqueId == boutiqueId)
+                    .Where(e => e.BoutiqueId == boutiqueId && e.CurrencyCode == primaryCode)
                     .SumAsync(e => e.Amount);
 
                 var totalDebts = await _context.Debts
                     .AsNoTracking()
-                    .Where(d => d.BoutiqueId == boutiqueId && !d.IsArchived && !d.IsPaid)
+                    .Where(d => d.BoutiqueId == boutiqueId && !d.IsArchived && !d.IsPaid && d.CurrencyCode == primaryCode)
                     .SumAsync(d => d.Amount);
 
-                var grossProfit = await _profitService.CalculateGrossProfitAsync(boutiqueId);
+                var grossProfit = await (
+                    from si in _context.SaleItems.AsNoTracking()
+                    join s in _context.Sales.AsNoTracking() on si.SaleId equals s.Id
+                    where s.BoutiqueId == boutiqueId && !s.IsCancelled && s.CurrencyCode == primaryCode
+                    select (si.UnitPrice - si.UnitCost) * si.Quantity
+                ).SumAsync();
+
                 var netProfit = grossProfit - totalExpenses;
                 var lowStockCount = await _stockService.GetLowStockCountAsync(boutiqueId);
 
@@ -117,7 +126,7 @@ namespace AdGestionHub.Controllers
                     .Include(s => s.Items)
                     .Where(s => s.BoutiqueId == boutiqueId)
                     .OrderByDescending(s => s.SaleDate)
-                    .Take(5)
+                    .Take(6)
                     .ToListAsync();
 
                 var recentExpenses = await _context.Expenses
@@ -138,6 +147,8 @@ namespace AdGestionHub.Controllers
                 return new DashboardViewModel
                 {
                     TotalSales = totalSales,
+                    TotalSubtotalNet = totalSubtotal,
+                    TotalTaxCollected = totalTax,
                     TodaySales = todaySales,
                     TodayTransactions = todayTransactions,
                     TotalExpenses = totalExpenses,
@@ -146,13 +157,23 @@ namespace AdGestionHub.Controllers
                     MonthlyGrowthPercent = monthlyGrowth,
                     TotalTransactions = totalTransactions,
                     LowStockCount = lowStockCount,
+                    IsVatEnabled = ctx.IsVatEnabled,
+                    IsFormalized = ctx.IsFormalized,
+                    CurrencyCode = ctx.PrimaryCurrency.Code,
+                    CurrencySymbol = ctx.PrimaryCurrency.Symbol,
+                    CurrencyDecimals = ctx.PrimaryCurrency.Decimals,
                     RecentSales = recentSales,
                     RecentExpenses = recentExpenses,
                     LowStockProducts = lowStockProducts
                 };
             }, TimeSpan.FromMinutes(2));
 
-            ViewBag.TotalDebts = model.TotalDebts;
+            model.IsVatEnabled = ctx.IsVatEnabled;
+            model.IsFormalized = ctx.IsFormalized;
+            model.CurrencyCode = ctx.PrimaryCurrency.Code;
+            model.CurrencySymbol = ctx.PrimaryCurrency.Symbol;
+            model.CurrencyDecimals = ctx.PrimaryCurrency.Decimals;
+
             return View(model);
         }
 

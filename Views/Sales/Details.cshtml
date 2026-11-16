@@ -1,78 +1,149 @@
 @model AdGestionHub.Models.Sale
-
 @{
-    ViewData["Title"] = "Détails de la Vente";
+    var ctx = await TenantCtx.GetContextAsync();
+    var isFormalized = Model.IsFormalizedSnapshot || Model.DocumentType == "Invoice";
+    var docRef = !string.IsNullOrWhiteSpace(Model.DocumentNumber) ? Model.DocumentNumber : $"#{Model.Id:D5}";
+    ViewData["Title"] = $"{(isFormalized ? L["Doc.Invoice"] : L["Doc.SalesReceipt"])} {docRef}";
+    var isAdmin = User.IsInRole("Admin");
+    string Fmt(decimal v) => ctx.FormatHistorical(v, Model.CurrencyCode, Model.CurrencyDecimals, Model.CurrencySymbol);
 }
 
-<div class="container mt-4">
-    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-        <div class="card-header text-white py-3 px-4" style="background-color: #FF8C00 !important; border: none;">
-            <h4 class="mb-0 fw-bold"><i class="fas fa-receipt me-2"></i> Fiche Récapitulative de la Vente #@Model.Id</h4>
-        </div>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+        <h1 class="h4 mb-1 num">
+            @ViewData["Title"]
+            @if (Model.IsCancelled)
+            {
+                <span class="status-pill danger ms-2">@L["Doc.Cancelled"]</span>
+            }
+        </h1>
+        <p class="text-slate small mb-0 num">@ctx.FormatDate(Model.SaleDate, true) · @(Model.PaymentMethod ?? "Cash")</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="Receipt" asp-route-id="@Model.Id" class="btn btn-secondary-outline">
+            @LucideIcons.Svg("printer", 15, "me-1")
+            <span>@L["Action.Print"]</span>
+        </a>
+        <a asp-action="DownloadReceipt" asp-route-id="@Model.Id" class="btn btn-secondary-outline">
+            @LucideIcons.Svg("download", 15, "me-1")
+            <span>PDF</span>
+        </a>
+        <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+    </div>
+</div>
 
-        <div class="card-body p-4">
-            <div class="row">
-                <div class="col-md-5 border-end">
-                    <h5 class="text-muted mb-4 text-uppercase small fw-bold border-bottom pb-2">Informations Générales</h5>
-                    <dl class="row">
-                        <dt class="col-sm-5 fw-bold">Client :</dt>
-                        <dd class="col-sm-7">@(string.IsNullOrWhiteSpace(Model.CustomerName) ? "Client au comptoir" : Model.CustomerName)</dd>
-
-                        <dt class="col-sm-5 fw-bold">Date :</dt>
-                        <dd class="col-sm-7">@Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</dd>
-
-                        <dt class="col-sm-5 fw-bold">Paiement :</dt>
-                        <dd class="col-sm-7"><span class="badge-status info">@Model.PaymentMethod</span></dd>
-                    </dl>
-                </div>
-
-                <div class="col-md-7 ps-md-4 mt-4 mt-md-0">
-                    <h5 class="text-muted mb-4 text-uppercase small fw-bold border-bottom pb-2">Articles achetés</h5>
-                    <table class="table table-sm table-borderless align-middle">
-                        <thead class="text-muted small border-bottom">
-                            <tr>
-                                <th>Désignation</th>
-                                <th class="text-center">Qté</th>
-                                <th class="text-end">Prix Unit.</th>
-                                <th class="text-end">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in Model.Items)
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="panel-card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-ledger">
+                    <thead>
+                        <tr>
+                            <th>@L["Doc.Description"]</th>
+                            <th class="text-center">@L["Doc.Qty"]</th>
+                            <th class="text-end">@(Model.IsVatEnabledSnapshot ? L.T("P.U. HT", "Unit Excl.") : L["Doc.UnitPrice"])</th>
+                            @if (Model.IsVatEnabledSnapshot)
                             {
-                                <tr>
-                                    <td>@item.ProductName</td>
-                                    <td class="text-center">@item.Quantity</td>
-                                    <td class="text-end">@item.UnitPrice.ToString("N2") $</td>
-                                    <td class="text-end fw-bold">@((item.Quantity * item.UnitPrice).ToString("N2")) $</td>
-                                </tr>
+                                <th class="text-end">TVA</th>
                             }
-                        </tbody>
-                        <tfoot>
-                            <tr class="border-top">
-                                <td colspan="3" class="h5 fw-bold pt-3 text-end">Total Payé :</td>
-                                <td class="h5 fw-bold pt-3 text-end text-success">@Model.FinalPrice.ToString("N2") $</td>
+                            <th class="text-end">@(Model.IsVatEnabledSnapshot ? L.T("Montant HT", "Line Excl.") : L.T("Montant", "Amount"))</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td class="fw-medium">@item.ProductName</td>
+                                <td class="text-center num">@item.Quantity</td>
+                                <td class="text-end num">@Fmt(item.UnitPrice)</td>
+                                @if (Model.IsVatEnabledSnapshot)
+                                {
+                                    <td class="text-end num text-slate">@item.VatRate.ToString("0.##")%</td>
+                                }
+                                <td class="text-end num fw-semibold">@Fmt(item.EffectiveLineNet)</td>
                             </tr>
-                        </tfoot>
-                    </table>
-                </div>
+                        }
+                    </tbody>
+                </table>
             </div>
-
-            <hr class="my-4" />
-
-            <div class="d-flex flex-wrap justify-content-between gap-2">
-                <a asp-action="Index" class="btn btn-soft px-4">
-                    <i class="fas fa-arrow-left me-2"></i> Retour
-                </a>
-                <div class="d-flex gap-2">
-                    <a asp-action="Receipt" asp-route-id="@Model.Id" class="btn btn-outline-dark rounded-pill px-4">
-                        <i class="fas fa-print me-2"></i> Reçu imprimable
-                    </a>
-                    <a asp-action="DownloadReceipt" asp-route-id="@Model.Id" class="btn btn-primary-gradient px-4">
-                        <i class="fas fa-file-pdf me-2"></i> Télécharger PDF
-                    </a>
+            <div class="p-3 border-top d-flex justify-content-end" style="background: var(--bg-canvas);">
+                <div style="min-width: 240px;" class="num">
+                    @if (Model.IsVatEnabledSnapshot)
+                    {
+                        <div class="d-flex justify-content-between text-slate small mb-1">
+                            <span>@L["Doc.SubtotalExclTax"]</span>
+                            <span>@Fmt(Model.EffectiveSubtotalNet)</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-slate small pb-2 mb-2 border-bottom">
+                            <span>@L["Doc.VatAmount"]</span>
+                            <span>@Fmt(Model.TaxAmount)</span>
+                        </div>
+                    }
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>@(Model.IsVatEnabledSnapshot ? L["Doc.TotalInclTax"] : L["Doc.NetTotal"])</span>
+                        <span class="text-forest">@Fmt(Model.FinalPrice)</span>
+                    </div>
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="panel-card p-4 mb-3">
+            <h2 class="h6 mb-3">@L.T("Informations enregistrées", "Recorded Metadata")</h2>
+            <dl class="row small mb-0">
+                <dt class="col-5 text-slate">@L.T("Client", "Customer")</dt>
+                <dd class="col-7">@(string.IsNullOrWhiteSpace(Model.CustomerName) ? L["Doc.WalkInCustomer"] : Model.CustomerName)</dd>
+
+                @if (!string.IsNullOrWhiteSpace(Model.CustomerTaxId))
+                {
+                    <dt class="col-5 text-slate">@(Model.StoreTaxIdLabelSnapshot ?? "NIF")</dt>
+                    <dd class="col-7 num">@Model.CustomerTaxId</dd>
+                }
+
+                <dt class="col-5 text-slate">@L.T("Devise", "Currency")</dt>
+                <dd class="col-7 num">@Model.CurrencyCode (@Model.CurrencySymbol)</dd>
+
+                @if (!string.IsNullOrWhiteSpace(Model.PaidInCurrencyCode))
+                {
+                    <dt class="col-5 text-slate">@L["Doc.PaidIn"]</dt>
+                    <dd class="col-7 num">@Model.PaidInCurrencyCode</dd>
+                }
+            </dl>
+        </div>
+
+        @if (isAdmin && !isFormalized && !Model.IsCancelled)
+        {
+            <div class="panel-card p-4 mb-3">
+                <h2 class="h6 mb-2">@L.T("Correction propriétaire (Non formalisé)", "Owner Adjustment (Informal)")</h2>
+                <p class="text-slate small mb-3">
+                    @L.T("Toute modification est inscrite dans l'historique d'audit.", "Changes are recorded in the store audit trail.")
+                </p>
+                <form asp-action="EditMetadata" method="post">
+                    <input type="hidden" name="Id" value="@Model.Id" />
+                    <div class="mb-2">
+                        <label class="form-label">@L.T("Nom du client", "Customer Name")</label>
+                        <input type="text" name="CustomerName" value="@Model.CustomerName" class="form-control" maxlength="150" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">@L["Doc.PaymentMethod"]</label>
+                        <select name="PaymentMethod" class="form-select">
+                            @foreach (var pm in ctx.Country.DefaultPaymentMethods)
+                            {
+                                <option value="@pm" selected="@(Model.PaymentMethod == pm)">@pm</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-secondary-outline w-100">@L["Action.Save"]</button>
+                </form>
+            </div>
+        }
+
+        @if (isAdmin && !Model.IsCancelled)
+        {
+            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger-outline w-100">
+                @L.T("Annuler cette opération (restaurer le stock)", "Void transaction & restore stock")
+            </a>
+        }
     </div>
 </div>

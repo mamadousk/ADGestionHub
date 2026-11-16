@@ -13,9 +13,17 @@ namespace AdGestionHub.Models
         public string Description { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Le montant est obligatoire.")]
-        [Range(0.01, 100000000, ErrorMessage = "Le montant doit être supérieur à 0.")]
-        [Display(Name = "Montant ($)")]
+        [Range(0.01, 100000000000, ErrorMessage = "Le montant doit être supérieur à 0.")]
+        [Display(Name = "Montant")]
         public decimal Amount { get; set; }
+
+        [StringLength(10)]
+        public string CurrencyCode { get; set; } = "USD";
+
+        [StringLength(15)]
+        public string CurrencySymbol { get; set; } = "$";
+
+        public int CurrencyDecimals { get; set; } = 2;
 
         [Display(Name = "Date")]
         public DateTime Date { get; set; } = DateTime.Now;

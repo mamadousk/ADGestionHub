@@ -1,0 +1,257 @@
+@model AdGestionHub.Models.ViewModels.QuoteCreateViewModel
+@{
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = L.T("Nouveau devis / Proforma", "New Quote / Proforma");
+    var clients = ViewBag.Clients as List<Client> ?? new List<Client>();
+    var canOverridePrice = User.IsInRole("Admin");
+    var decimals = ctx.PrimaryCurrency.Decimals;
+    var symbol = ctx.PrimaryCurrency.Symbol;
+    var isVat = ctx.IsVatEnabled;
+    var lang = L.CurrentLanguage;
+}
+
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h4 mb-0">@ViewData["Title"]</h1>
+    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+</div>
+
+<form asp-action="Create" method="post" id="quoteForm">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3"></div>
+    <div id="quoteClientError" class="alert alert-warning d-none mb-3"></div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="panel-card p-4 mb-3">
+                <h2 class="h6 mb-3">@L.T("Ajouter une ligne au devis", "Add Quote Item")</h2>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label">@L.T("Produit", "Product")</label>
+                        <input type="text" id="productInput" class="form-control" placeholder="@L.T("Rechercher un article...", "Search item...")" autocomplete="off" />
+                        <input type="hidden" id="selectedProductId" />
+                        <input type="hidden" id="selectedProductName" />
+                        <input type="hidden" id="selectedProductVat" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">@(isVat ? L.T("P.U. HT", "Unit Excl.") : L["Doc.UnitPrice"]) (@symbol)</label>
+                        <input type="number" id="tempPrice" class="form-control num" step="@ctx.NumberInputStep" min="0" readonly="@(!canOverridePrice)" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">@L["Doc.Qty"]</label>
+                        <input type="number" id="tempQty" class="form-control num" value="1" min="1" />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="btnAddItem" class="btn btn-accent w-100">@L["Action.Add"]</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-ledger">
+                        <thead>
+                            <tr>
+                                <th>@L["Doc.Description"]</th>
+                                <th class="text-end">@(isVat ? L.T("P.U. HT", "Unit Excl.") : L["Doc.UnitPrice"])</th>
+                                <th class="text-center">@L["Doc.Qty"]</th>
+                                @if (isVat)
+                                {
+                                    <th class="text-end">TVA</th>
+                                }
+                                <th class="text-end">@(isVat ? L.T("Montant HT", "Line Excl.") : L.T("Montant", "Amount"))</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="cartBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="panel-card p-4 mb-3">
+                <h2 class="h6 mb-3">@L.T("Client & Conditions", "Customer & Terms")</h2>
+
+                @if (clients.Any())
+                {
+                    <div class="mb-3">
+                        <label class="form-label">@L.T("Client enregistré", "Saved customer")</label>
+                        <select name="ClientId" id="clientSelect" class="form-select">
+                            <option value="">— @L.T("Saisie libre", "Manual entry") —</option>
+                            @foreach (var cl in clients)
+                            {
+                                <option value="@cl.Id" data-name="@cl.Name" data-phone="@cl.Phone" data-tax="@cl.TaxIdentificationNumber">@cl.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label asp-for="CustomerName" class="form-label">@L.T("Raison sociale / Nom du client", "Customer / Company Name") *</label>
+                    <input asp-for="CustomerName" id="custName" class="form-control" required />
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="CustomerTaxId" class="form-label">@ctx.TaxIdLabel (@L.T("client B2B", "B2B Tax ID"))</label>
+                    <input asp-for="CustomerTaxId" id="custTax" class="form-control num" />
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="CustomerPhone" class="form-label">@L.T("Téléphone", "Phone")</label>
+                    <input asp-for="CustomerPhone" id="custPhone" class="form-control num" />
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="ValidUntil" class="form-label">@L["Doc.ValidUntil"]</label>
+                    <input asp-for="ValidUntil" type="date" class="form-control num" />
+                </div>
+
+                <div>
+                    <label asp-for="Notes" class="form-label">@L.T("Conditions particulières", "Terms & Notes")</label>
+                    <textarea asp-for="Notes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+
+            <div class="panel-card p-4">
+                @if (isVat)
+                {
+                    <div class="d-flex justify-content-between text-slate small mb-1 num">
+                        <span>@L["Doc.SubtotalExclTax"]</span>
+                        <span id="sumSub">0</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-slate small pb-2 mb-2 border-bottom num">
+                        <span>@L["Doc.VatAmount"]</span>
+                        <span id="sumVat">0</span>
+                    </div>
+                }
+                <div class="d-flex justify-content-between align-items-baseline mb-3 num">
+                    <span class="fw-semibold">@(isVat ? L["Doc.TotalInclTax"] : L["Doc.NetTotal"])</span>
+                    <span class="h4 fw-bold mb-0" id="sumTotal">0</span>
+                </div>
+                <button type="submit" class="btn btn-accent w-100 py-2">@L.T("Émettre le devis", "Issue Quote")</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
+    <script>
+        (function () {
+            "use strict";
+            const cart = [];
+            const decimals = @decimals;
+            const symbol = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(symbol));
+            const lang = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(lang));
+            const isVat = @(isVat ? "true" : "false");
+            const defaultVat = @ctx.DefaultVatRate.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            function fmt(amount) {
+                const r = decimals === 0 ? Math.round(amount) : Number(amount.toFixed(decimals));
+                const p = r.toFixed(decimals).split(".");
+                p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, lang === "en" ? "," : " ");
+                const n = decimals > 0 ? p.join(lang === "en" ? "." : ",") : p[0];
+                if (lang === "en" && (symbol === "$" || symbol === "£" || symbol === "₦")) return symbol + n;
+                return n + " " + symbol;
+            }
+
+            const clientSelect = document.getElementById("clientSelect");
+            if (clientSelect) {
+                clientSelect.addEventListener("change", function () {
+                    const opt = clientSelect.options[clientSelect.selectedIndex];
+                    if (opt && opt.value) {
+                        document.getElementById("custName").value = opt.getAttribute("data-name") || "";
+                        document.getElementById("custPhone").value = opt.getAttribute("data-phone") || "";
+                        document.getElementById("custTax").value = opt.getAttribute("data-tax") || "";
+                    }
+                });
+            }
+
+            $(function () {
+                $("#productInput").autocomplete({
+                    source: function (request, response) {
+                        $.getJSON('@Url.Action("GetProducts", "Sales")', { term: request.term }, function (data) {
+                            response($.map(data, function (i) {
+                                return { label: i.label, value: i.name, id: i.id, name: i.name, price: i.price, vatRate: i.vatRate };
+                            }));
+                        });
+                    },
+                    minLength: 1,
+                    select: function (e, ui) {
+                        $("#selectedProductId").val(ui.item.id);
+                        $("#selectedProductName").val(ui.item.name);
+                        $("#selectedProductVat").val(ui.item.vatRate);
+                        $("#tempPrice").val(Number(ui.item.price).toFixed(decimals));
+                        $("#tempQty").val(1).focus();
+                    }
+                });
+            });
+
+            function render() {
+                const tbody = document.getElementById("cartBody");
+                tbody.innerHTML = "";
+                let sub = 0, tax = 0;
+
+                cart.forEach(function (it, idx) {
+                    const ln = it.price * it.qty;
+                    const lt = isVat ? (ln * it.vat / 100.0) : 0;
+                    sub += ln;
+                    tax += lt;
+
+                    const tr = document.createElement("tr");
+                    const tdN = document.createElement("td");
+                    tdN.textContent = it.name;
+
+                    [["ProductId", it.id], ["UnitPrice", it.price.toFixed(decimals)], ["Quantity", it.qty]].forEach(([k, v]) => {
+                        const inp = document.createElement("input");
+                        inp.type = "hidden";
+                        inp.name = `Items[${idx}].${k}`;
+                        inp.value = String(v);
+                        tdN.appendChild(inp);
+                    });
+
+                    const tdP = document.createElement("td"); tdP.className = "text-end num"; tdP.textContent = fmt(it.price);
+                    const tdQ = document.createElement("td"); tdQ.className = "text-center num"; tdQ.textContent = String(it.qty);
+                    tr.appendChild(tdN); tr.appendChild(tdP); tr.appendChild(tdQ);
+
+                    if (isVat) {
+                        const tdV = document.createElement("td"); tdV.className = "text-end num text-slate"; tdV.textContent = it.vat + "%";
+                        tr.appendChild(tdV);
+                    }
+
+                    const tdS = document.createElement("td"); tdS.className = "text-end num fw-semibold"; tdS.textContent = fmt(ln);
+                    const tdA = document.createElement("td"); tdA.className = "text-end";
+                    const b = document.createElement("button"); b.type = "button"; b.className = "btn btn-danger-outline btn-sm py-0 px-2"; b.textContent = "×";
+                    b.onclick = function () { cart.splice(idx, 1); render(); };
+                    tdA.appendChild(b);
+                    tr.appendChild(tdS); tr.appendChild(tdA);
+                    tbody.appendChild(tr);
+                });
+
+                if (isVat) {
+                    document.getElementById("sumSub").textContent = fmt(sub);
+                    document.getElementById("sumVat").textContent = fmt(tax);
+                }
+                document.getElementById("sumTotal").textContent = fmt(sub + tax);
+            }
+
+            document.getElementById("btnAddItem").addEventListener("click", function () {
+                const id = parseInt(document.getElementById("selectedProductId").value, 10);
+                const name = document.getElementById("selectedProductName").value;
+                const price = parseFloat(String(document.getElementById("tempPrice").value).replace(",", "."));
+                const qty = parseInt(document.getElementById("tempQty").value, 10);
+                const vat = parseFloat(document.getElementById("selectedProductVat").value) || defaultVat;
+                if (!id || !name || isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) return;
+
+                cart.push({ id, name, price, qty, vat });
+                render();
+                document.getElementById("productInput").value = "";
+                document.getElementById("selectedProductId").value = "";
+                document.getElementById("tempPrice").value = "";
+            });
+
+            render();
+        })();
+    </script>
+}

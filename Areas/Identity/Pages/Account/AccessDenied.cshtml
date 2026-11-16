@@ -1,26 +1,25 @@
 @page
 @model AccessDeniedModel
 @{
-    ViewData["Title"] = "Accès refusé";
+    ViewData["Title"] = L.T("Accès restreint", "Access Denied");
 }
 
 <div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-lg-6 text-center">
-            <div class="card border-0 shadow-sm rounded-4 p-5">
-                <div class="mb-3">
-                    <i class="fas fa-shield-alt text-danger" style="font-size: 4rem;"></i>
+        <div class="col-md-6">
+            <div class="panel-card p-4 text-center">
+                <div class="mb-2 text-sober-red">
+                    @LucideIcons.Svg("lock", 28)
                 </div>
-                <h2 class="fw-bold text-danger mb-2">Accès restreint</h2>
-                <p class="text-muted mb-4">
-                    Vous ne disposez pas des autorisations nécessaires pour accéder à cette section.
-                    Cette fonctionnalité est réservée au gérant (Administrateur) de la boutique.
+                <h1 class="h5 mb-2">@L.T("Accès non autorisé", "Restricted Access")</h1>
+                <p class="text-slate small mb-4">
+                    @L.T(
+                        "Votre profil ne dispose pas des permissions nécessaires pour consulter cette section.",
+                        "Your account role does not have permission to view this section.")
                 </p>
-                <div>
-                    <a asp-area="" asp-controller="Home" asp-action="Index" class="btn btn-primary-gradient px-4">
-                        <i class="fas fa-arrow-left me-2"></i> Retour au tableau de bord
-                    </a>
-                </div>
+                <a asp-area="" asp-controller="Home" asp-action="Index" class="btn btn-secondary-outline">
+                    @L["Action.Back"]
+                </a>
             </div>
         </div>
     </div>

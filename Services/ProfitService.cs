@@ -24,8 +24,7 @@ namespace AdGestionHub.Services
 
         public async Task<decimal> CalculateGrossProfitAsync(int boutiqueId, DateTime? startDate = null, DateTime? endDate = null)
         {
-            // Une seule requête SQL optimisée (sans N+1), utilisant UnitCost figé lors de la vente
-            // avec repli sur le PurchasePrice actuel du produit pour les anciennes ventes.
+            // UnitPrice est toujours enregistré hors taxe (Net HT), et les ventes annulées sont exclues.
             var itemsQuery =
                 from si in _context.SaleItems.AsNoTracking()
                 join s in _context.Sales.AsNoTracking() on si.SaleId equals s.Id
@@ -33,6 +32,7 @@ namespace AdGestionHub.Services
                     on si.ProductId equals (int?)p.Id into prodGroup
                 from p in prodGroup.DefaultIfEmpty()
                 where s.BoutiqueId == boutiqueId
+                      && !s.IsCancelled
                       && (!startDate.HasValue || s.SaleDate >= startDate.Value)
                       && (!endDate.HasValue || s.SaleDate <= endDate.Value)
                 select new

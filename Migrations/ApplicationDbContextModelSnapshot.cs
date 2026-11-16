@@ -135,6 +135,55 @@ namespace AdGestionHub.Migrations
                     b.ToTable("Boutiques");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.Client", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("IsBusinessClient")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("TaxIdentificationNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoutiqueId", "Name");
+
+                    b.ToTable("Clients");
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.Debt", b =>
                 {
                     b.Property<int>("Id")
@@ -150,6 +199,9 @@ namespace AdGestionHub.Migrations
                     b.Property<int>("BoutiqueId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ClientId")
+                        .HasColumnType("int");
+
                     b.Property<string>("ClientName")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -158,6 +210,23 @@ namespace AdGestionHub.Migrations
                     b.Property<string>("ClientPhone")
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ClientTaxId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("CurrencyDecimals")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencySymbol")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<DateTime>("DateCreated")
                         .HasColumnType("datetime2");
@@ -180,6 +249,42 @@ namespace AdGestionHub.Migrations
                     b.HasIndex("BoutiqueId", "IsArchived", "IsPaid");
 
                     b.ToTable("Debts");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.EInvoicingOptIn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoutiqueId", "CountryCode");
+
+                    b.ToTable("EInvoicingOptIns");
                 });
 
             modelBuilder.Entity("AdGestionHub.Models.ErrorLog", b =>
@@ -238,6 +343,19 @@ namespace AdGestionHub.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("CurrencyDecimals")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencySymbol")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
@@ -286,6 +404,171 @@ namespace AdGestionHub.Migrations
                     b.ToTable("GlobalNotifications");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.Quote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ConvertedSaleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("CurrencyDecimals")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencySymbol")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("CustomerPhone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("CustomerTaxId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DocumentNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal?>("ExchangeRateToSecondary")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<bool>("IsVatEnabledSnapshot")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SecondaryCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("StoreLegalTaxIdSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StoreRccmLabelSnapshot")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("StoreRccmSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StoreTaxIdLabelSnapshot")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("SubtotalNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("ValidUntil")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("BoutiqueId", "CreatedAt");
+
+                    b.ToTable("Quotes");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.QuoteItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LineNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuoteId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoutiqueId");
+
+                    b.HasIndex("QuoteId");
+
+                    b.ToTable("QuoteItems");
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.Sale", b =>
                 {
                     b.Property<int>("Id")
@@ -297,12 +580,66 @@ namespace AdGestionHub.Migrations
                     b.Property<int>("BoutiqueId")
                         .HasColumnType("int");
 
+                    b.Property<string>("CancellationReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ClientId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("CurrencyDecimals")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CurrencySymbol")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<string>("CustomerName")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CustomerTaxId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DocumentNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal?>("ExchangeRateToSecondary")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<decimal>("FinalPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("IsCancelled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsFormalizedSnapshot")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsVatEnabledSnapshot")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PaidInCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("PaymentMethod")
                         .HasColumnType("nvarchar(max)");
@@ -310,7 +647,37 @@ namespace AdGestionHub.Migrations
                     b.Property<DateTime>("SaleDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("SecondaryCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("StoreLegalTaxIdSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StoreRccmLabelSnapshot")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("StoreRccmSnapshot")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("StoreTaxIdLabelSnapshot")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal>("SubtotalNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("ClientId");
 
                     b.HasIndex("BoutiqueId", "SaleDate");
 
@@ -327,6 +694,18 @@ namespace AdGestionHub.Migrations
 
                     b.Property<int>("BoutiqueId")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("LineNet")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTax")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<int?>("ProductId")
                         .HasColumnType("int");
@@ -349,6 +728,10 @@ namespace AdGestionHub.Migrations
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -378,6 +761,20 @@ namespace AdGestionHub.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<string>("CountryCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("DateFormat")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("DefaultVatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -389,14 +786,63 @@ namespace AdGestionHub.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsFormalized")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsVatEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("NextInvoiceNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NextQuoteNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("NextReceiptNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("PhoneDialCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("PreferredLanguage")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("PrimaryCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("SecondaryCurrencyCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<bool>("SecondaryCurrencyEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("SecondaryExchangeRate")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.Property<string>("StoreName")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("TaxIdentificationNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TradeRegisterNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -516,6 +962,10 @@ namespace AdGestionHub.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("Sku")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
                     b.Property<int>("StockAlertThreshold")
                         .HasColumnType("int");
 
@@ -529,6 +979,10 @@ namespace AdGestionHub.Migrations
                     b.Property<string>("Variations")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal?>("VatRate")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
@@ -684,6 +1138,17 @@ namespace AdGestionHub.Migrations
                     b.Navigation("Boutique");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.Client", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", "Boutique")
+                        .WithMany("Clients")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Boutique");
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.Debt", b =>
                 {
                     b.HasOne("AdGestionHub.Models.Boutique", null)
@@ -708,6 +1173,35 @@ namespace AdGestionHub.Migrations
                         .HasForeignKey("BoutiqueId");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.Quote", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", "Boutique")
+                        .WithMany("Quotes")
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AdGestionHub.Models.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Boutique");
+
+                    b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.QuoteItem", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Quote", "Quote")
+                        .WithMany("Items")
+                        .HasForeignKey("QuoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Quote");
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.Sale", b =>
                 {
                     b.HasOne("AdGestionHub.Models.Boutique", "Boutique")
@@ -716,7 +1210,14 @@ namespace AdGestionHub.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("AdGestionHub.Models.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Boutique");
+
+                    b.Navigation("Client");
                 });
 
             modelBuilder.Entity("AdGestionHub.Models.SaleItem", b =>
@@ -809,6 +1310,8 @@ namespace AdGestionHub.Migrations
 
             modelBuilder.Entity("AdGestionHub.Models.Boutique", b =>
                 {
+                    b.Navigation("Clients");
+
                     b.Navigation("Debts");
 
                     b.Navigation("ErrorLogs");
@@ -817,6 +1320,8 @@ namespace AdGestionHub.Migrations
 
                     b.Navigation("Products");
 
+                    b.Navigation("Quotes");
+
                     b.Navigation("Sales");
 
                     b.Navigation("StoreSettings");
@@ -824,6 +1329,11 @@ namespace AdGestionHub.Migrations
                     b.Navigation("SystemLogs");
 
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Quote", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("AdGestionHub.Models.Sale", b =>

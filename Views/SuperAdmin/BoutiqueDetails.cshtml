@@ -1,99 +1,76 @@
 @model AdGestionHub.Models.Boutique
 @{
-    ViewData["Title"] = "Détails de la boutique";
+    ViewData["Title"] = Model.Nom;
     var salesTotal = ViewBag.SalesTotal as decimal? ?? 0m;
 }
 
-<div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="fw-bold mb-0" style="color:#FF8C00;">🏪 @Model.Nom</h1>
-            <span class="badge @(Model.IsActive ? "bg-success" : "bg-danger") mt-1">
-                @(Model.IsActive ? "Boutique Active" : "Boutique Suspendue")
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="h4 mb-0">@Model.Nom</h1>
+            <span class="status-pill @(Model.IsActive ? "success" : "danger")">
+                @(Model.IsActive ? L.T("Actif", "Active") : L.T("Suspendu", "Suspended"))
             </span>
         </div>
-        <div class="d-flex gap-2 mt-2 mt-md-0">
-            <form asp-action="ToggleBoutiqueStatus" asp-route-id="@Model.Id" method="post">
-                <button type="submit" class="btn @(Model.IsActive ? "btn-outline-danger" : "btn-success") rounded-pill px-4">
-                    <i class="fas @(Model.IsActive ? "fa-ban" : "fa-check") me-1"></i>
-                    @(Model.IsActive ? "Suspendre la boutique" : "Réactiver la boutique")
-                </button>
-            </form>
-            <a asp-action="Index" class="btn btn-soft">
-                <i class="fas fa-arrow-left me-1"></i> Retour
-            </a>
+        <p class="text-slate small mb-0 num">ID #@Model.Id · @Model.Email</p>
+    </div>
+    <div class="d-flex gap-2">
+        <form asp-action="ToggleBoutiqueStatus" asp-route-id="@Model.Id" method="post">
+            <button type="submit" class="btn @(Model.IsActive ? "btn-danger-outline" : "btn-accent")">
+                @(Model.IsActive ? L.T("Suspendre", "Suspend") : L.T("Réactiver", "Reactivate"))
+            </button>
+        </form>
+        <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="panel-card p-4 h-100">
+            <h2 class="h6 mb-3">@L.T("Informations générales", "General Information")</h2>
+            <div class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-slate small">@L.T("Adresse", "Address")</span>
+                <span class="small">@(string.IsNullOrWhiteSpace(Model.Adresse) ? "—" : Model.Adresse)</span>
+            </div>
+            <div class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-slate small">@L.T("Téléphone", "Phone")</span>
+                <span class="small num">@(string.IsNullOrWhiteSpace(Model.Telephone) ? "—" : Model.Telephone)</span>
+            </div>
+            <div class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-slate small">@L.T("Volume brut", "Gross Volume")</span>
+                <span class="small num fw-semibold">@salesTotal.ToString("N2")</span>
+            </div>
+            <div class="d-flex justify-content-between py-2">
+                <span class="text-slate small">@L.T("Créé le", "Created")</span>
+                <span class="small num">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+            </div>
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 rounded-4 h-100">
-                <div class="card-body p-4">
-                    <h5 class="fw-bold mb-3">Informations générales</h5>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">ID</span>
-                            <span>#@Model.Id</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">Nom</span>
-                            <span>@Model.Nom</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">Adresse</span>
-                            <span>@(string.IsNullOrWhiteSpace(Model.Adresse) ? "Non renseignée" : Model.Adresse)</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">Téléphone</span>
-                            <span>@(string.IsNullOrWhiteSpace(Model.Telephone) ? "Non renseigné" : Model.Telephone)</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">Email</span>
-                            <span>@Model.Email</span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">Chiffre d'affaires cumulé</span>
-                            <strong class="text-success">@salesTotal.ToString("N2") $</strong>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between px-0">
-                            <span class="fw-semibold">Date de création</span>
-                            <span>@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
-                        </li>
-                    </ul>
+    <div class="col-lg-6">
+        <div class="row g-3">
+            <div class="col-6">
+                <div class="kpi-card">
+                    <div class="kpi-label">@L["Nav.Products"]</div>
+                    <div class="kpi-value">@ViewBag.ProductCount</div>
                 </div>
             </div>
-        </div>
-
-        <div class="col-lg-6">
-            <div class="card shadow-sm border-0 rounded-4 h-100">
-                <div class="card-body p-4">
-                    <h5 class="fw-bold mb-3">Indicateurs d'activité</h5>
-                    <div class="row text-center g-3">
-                        <div class="col-6">
-                            <div class="p-4 bg-primary bg-opacity-10 rounded-4">
-                                <h3 class="fw-bold text-primary mb-0">@ViewBag.ProductCount</h3>
-                                <small class="text-muted">Produits</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-4 bg-success bg-opacity-10 rounded-4">
-                                <h3 class="fw-bold text-success mb-0">@ViewBag.SaleCount</h3>
-                                <small class="text-muted">Ventes</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-4 bg-warning bg-opacity-10 rounded-4">
-                                <h3 class="fw-bold text-warning mb-0">@ViewBag.EmployeeCount</h3>
-                                <small class="text-muted">Utilisateurs</small>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-4 bg-danger bg-opacity-10 rounded-4">
-                                <h3 class="fw-bold text-danger mb-0">@ViewBag.DebtCount</h3>
-                                <small class="text-muted">Dettes impayées</small>
-                            </div>
-                        </div>
-                    </div>
+            <div class="col-6">
+                <div class="kpi-card">
+                    <div class="kpi-label">@L["Nav.Sales"]</div>
+                    <div class="kpi-value">@ViewBag.SaleCount</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="kpi-card">
+                    <div class="kpi-label">@L["Nav.Users"]</div>
+                    <div class="kpi-value">@ViewBag.EmployeeCount</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="kpi-card">
+                    <div class="kpi-label">@L["Nav.Debts"]</div>
+                    <div class="kpi-value">@ViewBag.DebtCount</div>
                 </div>
             </div>
         </div>

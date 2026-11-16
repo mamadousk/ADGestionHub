@@ -1,107 +1,82 @@
-﻿@model IEnumerable<AdGestionHub.Models.UserFeedback>
-@using AdGestionHub.Models
-
+@model IEnumerable<AdGestionHub.Models.UserFeedback>
 @{
-    ViewData["Title"] = "Super Admin";
-    var waitingList = ViewBag.WaitingList as IEnumerable<WaitingListPro>;
+    ViewData["Title"] = "Marketing & Feedback";
+    var waitingList = (ViewBag.WaitingList as IEnumerable<AdGestionHub.Models.WaitingListPro>)?.ToList()
+                      ?? new List<AdGestionHub.Models.WaitingListPro>();
+    var feedbacks = Model?.ToList() ?? new List<AdGestionHub.Models.UserFeedback>();
 }
 
-<div class="container py-5">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <h1 class="fw-bold" style="color:#FF8C00;">🚀 Centre de Contrôle Adilix</h1>
-        <span class="badge bg-dark rounded-pill px-3 py-2">Mode Fondateur</span>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h4 mb-1">@L.T("Suivi des inscriptions Pro & avis", "Pro Signups & User Feedback")</h1>
+        <p class="text-slate small mb-0 num">@waitingList.Count @L.T("lead(s)", "lead(s)") · @feedbacks.Count @L.T("avis", "review(s)")</p>
     </div>
+    <div class="d-flex gap-2">
+        <a asp-action="ExportLeads" class="btn btn-accent">
+            @LucideIcons.Svg("download", 15, "me-1")
+            <span>@L.T("Exporter CSV", "Export CSV")</span>
+        </a>
+        <a asp-controller="SuperAdmin" asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+    </div>
+</div>
 
-    <!-- Carte de la liste d'attente Pro -->
-    <div class="card shadow-sm border-0 rounded-4 mb-4">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center rounded-top-4">
-            <span class="fw-bold">📧 Liste d'attente Pro</span>
-            <a asp-action="ExportLeads" class="btn btn-sm btn-success rounded-pill">
-                <i class="fas fa-file-excel"></i> Exporter CSV
-            </a>
-        </div>
-        <div class="card-body">
-            @if (waitingList != null && waitingList.Any())
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="panel-card p-4 h-100">
+            <h2 class="h6 mb-3">@L.T("Liste d'attente Pro", "Pro Waiting List")</h2>
+            @if (waitingList.Any())
             {
-                <div class="list-group list-group-flush">
-                    @foreach (var lead in waitingList)
-                    {
-                        <div class="list-group-item border-bottom">
-                            <p class="mb-0 fw-bold">@lead.Email</p>
-                            <small class="text-muted">Inscrit le @lead.DateInscription.ToString("dd/MM/yyyy")</small>
-                        </div>
-                    }
-                </div>
+                foreach (var lead in waitingList)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span class="small fw-medium">@lead.Email</span>
+                        <span class="text-slate small num">@lead.DateInscription.ToString("dd/MM/yyyy")</span>
+                    </div>
+                }
             }
             else
             {
-                <p class="text-muted mb-0">Aucun lead en liste d'attente pour le moment.</p>
+                <p class="text-slate small mb-0">@L.T("Aucune inscription enregistrée.", "No leads recorded yet.")</p>
             }
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-8">
-            <!-- Carte des avis -->
-            <div class="card shadow-sm border-0 rounded-4">
-                <div class="card-header bg-white border-bottom-0 pt-4">
-                    <h5 class="fw-bold">⭐ Avis des utilisateurs Bêta</h5>
-                </div>
-                <div class="card-body">
-                    @if (Model != null && Model.Any())
-                    {
-                        <div class="table-responsive">
-                            <table class="table align-middle">
-                                <thead class="text-muted small">
-                                    <tr>
-                                        <th>NOTE</th>
-                                        <th>COMMENTAIRE</th>
-                                        <th>DATE</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in Model)
-                                    {
-                                        <tr>
-                                            <td>
-                                                @for (int i = 0; i < item.Note; i++)
-                                                {
-                                                    <span class="text-warning">★</span>
-                                                }
-                                                @if (item.Note < 5)
-                                                {
-                                                    for (int i = item.Note; i < 5; i++)
-                                                    {
-                                                        <span class="text-secondary">☆</span>
-                                                    }
-                                                }
-                                            </td>
-                                            <td>@item.Commentaire</td>
-                                            <td class="text-muted small">@item.DateEnvoi.ToString("dd/MM/yyyy HH:mm")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-muted mb-0">Aucun avis pour le moment.</p>
-                    }
-                </div>
+    <div class="col-lg-7">
+        <div class="panel-card overflow-hidden h-100">
+            <div class="p-3 border-bottom">
+                <h2 class="h6 mb-0">@L.T("Retours utilisateurs", "User Feedback")</h2>
             </div>
-        </div>
-
-        <div class="col-lg-4">
-            <!-- Bloc d'information supplémentaire (si besoin) -->
-            <div class="card shadow-sm border-0 rounded-4 bg-light">
-                <div class="card-header bg-transparent border-0 pt-4">
-                    <h5 class="fw-bold">📊 Statistiques rapides</h5>
-                </div>
-                <div class="card-body">
-                    <p><strong>Total avis :</strong> @(Model?.Count() ?? 0)</p>
-                    <p><strong>Total leads :</strong> @(waitingList?.Count() ?? 0)</p>
-                </div>
+            <div class="table-responsive">
+                <table class="table table-ledger">
+                    <thead>
+                        <tr>
+                            <th>@L.T("Utilisateur", "User")</th>
+                            <th>@L.T("Note", "Score")</th>
+                            <th>@L.T("Commentaire", "Comment")</th>
+                            <th class="text-end">@L["Doc.Date"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!feedbacks.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-slate py-5">@L.T("Aucun avis enregistré.", "No feedback recorded.")</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in feedbacks)
+                            {
+                                <tr>
+                                    <td class="fw-medium">@item.UserName</td>
+                                    <td><span class="status-pill num">@Math.Clamp(item.Note, 1, 5) / 5</span></td>
+                                    <td class="small">@item.Commentaire</td>
+                                    <td class="text-end text-slate small num">@item.DateEnvoi.ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

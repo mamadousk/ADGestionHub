@@ -1,195 +1,203 @@
 @model AdGestionHub.Models.DashboardViewModel
 
 @{
-    ViewData["Title"] = "Tableau de Bord";
+    ViewData["Title"] = L["Nav.Dashboard"];
     var isAdmin = User.IsInRole("Admin");
+    var ctx = await TenantCtx.GetContextAsync();
 }
 
-<div>
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="display-5 fw-bold mb-0">Dashboard</h1>
-            <p class="text-muted mb-0">Vue d'ensemble en temps réel de votre activité commerciale</p>
-        </div>
-        <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
-            <a asp-controller="Sales" asp-action="Create" class="btn btn-primary-gradient">
-                <i class="fas fa-plus me-2"></i> Nouvelle Vente
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h4 mb-1">@L["Nav.Dashboard"]</h1>
+        <p class="text-slate small mb-0">
+            @L.T("Synthèse opérationnelle en devise principale", "Operational summary in primary currency") (@Model.CurrencyCode)
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">
+            @LucideIcons.Svg("plus", 16, "me-1")
+            <span>@L["Nav.NewSale"]</span>
+        </a>
+        @if (Model.IsFormalized)
+        {
+            <a asp-controller="Quotes" asp-action="Create" class="btn btn-secondary-outline">
+                @LucideIcons.Svg("file-text", 16, "me-1")
+                <span>@L.T("Nouveau devis", "New quote")</span>
             </a>
-            <a asp-controller="Expenses" asp-action="Create" class="btn btn-soft">
-                <i class="fas fa-plus me-2"></i> Dépense
-            </a>
-            @if (isAdmin)
+        }
+        <a asp-controller="Expenses" asp-action="Create" class="btn btn-secondary-outline">
+            @LucideIcons.Svg("plus", 16, "me-1")
+            <span>@L.T("Dépense", "Expense")</span>
+        </a>
+    </div>
+</div>
+
+<!-- Indicateurs financiers (tabular-nums) -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6 col-xl-3">
+        <div class="card-dashboard">
+            <div class="stat-label">
+                @(Model.IsVatEnabled ? L.T("Chiffre d'affaires TTC", "Revenue (Incl. Tax)") : L.T("Chiffre d'affaires net", "Net Revenue"))
+            </div>
+            <div class="stat-number num">@ctx.FormatPrimary(Model.TotalSales)</div>
+            @if (Model.IsVatEnabled && isAdmin)
             {
-                <a asp-controller="Reports" asp-action="Index" class="btn btn-soft">
-                    <i class="fas fa-chart-bar me-2"></i> Rapports
-                </a>
+                <div class="kpi-meta num">
+                    @L["Doc.SubtotalExclTax"] : @ctx.FormatPrimary(Model.TotalSubtotalNet) · @L.T("TVA", "VAT") : @ctx.FormatPrimary(Model.TotalTaxCollected)
+                </div>
+            }
+            else if (Model.MonthlyGrowthPercent.HasValue)
+            {
+                var pos = Model.MonthlyGrowthPercent.Value >= 0;
+                <div class="kpi-meta num @(pos ? "text-forest" : "text-sober-red")">
+                    @(pos ? "+" : "")@Model.MonthlyGrowthPercent.Value.ToString("F1")% @L.T("vs mois précédent", "vs prior month")
+                </div>
+            }
+            else
+            {
+                <div class="kpi-meta num">
+                    @L.T("Aujourd'hui :", "Today:") <strong>@ctx.FormatPrimary(Model.TodaySales)</strong> (@Model.TodayTransactions)
+                </div>
             }
         </div>
     </div>
 
-    <!-- KPI Cards -->
-    <div class="row g-4 mb-5">
-        <div class="col-md-6 col-xl-3 animate-fade-up delay-1">
-            <div class="card-dashboard">
-                <div class="icon-wrapper orange">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="stat-number">@Model.TotalSales.ToString("N2") $</div>
-                <div class="stat-label">Chiffre d'affaires cumulé</div>
-                @if (Model.MonthlyGrowthPercent.HasValue)
-                {
-                    var positive = Model.MonthlyGrowthPercent.Value >= 0;
-                    <div class="mt-2 small @(positive ? "text-success" : "text-danger")">
-                        <i class="fas @(positive ? "fa-arrow-up" : "fa-arrow-down") me-1"></i>
-                        @(positive ? "+" : "")@Model.MonthlyGrowthPercent.Value.ToString("F1")% vs mois dernier
-                    </div>
-                }
-                else
-                {
-                    <div class="mt-2 small text-muted">
-                        Aujourd'hui : <strong>@Model.TodaySales.ToString("N2") $</strong> (@Model.TodayTransactions vente(s))
-                    </div>
-                }
-            </div>
-        </div>
-
-        @if (isAdmin)
-        {
-            <div class="col-md-6 col-xl-3 animate-fade-up delay-2">
-                <div class="card-dashboard">
-                    <div class="icon-wrapper green">
-                        <i class="fas fa-wallet"></i>
-                    </div>
-                    <div class="stat-number @(Model.TotalProfit < 0 ? "text-danger" : "text-success")">@Model.TotalProfit.ToString("N2") $</div>
-                    <div class="stat-label">Bénéfice Net</div>
-                    <div class="mt-2 small text-muted">
-                        Marge nette : @((Model.TotalSales > 0 ? (Model.TotalProfit / Model.TotalSales * 100) : 0).ToString("F1"))%
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-xl-3 animate-fade-up delay-3">
-                <div class="card-dashboard">
-                    <div class="icon-wrapper red">
-                        <i class="fas fa-hand-holding-usd"></i>
-                    </div>
-                    <div class="stat-number text-danger">@Model.TotalDebts.ToString("N2") $</div>
-                    <div class="stat-label">Dettes Clients impayées</div>
-                    <div class="mt-2 small">
-                        <a asp-controller="Debts" asp-action="Index" class="text-decoration-none text-muted">Gérer les recouvrements →</a>
-                    </div>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="col-md-6 col-xl-3 animate-fade-up delay-2">
-                <div class="card-dashboard">
-                    <div class="icon-wrapper green">
-                        <i class="fas fa-cash-register"></i>
-                    </div>
-                    <div class="stat-number text-success">@Model.TodaySales.ToString("N2") $</div>
-                    <div class="stat-label">Ventes du jour</div>
-                    <div class="mt-2 small text-muted">@Model.TodayTransactions transaction(s) aujourd'hui</div>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-xl-3 animate-fade-up delay-3">
-                <div class="card-dashboard">
-                    <div class="icon-wrapper purple">
-                        <i class="fas fa-receipt"></i>
-                    </div>
-                    <div class="stat-number">@Model.TotalTransactions</div>
-                    <div class="stat-label">Total des ventes</div>
-                    <div class="mt-2 small text-muted">Historique de la boutique</div>
-                </div>
-            </div>
-        }
-
-        <div class="col-md-6 col-xl-3 animate-fade-up delay-4">
-            <div class="card-dashboard">
-                <div class="icon-wrapper blue">
-                    <i class="fas fa-boxes"></i>
-                </div>
-                <div class="stat-number">@Model.LowStockCount</div>
-                <div class="stat-label">Alertes Stock</div>
-                <div class="mt-2 small @(Model.LowStockCount > 0 ? "text-danger fw-semibold" : "text-success")">
-                    @(Model.LowStockCount > 0 ? $"{Model.LowStockCount} produit(s) à réapprovisionner" : "Tous les stocks sont sains")
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @if (Model.LowStockProducts.Any())
+    @if (isAdmin)
     {
-        <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4 p-3">
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div>
-                    <strong class="me-2"><i class="fas fa-exclamation-triangle me-1"></i> Produits à réapprovisionner :</strong>
-                    @foreach (var p in Model.LowStockProducts)
-                    {
-                        <span class="badge bg-white text-dark border me-1">
-                            @p.Name : <strong class="@(p.StockQuantity <= 0 ? "text-danger" : "text-warning")">@p.StockQuantity</strong> en stock
-                        </span>
-                    }
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="stat-label">@L.T("Résultat net estimé", "Estimated Net Profit")</div>
+                <div class="stat-number num @(Model.TotalProfit < 0 ? "text-sober-red" : "text-forest")">
+                    @ctx.FormatPrimary(Model.TotalProfit)
                 </div>
-                <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-sm btn-dark rounded-pill px-3">
-                    Voir le stock
-                </a>
+                <div class="kpi-meta num">
+                    @L.T("Dépenses cumulées :", "Total expenses:") @ctx.FormatPrimary(Model.TotalExpenses)
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="stat-label">@L.T("Créances clients en cours", "Open Receivables")</div>
+                <div class="stat-number num @(Model.TotalDebts > 0 ? "text-sober-red" : "")">
+                    @ctx.FormatPrimary(Model.TotalDebts)
+                </div>
+                <div class="kpi-meta">
+                    <a asp-controller="Debts" asp-action="Index" class="text-slate text-decoration-none">
+                        @L.T("Consulter l'échéancier", "View receivables") →
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="stat-label">@L.T("Encaissements du jour", "Today's Sales")</div>
+                <div class="stat-number num text-forest">@ctx.FormatPrimary(Model.TodaySales)</div>
+                <div class="kpi-meta num">@Model.TodayTransactions @L.T("opération(s)", "transaction(s)")</div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="stat-label">@L.T("Opérations validées", "Completed Sales")</div>
+                <div class="stat-number num">@Model.TotalTransactions</div>
+                <div class="kpi-meta">@L.T("Total historique actif", "Active store total")</div>
             </div>
         </div>
     }
 
-    <!-- Dernières Ventes -->
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-primary"></i> Dernières Ventes</h5>
-            <a asp-controller="Sales" asp-action="Index" class="btn btn-sm btn-soft">Tout voir</a>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-modern mb-0">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Produit(s)</th>
-                            <th class="text-center">Quantité</th>
-                            <th class="text-end">Total</th>
-                            <th class="text-center">Paiement</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (!Model.RecentSales.Any())
-                        {
-                            <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">Aucune vente enregistrée pour le moment.</td>
-                            </tr>
-                        }
-                        else
-                        {
-                            foreach (var item in Model.RecentSales)
-                            {
-                                <tr>
-                                    <td>@item.SaleDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td>
-                                        @if (item.Items != null && item.Items.Any())
-                                        {
-                                            @string.Join(", ", item.Items.Select(i => i.ProductName ?? "Produit"))
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted fst-italic">Aucun détail</span>
-                                        }
-                                    </td>
-                                    <td class="text-center">@(item.Items?.Sum(i => i.Quantity) ?? 0)</td>
-                                    <td class="text-end fw-bold text-success">@item.FinalPrice.ToString("N2") $</td>
-                                    <td class="text-center"><span class="badge-status info">@item.PaymentMethod</span></td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
+    <div class="col-md-6 col-xl-3">
+        <div class="card-dashboard">
+            <div class="stat-label">@L.T("Alertes de réapprovisionnement", "Low Stock Alerts")</div>
+            <div class="stat-number num @(Model.LowStockCount > 0 ? "text-amber" : "text-forest")">@Model.LowStockCount</div>
+            <div class="kpi-meta">
+                @(Model.LowStockCount > 0
+                    ? L.T($"{Model.LowStockCount} référence(s) sous le seuil", $"{Model.LowStockCount} item(s) below threshold")
+                    : L.T("Niveaux de stock conformes", "All stock levels healthy"))
             </div>
         </div>
+    </div>
+</div>
+
+@if (Model.LowStockProducts.Any())
+{
+    <div class="panel-card p-3 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="background: var(--amber-bg) !important; border-color: var(--amber-border) !important;">
+        <div class="d-flex flex-wrap align-items-center gap-2 small">
+            <strong class="text-amber">@L.T("Réapprovisionnement requis :", "Restock needed:")</strong>
+            @foreach (var p in Model.LowStockProducts)
+            {
+                <span class="status-pill @(p.StockQuantity <= 0 ? "danger" : "warning") num">
+                    @p.Name (@p.StockQuantity)
+                </span>
+            }
+        </div>
+        <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-secondary-outline btn-sm">
+            @L.T("Ouvrir l'inventaire", "View inventory")
+        </a>
+    </div>
+}
+
+<!-- Dernières opérations -->
+<div class="panel-card overflow-hidden">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">@L.T("Dernières ventes enregistrées", "Recent Sales")</h2>
+        <a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">@L.T("Tout voir", "View all")</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-ledger">
+            <thead>
+                <tr>
+                    <th>@L["Doc.Number"]</th>
+                    <th>@L["Doc.Date"]</th>
+                    <th>@L.T("Articles", "Items")</th>
+                    <th>@L["Doc.PaymentMethod"]</th>
+                    <th class="text-end">@L.T("Montant", "Amount")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.RecentSales.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="text-center text-slate py-4">
+                            @L.T("Aucune opération enregistrée.", "No transactions recorded yet.")
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var item in Model.RecentSales)
+                    {
+                        var docRef = !string.IsNullOrWhiteSpace(item.DocumentNumber) ? item.DocumentNumber : $"#{item.Id:D5}";
+                        <tr>
+                            <td class="num fw-medium">
+                                <a asp-controller="Sales" asp-action="Receipt" asp-route-id="@item.Id" class="text-decoration-none text-dark">@docRef</a>
+                                @if (item.IsCancelled)
+                                {
+                                    <span class="status-pill danger ms-1">@L["Doc.Cancelled"]</span>
+                                }
+                            </td>
+                            <td class="num text-slate">@ctx.FormatDate(item.SaleDate, true)</td>
+                            <td>
+                                @if (item.Items != null && item.Items.Any())
+                                {
+                                    @string.Join(", ", item.Items.Select(i => $"{i.ProductName} (x{i.Quantity})"))
+                                }
+                                else
+                                {
+                                    <span class="text-slate">—</span>
+                                }
+                            </td>
+                            <td><span class="status-pill">@(item.PaymentMethod ?? "Cash")</span></td>
+                            <td class="text-end num fw-semibold @(item.IsCancelled ? "text-decoration-line-through text-slate" : "text-forest")">
+                                @ctx.FormatHistorical(item.FinalPrice, item.CurrencyCode, item.CurrencyDecimals, item.CurrencySymbol)
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
     </div>
 </div>

@@ -1,213 +1,117 @@
 @{
-    ViewData["Title"] = "Bienvenue";
+    ViewData["Title"] = L.T("Plateforme de gestion commerciale", "Retail & SMB Management Platform");
     Layout = "_Layout";
 }
 
-<style>
-    .saas-hero {
-        background: radial-gradient(circle at top right, #fffbf5 0%, #ffffff 100%);
-        overflow: hidden;
-    }
-
-    .hover-lift {
-        transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-    }
-
-    .hover-lift:hover {
-        transform: translateY(-12px);
-        box-shadow: 0 20px 40px rgba(255, 140, 0, 0.1) !important;
-    }
-
-    .feature-card {
-        transition: all 0.3s ease;
-        border: 1px solid rgba(0,0,0,0.05) !important;
-    }
-
-    .feature-card:hover {
-        transform: translateY(-5px);
-        border-color: #FF8C00 !important;
-        box-shadow: 0 10px 30px rgba(255, 140, 0, 0.08) !important;
-    }
-
-    .icon-wrapper {
-        width: 70px;
-        height: 70px;
-        border-radius: 20px;
-        background: #fff5e6;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 1.5rem;
-        transition: all 0.3s ease;
-        transform: rotate(-5deg);
-    }
-
-    .feature-card:hover .icon-wrapper {
-        transform: rotate(0deg) scale(1.1);
-        background: #FF8C00;
-    }
-
-    .feature-card:hover .icon-wrapper i {
-        color: white !important;
-    }
-
-    .pulse-glow {
-        animation: pulseGlow 2s infinite;
-    }
-
-    @@keyframes pulseGlow {
-        0% { box-shadow: 0 0 0 0 rgba(255, 140, 0, 0.4); }
-        70% { box-shadow: 0 0 0 15px rgba(255, 140, 0, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(255, 140, 0, 0); }
-    }
-</style>
-
-<section class="py-5 saas-hero" style="padding-top: 70px !important; padding-bottom: 70px !important;">
-    <div class="container text-center">
-        <div class="animate-fade-up mb-4">
-            <span class="badge rounded-pill bg-light text-dark border py-2 px-3 shadow-sm" style="font-size: 0.9rem;">
-                <i class="fas fa-rocket me-2" style="color:#FF8C00;"></i> AdGestionHub Bêta est en ligne
-            </span>
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center text-center mb-5">
+            <div class="col-lg-8">
+                <span class="status-pill mb-3">AdGestionHub v2.0</span>
+                <h1 class="display-6 fw-semibold mb-3" style="letter-spacing:-0.03em;">
+                    @L.T(
+                        "Encaissement, stocks et gestion fiscale structurée pour votre commerce",
+                        "Structured point-of-sale, inventory, and fiscal compliance for your business")
+                </h1>
+                <p class="text-slate mb-4 mx-auto" style="max-width: 620px; font-size: 1rem;">
+                    @L.T(
+                        "Conçu pour s'adapter automatiquement à votre pays, votre devise (CDF, FCFA, KES, NGN, USD) et votre régime fiscal, sans complexité superflue.",
+                        "Automatically adapts to your country, local currency (CDF, XOF, XAF, KES, NGN, USD), and tax regime without unnecessary friction.")
+                </p>
+                <div class="d-flex justify-content-center flex-wrap gap-2">
+                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent px-4 py-2">
+                        @L.T("Créer un compte établissement", "Create business account")
+                    </a>
+                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-secondary-outline px-4 py-2">
+                        @L["Nav.Login"]
+                    </a>
+                </div>
+            </div>
         </div>
 
-        <h1 class="display-3 fw-bold mb-4 animate-fade-up delay-1" style="letter-spacing: -1px;">
-            Gérez votre commerce avec <br />
-            <span class="text-gradient">une précision redoutable</span>
-        </h1>
-
-        <p class="lead fs-5 text-muted mb-5 mx-auto animate-fade-up delay-2" style="max-width: 620px;">
-            Suivez vos stocks, encaissez vos ventes (Cash, M-Pesa, Airtel Money, Orange Money), maîtrisez vos dépenses et vos créances clients en temps réel.
-        </p>
-
-        <div class="row justify-content-center g-4 animate-fade-up delay-3">
-            <!-- Plan Bêta -->
+        <!-- Offres -->
+        <div class="row justify-content-center g-4 mb-5">
             <div class="col-md-6 col-lg-5">
-                <div class="card h-100 hover-lift shadow border-0 position-relative rounded-4 text-center" style="border: 2px solid #FF8C00 !important; background-color: #fff;">
-                    <div class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-warning text-dark px-4 py-2 shadow-sm border border-white" style="font-size: 0.85rem; letter-spacing: 1px;">
-                        OFFRE DE LANCEMENT
+                <div class="panel-card p-4 h-100 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-semibold">@L.T("Édition Standard", "Standard Edition")</span>
+                        <span class="status-pill success">@L.T("Accès immédiat", "Available now")</span>
                     </div>
-                    <div class="card-body p-5 d-flex flex-column">
-                        <div class="text-uppercase small fw-bold mb-2" style="color: #FF8C00;">Plan Bêta</div>
-                        <h4 class="fw-bold mb-3">Démarrez maintenant</h4>
-                        <div class="my-4">
-                            <span class="display-4 fw-bold text-dark">Gratuit</span>
-                        </div>
-                        <hr style="border-top: 2px solid #f0f0f0;" />
-                        <ul class="list-unstyled text-start mb-5 flex-grow-1">
-                            <li class="mb-3"><i class="fas fa-check-circle me-3" style="color: #FF8C00; font-size: 1.2rem;"></i> <span class="text-secondary">Gestion Ventes, Stocks & Dépenses</span></li>
-                            <li class="mb-3"><i class="fas fa-check-circle me-3" style="color: #FF8C00; font-size: 1.2rem;"></i> <span class="text-secondary">Comptes Employés sécurisés</span></li>
-                            <li class="mb-3"><i class="fas fa-check-circle me-3" style="color: #FF8C00; font-size: 1.2rem;"></i> <span class="text-secondary">Reçus PDF & Rapports financiers</span></li>
-                            <li class="mb-3 p-2 rounded" style="background-color: #fffbf5; border-left: 3px solid #FF8C00;">
-                                <i class="fas fa-star text-warning me-2"></i> <strong>Suivi des dettes & relance WhatsApp</strong>
-                            </li>
-                        </ul>
-                        <div class="d-grid mt-auto">
-                            <a asp-area="Identity" asp-page="/Account/Register" class="btn text-white fw-bold py-3 rounded-3 pulse-glow shadow-sm" style="background-color: #FF8C00; font-size: 1.1rem;">
-                                Créer mon compte gratuit
-                            </a>
-                        </div>
-                    </div>
+                    <div class="h3 fw-semibold num my-2">@L.T("Gratuit", "Free")</div>
+                    <p class="text-slate small mb-3">
+                        @L.T("Pour boutiques indépendantes et PME en croissance.", "For independent retail stores and growing SMBs.")
+                    </p>
+                    <ul class="list-unstyled small text-slate mb-4 flex-grow-1 d-flex flex-column gap-2 border-top pt-3">
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Caisse rapide, reçus thermiques 58mm & factures A4", "Fast POS, 58mm thermal receipts & A4 invoices")</span></li>
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Multi-devises, bi-monétarisme & TVA paramétrable", "Multi-currency, dual-currency & configurable VAT")</span></li>
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Gestion des stocks atomique, dépenses & créances clients", "Atomic stock control, expenses & customer receivables")</span></li>
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Comptes vendeurs cloisonnés (marges confidentielles)", "Role-based staff accounts (protected cost margins)")</span></li>
+                    </ul>
+                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent w-100">
+                        @L.T("Démarrer gratuitement", "Start for free")
+                    </a>
                 </div>
             </div>
 
-            <!-- Plan Pro -->
             <div class="col-md-6 col-lg-5">
-                <div class="card h-100 hover-lift shadow-sm border-0 rounded-4 text-center" style="background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);">
-                    <div class="card-body p-5 d-flex flex-column">
-                        <div class="text-uppercase small fw-bold mb-2 text-secondary" style="letter-spacing: 1px;">Bientôt disponible</div>
-                        <h4 class="fw-bold text-dark mb-3">Plan Pro</h4>
-                        <div class="my-4">
-                            <span class="h2 fw-bold text-muted">Premium</span>
+                <div class="panel-card p-4 h-100 d-flex flex-column" style="background: var(--bg-canvas) !important;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-semibold">@L.T("Édition Multi-Sites", "Multi-Branch Edition")</span>
+                        <span class="status-pill warning">@L.T("Prochainement", "Coming soon")</span>
+                    </div>
+                    <div class="h3 fw-semibold my-2">Pro</div>
+                    <p class="text-slate small mb-3">
+                        @L.T("Consolidation multi-points de vente et intégrations comptables.", "Multi-store consolidation and accounting exports.")
+                    </p>
+                    <ul class="list-unstyled small text-slate mb-4 flex-grow-1 d-flex flex-column gap-2 border-top pt-3">
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("building-2", 15) <span>@L.T("Supervision centralisée de plusieurs établissements", "Centralized multi-branch supervision")</span></li>
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("file-text", 15) <span>@L["Status.EInvoicingTitle"]</span></li>
+                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("bar-chart-3", 15) <span>@L.T("Exports comptables analytiques", "Analytical accounting exports")</span></li>
+                    </ul>
+
+                    <form id="waitingListForm" class="mt-auto" onsubmit="sendToWaitingList(event)">
+                        @Html.AntiForgeryToken()
+                        <div class="d-flex gap-2">
+                            <input type="email" id="waitingEmail" class="form-control" placeholder="contact@entreprise.com" required />
+                            <button type="submit" id="waitingSubmitBtn" class="btn btn-secondary-outline text-nowrap">
+                                @L.T("M'inscrire", "Notify me")
+                            </button>
                         </div>
-                        <hr style="border-top: 2px solid #f0f0f0;" />
-                        <ul class="list-unstyled text-start mb-5 flex-grow-1 text-muted">
-                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Multi-boutiques centralisé</li>
-                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Prédiction intelligente des ruptures</li>
-                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Facturation personnalisée avec logo</li>
-                            <li class="mb-3"><i class="fas fa-lock me-3 text-secondary"></i> Support VIP 24h/24 via WhatsApp</li>
-                        </ul>
-                        <form id="waitingListForm" class="mt-auto" onsubmit="sendToWaitingList(event)">
-                            @Html.AntiForgeryToken()
-                            <div class="input-group shadow-sm rounded-3 overflow-hidden">
-                                <input type="email" id="waitingEmail" class="form-control border-0 py-3" placeholder="Votre email pro..." required style="background-color: #f1f3f5;" />
-                                <button type="submit" id="waitingSubmitBtn" class="btn btn-dark px-4 fw-bold text-uppercase" style="font-size: 0.85rem;">
-                                    Rejoindre
-                                </button>
-                            </div>
-                            <small id="waitingListFeedback" class="text-muted mt-2 d-block">Rejoignez la liste d'attente prioritaire.</small>
-                        </form>
-                    </div>
+                        <small id="waitingListFeedback" class="text-slate mt-2 d-block">
+                            @L.T("Recevoir une notification lors de l'ouverture du plan Pro.", "Get notified when Multi-Branch launches.")
+                        </small>
+                    </form>
                 </div>
             </div>
         </div>
-    </div>
-</section>
 
-<section class="py-5" style="background-color: #fafbfc;">
-    <div class="container py-4">
-        <div class="text-center mb-5 animate-fade-up">
-            <h2 class="fw-bold display-5">Pourquoi choisir <span class="text-gradient">AdGestionHub</span> ?</h2>
-            <p class="text-muted fs-5 mt-3">Les outils des grandes entreprises, conçus pour votre boutique.</p>
-        </div>
-
-        <div class="row g-4 text-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="p-5 h-100 feature-card rounded-4 bg-white">
-                    <div class="icon-wrapper shadow-sm">
-                        <i class="fas fa-chart-pie fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <h5 class="fw-bold mt-3">Ventes Détaillées</h5>
-                    <p class="text-muted mt-3">Chaque transaction est enregistrée avec précision. Gardez le contrôle sur vos revenus en temps réel.</p>
+        <!-- Piliers fonctionnels -->
+        <div class="row g-3">
+            <div class="col-md-4">
+                <div class="panel-card p-4 h-100">
+                    <div class="mb-2 text-slate">@LucideIcons.Svg("globe", 20)</div>
+                    <h2 class="h6 mb-1">@L.T("Localisation automatique", "Automatic Localization")</h2>
+                    <p class="text-slate small mb-0">
+                        @L.T("Devises sans centimes (XOF/XAF) ou décimales (CDF/USD/KES), indicatifs téléphoniques et identifiants légaux par pays.", "Zero-decimal (XOF/XAF) or two-decimal (CDF/USD/KES) formatting, dial codes, and country-specific legal IDs.")
+                    </p>
                 </div>
             </div>
-
-            <div class="col-md-6 col-lg-4">
-                <div class="p-5 h-100 feature-card rounded-4 bg-white">
-                    <div class="icon-wrapper shadow-sm">
-                        <i class="fas fa-boxes fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <h5 class="fw-bold mt-3">Inventaire Intelligent</h5>
-                    <p class="text-muted mt-3">Décrémentation atomique du stock et alertes automatiques avant la rupture de vos produits phares.</p>
+            <div class="col-md-4">
+                <div class="panel-card p-4 h-100">
+                    <div class="mb-2 text-slate">@LucideIcons.Svg("receipt", 20)</div>
+                    <h2 class="h6 mb-1">@L.T("Isolation historique stricte", "Strict Historical Isolation")</h2>
+                    <p class="text-slate small mb-0">
+                        @L.T("Tout changement de devise, de TVA ou de statut formalisé s'applique uniquement aux nouvelles opérations sans altérer vos archives.", "Currency, VAT, or formalization changes apply strictly to future operations without altering historical records.")
+                    </p>
                 </div>
             </div>
-
-            <div class="col-md-6 col-lg-4">
-                <div class="p-5 h-100 feature-card rounded-4 bg-white">
-                    <div class="icon-wrapper shadow-sm">
-                        <i class="fas fa-arrow-trend-up fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <h5 class="fw-bold mt-3">Rapports & Bénéfices</h5>
-                    <p class="text-muted mt-3">Visualisez vos marges réelles et exportez vos rapports financiers PDF en un clic.</p>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-lg-4">
-                <div class="p-5 h-100 feature-card rounded-4 bg-white">
-                    <div class="icon-wrapper shadow-sm">
-                        <i class="fas fa-user-shield fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <h5 class="fw-bold mt-3">Multi-Utilisateurs</h5>
-                    <p class="text-muted mt-3">Ajoutez vos vendeurs avec des accès restreints : les prix d'achat et bénéfices restent confidentiels.</p>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-lg-4">
-                <div class="p-5 h-100 feature-card rounded-4 bg-white">
-                    <div class="icon-wrapper shadow-sm">
-                        <i class="fas fa-file-invoice-dollar fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <h5 class="fw-bold mt-3">Facturation Pro</h5>
-                    <p class="text-muted mt-3">Générez et imprimez des reçus clairs et numérotés pour fidéliser votre clientèle.</p>
-                </div>
-            </div>
-
-            <div class="col-md-6 col-lg-4">
-                <div class="p-5 h-100 feature-card rounded-4 bg-white">
-                    <div class="icon-wrapper shadow-sm">
-                        <i class="fas fa-cloud fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <h5 class="fw-bold mt-3">Accès Sécurisé Partout</h5>
-                    <p class="text-muted mt-3">Connectez-vous depuis PC, Tablette ou Smartphone en toute sécurité.</p>
+            <div class="col-md-4">
+                <div class="panel-card p-4 h-100">
+                    <div class="mb-2 text-slate">@LucideIcons.Svg("shield", 20)</div>
+                    <h2 class="h6 mb-1">@L.T("Contrôle interne & Audit", "Internal Control & Audit")</h2>
+                    <p class="text-slate small mb-0">
+                        @L.T("Numérotation séquentielle sans rupture, journal d'audit horodaté et séparation stricte propriétaire / vendeurs.", "Gap-free sequential numbering, timestamped audit logs, and strict owner vs. cashier role separation.")
+                    </p>
                 </div>
             </div>
         </div>
@@ -223,13 +127,9 @@
             const btn = document.getElementById('waitingSubmitBtn');
             const feedback = document.getElementById('waitingListFeedback');
             const tokenInput = form.querySelector('input[name="__RequestVerificationToken"]');
-
             if (!emailInput.value || !tokenInput) return;
 
-            const originalText = btn.textContent;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             btn.disabled = true;
-
             fetch('/Marketing/JoinWaitingList', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -238,24 +138,21 @@
                     __RequestVerificationToken: tokenInput.value
                 })
             })
-            .then(response => {
-                if (response.ok) {
-                    feedback.className = 'text-success fw-semibold mt-2 d-block';
-                    feedback.textContent = 'Félicitations ! Vous êtes inscrit sur la liste VIP du Plan Pro.';
+            .then(r => {
+                if (r.ok) {
+                    feedback.className = 'text-forest small mt-2 d-block';
+                    feedback.textContent = '@L.T("Inscription enregistrée.", "Request registered.")';
                     emailInput.value = '';
                 } else {
-                    feedback.className = 'text-danger mt-2 d-block';
-                    feedback.textContent = 'Veuillez vérifier votre adresse email.';
+                    feedback.className = 'text-sober-red small mt-2 d-block';
+                    feedback.textContent = '@L.T("Adresse email invalide.", "Invalid email address.")';
                 }
             })
             .catch(() => {
-                feedback.className = 'text-danger mt-2 d-block';
-                feedback.textContent = 'Erreur réseau. Veuillez réessayer.';
+                feedback.className = 'text-sober-red small mt-2 d-block';
+                feedback.textContent = '@L.T("Erreur réseau.", "Network error.")';
             })
-            .finally(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            });
+            .finally(() => { btn.disabled = false; });
         }
     </script>
 }

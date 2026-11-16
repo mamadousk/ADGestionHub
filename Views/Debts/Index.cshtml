@@ -1,210 +1,238 @@
 @model IEnumerable<AdGestionHub.Models.Debt>
-
 @{
-    ViewData["Title"] = "Gestion des Dettes";
-    var totalDues = Model != null ? Model.Where(d => !d.IsPaid).Sum(d => d.Amount) : 0m;
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = L["Nav.Debts"];
+    var list = Model?.ToList() ?? new List<AdGestionHub.Models.Debt>();
+    var activeDebts = list.Where(d => !d.IsPaid).ToList();
+    var paidDebts = list.Where(d => d.IsPaid).ToList();
+    var primaryCode = ctx.PrimaryCurrency.Code;
+    var primaryTotalDue = activeDebts
+        .Where(d => string.Equals(d.CurrencyCode ?? "USD", primaryCode, StringComparison.OrdinalIgnoreCase))
+        .Sum(d => d.Amount);
+    var otherDueTotals = activeDebts
+        .Where(d => !string.Equals(d.CurrencyCode ?? "USD", primaryCode, StringComparison.OrdinalIgnoreCase))
+        .GroupBy(d => d.CurrencyCode ?? "USD")
+        .Select(g => new { Code = g.Key, First = g.First(), Total = g.Sum(x => x.Amount) })
+        .ToList();
 }
 
-<div>
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="display-6 fw-bold mb-0"><i class="fas fa-hand-holding-usd text-primary me-2"></i>Cahier des Dettes</h1>
-            <p class="text-muted mb-0">Suivez vos crédits clients et relancez les paiements par WhatsApp</p>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h4 mb-1">@L["Nav.Debts"]</h1>
+        <p class="text-slate small mb-0">@L.T("Suivi des créances clients et encaissements différés", "Customer receivables and deferred collections")</p>
+    </div>
+    <button type="button" class="btn btn-accent" data-bs-toggle="modal" data-bs-target="#addDebtModal">
+        @LucideIcons.Svg("plus", 16, "me-1")
+        <span>@L.T("Nouvelle créance", "New receivable")</span>
+    </button>
+</div>
+
+<div class="row g-3 mb-4 align-items-stretch">
+    <div class="col-md-4">
+        <div class="kpi-card">
+            <div class="kpi-label">@L.T("Créances en attente", "Outstanding receivables") (@primaryCode)</div>
+            <div class="kpi-value @(primaryTotalDue > 0 ? "text-sober-red" : "")">@ctx.FormatPrimary(primaryTotalDue)</div>
+            @foreach (var od in otherDueTotals)
+            {
+                <div class="kpi-sub num">+ @ctx.FormatHistorical(od.Total, od.Code, od.First.CurrencyDecimals, od.First.CurrencySymbol)</div>
+            }
         </div>
-        <button type="button" class="btn btn-primary-gradient mt-2 mt-md-0" data-bs-toggle="modal" data-bs-target="#addDebtModal">
-            <i class="fas fa-plus me-2"></i>Nouvelle Dette
+    </div>
+    <div class="col-md-8 d-flex align-items-center">
+        <div class="panel-card p-3 w-100">
+            <input type="text" id="searchInput" class="form-control" placeholder="@L.T("Filtrer par client, téléphone ou référence...", "Filter by customer, phone, or note...")" />
+        </div>
+    </div>
+</div>
+
+<ul class="nav settings-tabs mb-3" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active num" data-bs-toggle="tab" data-bs-target="#tabActive" type="button">
+            @L.T("En attente", "Pending") (@activeDebts.Count)
         </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link num" data-bs-toggle="tab" data-bs-target="#tabPaid" type="button">
+            @L.T("Réglées", "Settled") (@paidDebts.Count)
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="tabActive">
+        <div class="panel-card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-ledger">
+                    <thead>
+                        <tr>
+                            <th>@L.T("Client", "Customer")</th>
+                            <th>@L.T("Motif / Note", "Reference / Note")</th>
+                            <th>@L.T("Échéance", "Due Date")</th>
+                            <th class="text-end">@L.T("Montant dû", "Amount Due")</th>
+                            <th class="text-end">@L.T("Actions", "Actions")</th>
+                        </tr>
+                    </thead>
+                    <tbody class="debt-rows">
+                        @if (!activeDebts.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-slate py-5">@L.T("Aucune créance en attente.", "No pending receivables.")</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in activeDebts)
+                            {
+                                var formattedAmt = ctx.FormatHistorical(item.Amount, item.CurrencyCode, item.CurrencyDecimals, item.CurrencySymbol);
+                                var cleanDigits = !string.IsNullOrWhiteSpace(item.ClientPhone)
+                                    ? new string(item.ClientPhone.Where(char.IsDigit).ToArray())
+                                    : string.Empty;
+                                var waText = Uri.EscapeDataString(
+                                    L.IsEnglish
+                                        ? $"Hello {item.ClientName}, reminder regarding your outstanding balance of {formattedAmt}. Thank you."
+                                        : $"Bonjour {item.ClientName}, rappel concernant votre solde en attente de {formattedAmt}. Merci.");
+                                var isOverdue = item.DueDate.HasValue && item.DueDate.Value.Date < DateTime.UtcNow.Date;
+
+                                <tr>
+                                    <td>
+                                        <div class="fw-medium">@item.ClientName</div>
+                                        @if (!string.IsNullOrWhiteSpace(item.ClientPhone))
+                                        {
+                                            <div class="text-slate small num">@item.ClientPhone</div>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(item.ClientTaxId))
+                                        {
+                                            <div class="text-slate small num">@item.ClientTaxId</div>
+                                        }
+                                    </td>
+                                    <td class="text-slate small">@(string.IsNullOrWhiteSpace(item.Note) ? "—" : item.Note)</td>
+                                    <td class="num">
+                                        @if (item.DueDate.HasValue)
+                                        {
+                                            <span class="@(isOverdue ? "status-pill danger" : "text-slate")">
+                                                @ctx.FormatDate(item.DueDate.Value)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-slate">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-end num fw-semibold text-sober-red">@formattedAmt</td>
+                                    <td class="text-end text-nowrap">
+                                        @if (!string.IsNullOrEmpty(cleanDigits))
+                                        {
+                                            <a href="https://wa.me/@cleanDigits?text=@waText" target="_blank" rel="noopener noreferrer" class="btn btn-secondary-outline btn-sm py-1 px-2 me-1">
+                                                WhatsApp
+                                            </a>
+                                        }
+                                        <form asp-action="MarkAsPaid" asp-route-id="@item.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-accent btn-sm py-1 px-3">@L["Action.Collect"]</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <!-- Carte Total Dues + Recherche -->
-    <div class="row g-4 mb-4 align-items-center">
-        <div class="col-md-6 col-lg-4">
-            <div class="card-dashboard" style="border-left: 4px solid #ef4444;">
-                <div class="stat-label">Total des créances en attente</div>
-                <div class="stat-number text-danger">@totalDues.ToString("N2") $</div>
-                <div class="small text-muted">Montant restant à recouvrer</div>
-            </div>
-        </div>
-        <div class="col-md-6 col-lg-8">
-            <div class="input-group shadow-sm rounded-4 overflow-hidden">
-                <span class="input-group-text bg-white border-0 ps-3"><i class="fas fa-search text-muted"></i></span>
-                <input type="text" id="searchInput" class="form-control border-0 py-3" placeholder="Filtrer rapidement par nom de client, téléphone ou note..." />
-            </div>
-        </div>
-    </div>
-
-    <!-- Tabs -->
-    <ul class="nav nav-pills mb-4 gap-2" id="pills-tab" role="tablist">
-        <li class="nav-item">
-            <button class="nav-link active rounded-pill px-4 py-2 fw-semibold" id="pills-active-tab" data-bs-toggle="pill" data-bs-target="#pills-active" type="button">
-                🚨 En attente (@(Model?.Count(d => !d.IsPaid) ?? 0))
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link rounded-pill px-4 py-2 fw-semibold" id="pills-paid-tab" data-bs-toggle="pill" data-bs-target="#pills-paid" type="button">
-                ✅ Réglées (@(Model?.Count(d => d.IsPaid) ?? 0))
-            </button>
-        </li>
-    </ul>
-
-    <!-- Contenu Tabs -->
-    <div class="tab-content">
-        <div class="tab-pane fade show active" id="pills-active">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-modern mb-0" id="tableActive">
-                            <thead>
+    <div class="tab-pane fade" id="tabPaid">
+        <div class="panel-card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-ledger">
+                    <thead>
+                        <tr>
+                            <th>@L.T("Client", "Customer")</th>
+                            <th>@L.T("Note", "Note")</th>
+                            <th class="text-end">@L.T("Montant encaissé", "Collected")</th>
+                            <th class="text-end">@L.T("Actions", "Actions")</th>
+                        </tr>
+                    </thead>
+                    <tbody class="debt-rows">
+                        @if (!paidDebts.Any())
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-slate py-5">@L.T("Aucun règlement archivé.", "No settled receivables.")</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in paidDebts)
+                            {
                                 <tr>
-                                    <th>Client</th>
-                                    <th>Note</th>
-                                    <th>Montant</th>
-                                    <th>Échéance</th>
-                                    <th class="text-end">Actions</th>
+                                    <td class="fw-medium">@item.ClientName</td>
+                                    <td class="text-slate small">@(string.IsNullOrWhiteSpace(item.Note) ? "—" : item.Note)</td>
+                                    <td class="text-end num fw-semibold text-forest">
+                                        @ctx.FormatHistorical(item.Amount, item.CurrencyCode, item.CurrencyDecimals, item.CurrencySymbol)
+                                    </td>
+                                    <td class="text-end text-nowrap">
+                                        <form asp-action="Archive" asp-route-id="@item.Id" method="post" class="d-inline me-1">
+                                            <button type="submit" class="btn btn-secondary-outline btn-sm py-1 px-2" title="Archive">
+                                                @LucideIcons.Svg("check", 14)
+                                            </button>
+                                        </form>
+                                        <form asp-action="Delete" asp-route-id="@item.Id" method="post" onsubmit="return confirm('@L.T("Supprimer cet enregistrement ?", "Delete this record?")');" class="d-inline">
+                                            <button type="submit" class="btn btn-danger-outline btn-sm py-1 px-2">
+                                                @LucideIcons.Svg("trash-2", 14)
+                                            </button>
+                                        </form>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody class="debt-rows">
-                                @if (Model != null && Model.Any(d => !d.IsPaid))
-                                {
-                                    foreach (var item in Model.Where(d => !d.IsPaid))
-                                    {
-                                        var cleanDigits = !string.IsNullOrWhiteSpace(item.ClientPhone)
-                                            ? new string(item.ClientPhone.Where(char.IsDigit).ToArray())
-                                            : string.Empty;
-                                        var waText = Uri.EscapeDataString($"Bonjour {item.ClientName}, petit rappel concernant votre solde en attente de {item.Amount:N2} $. Merci !");
-
-                                        <tr>
-                                            <td>
-                                                <div class="fw-bold">@item.ClientName</div>
-                                                <small class="text-muted">@(string.IsNullOrWhiteSpace(item.ClientPhone) ? "Pas de numéro" : item.ClientPhone)</small>
-                                            </td>
-                                            <td><small class="text-muted">@(string.IsNullOrWhiteSpace(item.Note) ? "—" : item.Note)</small></td>
-                                            <td class="fw-bold text-danger">@item.Amount.ToString("N2") $</td>
-                                            <td>
-                                                @if (item.DueDate.HasValue)
-                                                {
-                                                    <span class="@(item.DueDate.Value.Date < DateTime.Today ? "text-danger fw-bold" : "")">
-                                                        @item.DueDate.Value.ToString("dd/MM/yyyy")
-                                                    </span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">--</span>
-                                                }
-                                            </td>
-                                            <td class="text-end">
-                                                @if (!string.IsNullOrEmpty(cleanDigits))
-                                                {
-                                                    <a href="https://wa.me/@cleanDigits?text=@waText"
-                                                       target="_blank" rel="noopener noreferrer"
-                                                       class="btn btn-sm btn-soft text-success me-1" title="Relancer sur WhatsApp">
-                                                        <i class="fab fa-whatsapp"></i>
-                                                    </a>
-                                                }
-                                                <form asp-action="MarkAsPaid" asp-route-id="@item.Id" method="post" class="d-inline">
-                                                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3 fw-bold">Encaisser</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                                else
-                                {
-                                    <tr><td colspan="5" class="text-center py-5 text-muted">Aucune dette en attente. 👏</td></tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="tab-pane fade" id="pills-paid">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-modern mb-0" id="tablePaid">
-                            <thead>
-                                <tr>
-                                    <th>Client</th>
-                                    <th>Montant réglé</th>
-                                    <th>Note</th>
-                                    <th class="text-end">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="debt-rows text-muted">
-                                @if (Model != null && Model.Any(d => d.IsPaid))
-                                {
-                                    foreach (var item in Model.Where(d => d.IsPaid))
-                                    {
-                                        <tr>
-                                            <td class="fw-semibold">@item.ClientName</td>
-                                            <td class="text-success fw-bold">@item.Amount.ToString("N2") $</td>
-                                            <td><small>@item.Note</small></td>
-                                            <td class="text-end">
-                                                <form asp-action="Archive" asp-route-id="@item.Id" method="post" class="d-inline me-1">
-                                                    <button type="submit" class="btn btn-sm btn-soft" title="Archiver">
-                                                        <i class="fas fa-box-archive"></i>
-                                                    </button>
-                                                </form>
-                                                <form asp-action="Delete" asp-route-id="@item.Id" method="post"
-                                                      onsubmit="return confirm('Supprimer définitivement cet enregistrement ?');" class="d-inline">
-                                                    <button type="submit" class="btn btn-sm btn-soft text-danger" title="Supprimer">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    }
-                                }
-                                else
-                                {
-                                    <tr><td colspan="4" class="text-center py-5 text-muted">Aucune dette réglée enregistrée.</td></tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            }
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Nouvelle Dette -->
+<!-- Modal Nouvelle Créance -->
 <div class="modal fade" id="addDebtModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content modal-content-modern">
-            <div class="modal-header border-0 pt-4 px-4">
-                <h5 class="modal-title fw-bold"><i class="fas fa-plus-circle text-primary me-2"></i>Nouveau Crédit Client</h5>
+        <div class="modal-content border" style="border-color: var(--border-subtle); border-radius: var(--radius-lg);">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title h6 fw-bold">@L.T("Nouvelle créance client", "New Customer Receivable")</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form asp-controller="Debts" asp-action="Create" method="post">
-                <div class="modal-body px-4">
+                <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Nom du client</label>
-                        <input name="ClientName" class="form-control form-control-modern" maxlength="150" required placeholder="Ex: Maman Alphonsine" />
+                        <label class="form-label">@L.T("Nom du client", "Customer Name") *</label>
+                        <input name="ClientName" class="form-control" maxlength="150" required />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Téléphone WhatsApp (optionnel)</label>
-                        <input name="ClientPhone" class="form-control form-control-modern" maxlength="40" placeholder="Ex: 243810000000" />
+                        <label class="form-label">@L.T("Téléphone / WhatsApp", "Phone / WhatsApp")</label>
+                        <input name="ClientPhone" class="form-control num" maxlength="40" value="@(ctx.Settings.PhoneDialCode) " />
                     </div>
+                    @if (ctx.IsFormalized)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">@ctx.TaxIdLabel (@L.T("optionnel", "optional"))</label>
+                            <input name="ClientTaxId" class="form-control num" maxlength="100" />
+                        </div>
+                    }
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Montant ($)</label>
-                            <input name="Amount" type="number" step="0.01" min="0.01" class="form-control form-control-modern" required />
+                            <label class="form-label">@L.T("Montant", "Amount") (@ctx.PrimaryCurrency.Symbol) *</label>
+                            <input name="Amount" type="number" step="@ctx.NumberInputStep" min="0" class="form-control num" required />
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Échéance</label>
-                            <input name="DueDate" type="date" class="form-control form-control-modern" />
+                            <label class="form-label">@L.T("Date d'échéance", "Due Date")</label>
+                            <input name="DueDate" type="date" class="form-control num" />
                         </div>
                     </div>
                     <div class="mt-3">
-                        <label class="form-label fw-semibold">Note</label>
-                        <textarea name="Note" class="form-control form-control-modern" rows="2" maxlength="500" placeholder="Ex: 5 cartons de savon..."></textarea>
+                        <label class="form-label">@L.T("Motif / Note", "Reference / Note")</label>
+                        <textarea name="Note" class="form-control" rows="2" maxlength="500"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer border-0 pb-4 px-4">
-                    <button type="submit" class="btn btn-primary-gradient w-100">Enregistrer le crédit</button>
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-secondary-outline" data-bs-dismiss="modal">@L["Action.Cancel"]</button>
+                    <button type="submit" class="btn btn-accent">@L["Action.Save"]</button>
                 </div>
             </form>
         </div>
@@ -213,11 +241,10 @@
 
 @section Scripts {
     <script>
-        document.getElementById('searchInput')?.addEventListener('input', function () {
+        document.getElementById("searchInput")?.addEventListener("input", function () {
             const filter = this.value.toLowerCase();
-            document.querySelectorAll('.debt-rows tr').forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(filter) ? "" : "none";
+            document.querySelectorAll(".debt-rows tr").forEach(function (row) {
+                row.style.display = row.textContent.toLowerCase().includes(filter) ? "" : "none";
             });
         });
     </script>

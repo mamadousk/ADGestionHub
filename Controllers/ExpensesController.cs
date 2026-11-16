@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Models.ViewModels;
@@ -5,10 +9,6 @@ using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -17,16 +17,22 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IBoutiqueService _boutiqueService;
+        private readonly ITenantContextService _tenantContext;
         private readonly ICacheService _cacheService;
+        private readonly IAppLocalizer _L;
 
         public ExpensesController(
             ApplicationDbContext context,
             IBoutiqueService boutiqueService,
-            ICacheService cacheService)
+            ITenantContextService tenantContext,
+            ICacheService cacheService,
+            IAppLocalizer localizer)
         {
             _context = context;
             _boutiqueService = boutiqueService;
+            _tenantContext = tenantContext;
             _cacheService = cacheService;
+            _L = localizer;
         }
 
         public async Task<IActionResult> Index()
@@ -61,9 +67,17 @@ namespace AdGestionHub.Controllers
         }
 
         [HttpGet]
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            return View(new Expense { Date = DateTime.Now, Category = "Loyer" });
+            var ctx = await _tenantContext.GetContextAsync();
+            return View(new Expense
+            {
+                Date = DateTime.Now,
+                Category = "Loyer",
+                CurrencyCode = ctx.PrimaryCurrency.Code,
+                CurrencySymbol = ctx.PrimaryCurrency.Symbol,
+                CurrencyDecimals = ctx.PrimaryCurrency.Decimals
+            });
         }
 
         [HttpPost]
@@ -75,6 +89,8 @@ namespace AdGestionHub.Controllers
             if (string.IsNullOrEmpty(userId) || boutiqueId == null)
                 return Challenge();
 
+            var ctx = await _tenantContext.GetContextAsync();
+
             if (!ModelState.IsValid)
             {
                 return View(new Expense
@@ -82,14 +98,20 @@ namespace AdGestionHub.Controllers
                     Description = model.Description,
                     Amount = model.Amount,
                     Date = model.Date,
-                    Category = model.Category
+                    Category = model.Category,
+                    CurrencyCode = ctx.PrimaryCurrency.Code,
+                    CurrencySymbol = ctx.PrimaryCurrency.Symbol,
+                    CurrencyDecimals = ctx.PrimaryCurrency.Decimals
                 });
             }
 
             var expense = new Expense
             {
                 Description = model.Description.Trim(),
-                Amount = decimal.Round(model.Amount, 2),
+                Amount = decimal.Round(model.Amount, ctx.PrimaryCurrency.Decimals),
+                CurrencyCode = ctx.PrimaryCurrency.Code,
+                CurrencySymbol = ctx.PrimaryCurrency.Symbol,
+                CurrencyDecimals = ctx.PrimaryCurrency.Decimals,
                 Date = model.Date == default ? DateTime.Now : model.Date,
                 Category = string.IsNullOrWhiteSpace(model.Category) ? "Autre" : model.Category.Trim(),
                 BoutiqueId = boutiqueId.Value,
@@ -100,7 +122,7 @@ namespace AdGestionHub.Controllers
             await _context.SaveChangesAsync();
             await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
 
-            TempData["SuccessMessage"] = "Dépense enregistrée avec succès.";
+            TempData["SuccessMessage"] = _L.T("Dépense enregistrée.", "Expense recorded.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -146,19 +168,23 @@ namespace AdGestionHub.Controllers
                     Description = model.Description,
                     Amount = model.Amount,
                     Date = model.Date,
-                    Category = model.Category
+                    Category = model.Category,
+                    CurrencyCode = existing.CurrencyCode,
+                    CurrencySymbol = existing.CurrencySymbol,
+                    CurrencyDecimals = existing.CurrencyDecimals
                 });
             }
 
+            // Conserver la devise d'origine de la dépense historique
             existing.Description = model.Description.Trim();
-            existing.Amount = decimal.Round(model.Amount, 2);
+            existing.Amount = decimal.Round(model.Amount, existing.CurrencyDecimals);
             existing.Date = model.Date == default ? existing.Date : model.Date;
             existing.Category = string.IsNullOrWhiteSpace(model.Category) ? "Autre" : model.Category.Trim();
 
             await _context.SaveChangesAsync();
             await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
 
-            TempData["SuccessMessage"] = "Dépense mise à jour avec succès.";
+            TempData["SuccessMessage"] = _L.T("Dépense mise à jour.", "Expense updated.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -197,7 +223,7 @@ namespace AdGestionHub.Controllers
                 _context.Expenses.Remove(expense);
                 await _context.SaveChangesAsync();
                 await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-                TempData["SuccessMessage"] = "Dépense supprimée avec succès.";
+                TempData["SuccessMessage"] = _L.T("Dépense supprimée.", "Expense deleted.");
             }
 
             return RedirectToAction(nameof(Index));
