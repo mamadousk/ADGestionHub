@@ -52,6 +52,8 @@ namespace AdGestionHub.Services
             var dateFmt = string.IsNullOrWhiteSpace(Settings.DateFormat) ? Country.DateFormat : Settings.DateFormat;
             return includeTime ? date.ToString($"{dateFmt} HH:mm") : date.ToString(dateFmt);
         }
+
+        public string FormatDateTime(DateTime date) => FormatDate(date, includeTime: true);
     }
 
     public interface ITenantContextService
