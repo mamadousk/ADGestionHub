@@ -12,7 +12,7 @@
             <div class="p-3 rounded border mb-4" style="background: var(--bg-canvas);">
                 <div class="fw-semibold">@Model.Description</div>
                 <div class="num text-sober-red fw-semibold">@ctx.FormatHistorical(Model.Amount, Model.CurrencyCode, Model.CurrencyDecimals, Model.CurrencySymbol)</div>
-                <div class="text-slate small num">@Model.Category · @ctx.FormatDateTime(Model.Date)</div>
+                <div class="text-slate small num">@Model.Category · @ctx.FormatDate(Model.Date, true)</div>
             </div>
             <form asp-action="Delete" method="post" class="d-flex justify-content-end gap-2">
                 <input type="hidden" asp-for="Id" />

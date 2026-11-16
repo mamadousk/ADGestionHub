@@ -65,7 +65,7 @@
             @if (Model.IsVatEnabled)
             {
                 <div class="kpi-sub num">
-                    @L["Doc.SubtotalExclTax"] : @ctx.FormatPrimary(Model.TotalSalesExclTax) · TVA : @ctx.FormatPrimary(Model.TotalVatCollected)
+                    @L["Doc.SubtotalExclTax"] : @ctx.FormatPrimary(Model.TotalSubtotalNet) · TVA : @ctx.FormatPrimary(Model.TotalTaxAmount)
                 </div>
             }
             else
