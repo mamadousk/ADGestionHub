@@ -1,15 +1,14 @@
-﻿using AdGestionHub.Data;
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
-    [Authorize(Roles = "Admin, SuperAdmin")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
     public class SettingsController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -25,15 +24,18 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> Index()
         {
             var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Unauthorized();
+            if (boutiqueId == null)
+            {
+                if (User.IsInRole("SuperAdmin"))
+                    return RedirectToAction("Index", "SuperAdmin");
+                return Challenge();
+            }
 
-            // Récupérer la boutique
             var boutique = await _context.Boutiques.FindAsync(boutiqueId.Value);
             if (boutique == null) return NotFound();
 
-            // Récupérer ou créer StoreSettings
             var settings = await _context.StoreSettings
-                .FirstOrDefaultAsync(s => s.BoutiqueId == boutiqueId);
+                .FirstOrDefaultAsync(s => s.BoutiqueId == boutiqueId.Value);
 
             if (settings == null)
             {
@@ -44,51 +46,65 @@ namespace AdGestionHub.Controllers
                     Address = boutique.Adresse,
                     Phone = boutique.Telephone,
                     ContactEmail = boutique.Email,
-                    IsActive = true
+                    FooterMessage = "Merci de votre achat et à très bientôt !",
+                    IsActive = boutique.IsActive
                 };
                 _context.StoreSettings.Add(settings);
                 await _context.SaveChangesAsync();
             }
 
-            // Passer le nom de la boutique au ViewBag pour affichage en lecture seule
             ViewBag.BoutiqueNom = boutique.Nom;
-
             return View(settings);
         }
 
         // POST: Settings/Edit
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(StoreSettings settings)
+        public async Task<IActionResult> Edit([Bind("Id,BoutiqueId,StoreName,Address,Phone,ContactEmail,Description,FooterMessage")] StoreSettings input)
         {
             var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Unauthorized();
+            if (boutiqueId == null) return Challenge();
 
-            if (settings.BoutiqueId != boutiqueId) return Forbid();
+            if (input.BoutiqueId != boutiqueId.Value)
+                return Forbid();
 
-            if (ModelState.IsValid)
+            var boutique = await _context.Boutiques.FindAsync(boutiqueId.Value);
+            if (boutique == null) return NotFound();
+
+            var existing = await _context.StoreSettings
+                .FirstOrDefaultAsync(s => s.BoutiqueId == boutiqueId.Value);
+
+            if (existing == null) return NotFound();
+
+            // Retirer la validation éventuelle sur la navigation Boutique
+            ModelState.Remove(nameof(StoreSettings.Boutique));
+
+            if (!ModelState.IsValid)
             {
-                try
-                {
-                    _context.Update(settings);
-                    await _context.SaveChangesAsync();
-                    TempData["SuccessMessage"] = "Paramètres mis à jour avec succès.";
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!StoreSettingsExists(settings.Id))
-                        return NotFound();
-                    else
-                        throw;
-                }
-                return RedirectToAction(nameof(Index));
+                ViewBag.BoutiqueNom = boutique.Nom;
+                return View("Index", input);
             }
-            return View(settings);
-        }
 
-        private bool StoreSettingsExists(int id)
-        {
-            return _context.StoreSettings.Any(e => e.Id == id);
+            var cleanStoreName = string.IsNullOrWhiteSpace(input.StoreName) ? boutique.Nom : input.StoreName.Trim();
+
+            existing.StoreName = cleanStoreName;
+            existing.Address = input.Address?.Trim();
+            existing.Phone = input.Phone?.Trim();
+            existing.ContactEmail = input.ContactEmail?.Trim();
+            existing.Description = input.Description?.Trim();
+            existing.FooterMessage = input.FooterMessage?.Trim();
+
+            // Synchroniser les coordonnées principales sur l'entité Boutique
+            boutique.Nom = cleanStoreName;
+            boutique.Adresse = existing.Address ?? string.Empty;
+            boutique.Telephone = existing.Phone ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(existing.ContactEmail))
+                boutique.Email = existing.ContactEmail;
+
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Les paramètres de votre boutique ont été enregistrés avec succès.";
+            return RedirectToAction(nameof(Index));
         }
     }
 }

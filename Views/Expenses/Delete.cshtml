@@ -1,45 +1,28 @@
-﻿@model Expense
+@model AdGestionHub.Models.Expense
 
 @{
-    ViewData["Title"] = "Delete";
+    ViewData["Title"] = "Supprimer la Dépense";
 }
 
-<h1>Delete</h1>
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-danger text-white py-3 px-4 fw-bold">
+                <i class="fas fa-exclamation-triangle me-2"></i> Supprimer cette dépense ?
+            </div>
+            <div class="card-body p-4">
+                <p class="mb-3">Confirmez-vous la suppression définitive de l'opération suivante ?</p>
+                <div class="alert alert-light border">
+                    <strong>@Model.Description</strong> — <span class="text-danger fw-bold">@Model.Amount.ToString("N2") $</span><br />
+                    <small class="text-muted">@Model.Category · @Model.Date.ToString("dd/MM/yyyy HH:mm")</small>
+                </div>
 
-<h3>Are you sure you want to delete this?</h3>
-<div>
-    <h4>Expense</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Description)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Description)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Amount)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Amount)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Date)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Date)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Category)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Category)
-        </dd>
-    </dl>
-    
-    <form asp-action="Delete">
-        <input type="hidden" asp-for="Id" />
-        <input type="submit" value="Delete" class="btn btn-danger" /> |
-        <a asp-action="Index">Back to List</a>
-    </form>
+                <form asp-action="Delete" method="post" class="d-flex justify-content-between mt-4">
+                    <input type="hidden" asp-for="Id" />
+                    <a asp-action="Index" class="btn btn-soft">Annuler</a>
+                    <button type="submit" class="btn btn-danger px-4"><i class="fas fa-trash me-2"></i>Supprimer</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>

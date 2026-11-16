@@ -1,4 +1,6 @@
-﻿namespace AdGestionHub.Models
+using System.ComponentModel.DataAnnotations;
+
+namespace AdGestionHub.Models
 {
     public class SaleItem
     {
@@ -7,10 +9,18 @@
         public virtual Sale? Sale { get; set; }
 
         public int? ProductId { get; set; }
+
+        [StringLength(200)]
         public string ProductName { get; set; } = string.Empty;
+
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
+
+        /// <summary>
+        /// Coût d'achat unitaire figé au moment de la vente pour préserver l'exactitude historique du bénéfice.
+        /// </summary>
+        public decimal UnitCost { get; set; }
+
         public int BoutiqueId { get; set; }
-   
     }
 }

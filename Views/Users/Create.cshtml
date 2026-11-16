@@ -1,4 +1,4 @@
-﻿@model AdGestionHub.Models.ViewModels.CreateUserViewModel
+@model AdGestionHub.Models.ViewModels.CreateUserViewModel
 @{
     ViewData["Title"] = "Ajouter un employé";
 }
@@ -7,54 +7,57 @@
     <div class="col-lg-8">
         <div class="card shadow-sm border-0 rounded-4">
             <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h4 class="mb-0"><i class="fas fa-user-plus text-primary me-2"></i> Nouvel employé</h4>
-                <p class="text-muted small">Remplissez les informations ci-dessous pour créer un compte.</p>
+                <h4 class="fw-bold mb-0"><i class="fas fa-user-plus text-primary me-2"></i> Nouvel employé</h4>
+                <p class="text-muted small mb-0">L'employé pourra vendre et consulter le stock sans voir vos prix d'achat ni vos bénéfices.</p>
             </div>
             <div class="card-body p-4">
                 <form asp-action="Create" method="post">
-                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-modern" role="alert"></div>
 
-                    <!-- ✅ Champ caché pour le BoutiqueId de l'admin connecté -->
-                    <input type="hidden" name="BoutiqueId" value="@ViewBag.BoutiqueId" />
-
-                    <div class="mb-3">
-                        <label asp-for="UserName" class="form-label fw-semibold"></label>
-                        <input asp-for="UserName" class="form-control form-control-lg" placeholder="Nom d'utilisateur" />
-                        <span asp-validation-for="UserName" class="text-danger small"></span>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="UserName" class="form-label fw-semibold"></label>
+                            <input asp-for="UserName" class="form-control form-control-modern" placeholder="Ex: jean_caisse" />
+                            <span asp-validation-for="UserName" class="text-danger small"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="FullName" class="form-label fw-semibold"></label>
+                            <input asp-for="FullName" class="form-control form-control-modern" placeholder="Ex: Jean Kabongo" />
+                            <span asp-validation-for="FullName" class="text-danger small"></span>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label asp-for="Email" class="form-label fw-semibold"></label>
-                        <input asp-for="Email" class="form-control form-control-lg" placeholder="exemple@domaine.com" />
+                        <input asp-for="Email" class="form-control form-control-modern" placeholder="employe@domaine.com" />
                         <span asp-validation-for="Email" class="text-danger small"></span>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
                             <label asp-for="Password" class="form-label fw-semibold"></label>
-                            <input asp-for="Password" class="form-control form-control-lg" placeholder="Mot de passe" />
+                            <input asp-for="Password" class="form-control form-control-modern" placeholder="Min. 8 car. (Maj, chiffre, symbole)" />
                             <span asp-validation-for="Password" class="text-danger small"></span>
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6">
                             <label asp-for="ConfirmPassword" class="form-label fw-semibold"></label>
-                            <input asp-for="ConfirmPassword" class="form-control form-control-lg" placeholder="Confirmer" />
+                            <input asp-for="ConfirmPassword" class="form-control form-control-modern" placeholder="Confirmer le mot de passe" />
                             <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
                         </div>
                     </div>
 
                     <div class="mb-4">
                         <label asp-for="Role" class="form-label fw-semibold"></label>
-                        <select asp-for="Role" class="form-select form-select-lg" asp-items="@(new SelectList(ViewBag.Roles))">
-                            <option value="">-- Sélectionner un rôle --</option>
+                        <select asp-for="Role" class="form-select form-control-modern" asp-items="@(new SelectList(ViewBag.Roles))">
                         </select>
                         <span asp-validation-for="Role" class="text-danger small"></span>
                     </div>
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary-gradient px-5 py-2">
-                            <i class="fas fa-save me-2"></i> Créer
+                            <i class="fas fa-save me-2"></i> Créer le compte
                         </button>
-                        <a asp-action="Index" class="btn btn-outline-secondary px-4 py-2">Annuler</a>
+                        <a asp-action="Index" class="btn btn-soft px-4 py-2">Annuler</a>
                     </div>
                 </form>
             </div>
@@ -63,7 +66,5 @@
 </div>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 }

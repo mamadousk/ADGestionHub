@@ -1,8 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -18,18 +21,26 @@ namespace AdGestionHub.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var boutiques = await _context.Boutiques.ToListAsync();
+            var boutiques = await _context.Boutiques
+                .AsNoTracking()
+                .OrderByDescending(b => b.CreatedAt)
+                .ToListAsync();
 
             ViewBag.BoutiqueCount = boutiques.Count;
-            ViewBag.GlobalSales = await _context.Sales.SumAsync(s => s.FinalPrice);
-            ViewBag.TotalProducts = await _context.Products.CountAsync();
+            ViewBag.ActiveBoutiqueCount = boutiques.Count(b => b.IsActive);
+            ViewBag.GlobalSales = await _context.Sales.AsNoTracking().SumAsync(s => s.FinalPrice);
+            ViewBag.TotalProducts = await _context.Products.AsNoTracking().CountAsync();
+            ViewBag.TotalUsers = await _context.Users.AsNoTracking().CountAsync();
+            ViewBag.WaitingListCount = await _context.WaitingListPros.AsNoTracking().CountAsync();
 
             ViewBag.Notifications = await _context.GlobalNotifications
-                .Where(n => n.ExpiryDate > DateTime.Now)
+                .AsNoTracking()
+                .Where(n => n.ExpiryDate > DateTime.Now && n.IsActive)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
 
             ViewBag.Feedbacks = await _context.UserFeedbacks
+                .AsNoTracking()
                 .OrderByDescending(f => f.DateEnvoi)
                 .Take(5)
                 .ToListAsync();
@@ -38,24 +49,51 @@ namespace AdGestionHub.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleBoutiqueStatus(int id)
+        {
+            var boutique = await _context.Boutiques.FindAsync(id);
+            if (boutique == null) return NotFound();
+
+            boutique.IsActive = !boutique.IsActive;
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = boutique.IsActive
+                ? $"La boutique « {boutique.Nom} » a été réactivée."
+                : $"La boutique « {boutique.Nom} » a été suspendue.";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SendNotification(string message, bool isCritical, int hoursActive)
         {
-            if (string.IsNullOrEmpty(message)) return RedirectToAction("Index");
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                TempData["ErrorMessage"] = "Le message de notification ne peut pas être vide.";
+                return RedirectToAction(nameof(Index));
+            }
 
+            var safeHours = Math.Clamp(hoursActive > 0 ? hoursActive : 2, 1, 720);
             var notification = new GlobalNotification
             {
-                Message = message,
+                Message = message.Trim(),
                 IsCritical = isCritical,
+                IsActive = true,
                 CreatedAt = DateTime.Now,
-                ExpiryDate = DateTime.Now.AddHours(hoursActive > 0 ? hoursActive : 2)
+                ExpiryDate = DateTime.Now.AddHours(safeHours)
             };
 
             _context.GlobalNotifications.Add(notification);
             await _context.SaveChangesAsync();
-            return RedirectToAction("Index");
+
+            TempData["SuccessMessage"] = "Annonce globale diffusée avec succès.";
+            return RedirectToAction(nameof(Index));
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteNotification(int id)
         {
             var notif = await _context.GlobalNotifications.FindAsync(id);
@@ -63,13 +101,15 @@ namespace AdGestionHub.Controllers
             {
                 _context.GlobalNotifications.Remove(notif);
                 await _context.SaveChangesAsync();
+                TempData["SuccessMessage"] = "Notification supprimée.";
             }
-            return RedirectToAction("Index");
+            return RedirectToAction(nameof(ManageNotifications));
         }
 
         public async Task<IActionResult> Logs()
         {
             var logs = await _context.ErrorLogs
+                .AsNoTracking()
                 .OrderByDescending(l => l.CreatedAt)
                 .Take(100)
                 .ToListAsync();
@@ -79,6 +119,7 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> ManageNotifications()
         {
             var notifications = await _context.GlobalNotifications
+                .AsNoTracking()
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
             return View(notifications);
@@ -87,16 +128,28 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> BoutiqueDetails(int id)
         {
             var boutique = await _context.Boutiques
+                .AsNoTracking()
                 .FirstOrDefaultAsync(b => b.Id == id);
 
             if (boutique == null) return NotFound();
 
             var settings = await _context.StoreSettings
+                .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.BoutiqueId == boutique.Id);
 
+            var salesCount = await _context.Sales.AsNoTracking().CountAsync(s => s.BoutiqueId == boutique.Id);
+            var salesTotal = await _context.Sales.AsNoTracking().Where(s => s.BoutiqueId == boutique.Id).SumAsync(s => s.FinalPrice);
+            var productCount = await _context.Products.AsNoTracking().CountAsync(p => p.BoutiqueId == boutique.Id);
+            var employeeCount = await _context.Users.AsNoTracking().CountAsync(u => u.BoutiqueId == boutique.Id);
+            var debtCount = await _context.Debts.AsNoTracking().CountAsync(d => d.BoutiqueId == boutique.Id && !d.IsPaid && !d.IsArchived);
+
             ViewBag.Settings = settings;
-            ViewBag.ProductCount = await _context.Products.CountAsync(p => p.BoutiqueId == boutique.Id);
-            ViewBag.SalesCount = await _context.Sales.CountAsync(s => s.BoutiqueId == boutique.Id);
+            ViewBag.ProductCount = productCount;
+            ViewBag.SaleCount = salesCount;
+            ViewBag.SalesCount = salesCount;
+            ViewBag.SalesTotal = salesTotal;
+            ViewBag.EmployeeCount = employeeCount;
+            ViewBag.DebtCount = debtCount;
 
             return View(boutique);
         }

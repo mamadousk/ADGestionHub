@@ -1,23 +1,29 @@
-﻿<!-- ==================== FILE: Views/Home/Index.cshtml ==================== -->
 @model AdGestionHub.Models.DashboardViewModel
 
 @{
     ViewData["Title"] = "Tableau de Bord";
+    var isAdmin = User.IsInRole("Admin");
 }
 
 <div>
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
         <div>
             <h1 class="display-5 fw-bold mb-0">Dashboard</h1>
-            <p class="text-muted">Vue d'ensemble de votre activité commerciale</p>
+            <p class="text-muted mb-0">Vue d'ensemble en temps réel de votre activité commerciale</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
             <a asp-controller="Sales" asp-action="Create" class="btn btn-primary-gradient">
                 <i class="fas fa-plus me-2"></i> Nouvelle Vente
             </a>
             <a asp-controller="Expenses" asp-action="Create" class="btn btn-soft">
                 <i class="fas fa-plus me-2"></i> Dépense
             </a>
+            @if (isAdmin)
+            {
+                <a asp-controller="Reports" asp-action="Index" class="btn btn-soft">
+                    <i class="fas fa-chart-bar me-2"></i> Rapports
+                </a>
+            }
         </div>
     </div>
 
@@ -28,31 +34,78 @@
                 <div class="icon-wrapper orange">
                     <i class="fas fa-chart-line"></i>
                 </div>
-                <div class="stat-number">@Model.TotalSales.ToString("N0") $</div>
-                <div class="stat-label">Chiffre d'affaires</div>
-                <div class="mt-2 small text-success"><i class="fas fa-arrow-up me-1"></i> +12% vs mois dernier</div>
+                <div class="stat-number">@Model.TotalSales.ToString("N2") $</div>
+                <div class="stat-label">Chiffre d'affaires cumulé</div>
+                @if (Model.MonthlyGrowthPercent.HasValue)
+                {
+                    var positive = Model.MonthlyGrowthPercent.Value >= 0;
+                    <div class="mt-2 small @(positive ? "text-success" : "text-danger")">
+                        <i class="fas @(positive ? "fa-arrow-up" : "fa-arrow-down") me-1"></i>
+                        @(positive ? "+" : "")@Model.MonthlyGrowthPercent.Value.ToString("F1")% vs mois dernier
+                    </div>
+                }
+                else
+                {
+                    <div class="mt-2 small text-muted">
+                        Aujourd'hui : <strong>@Model.TodaySales.ToString("N2") $</strong> (@Model.TodayTransactions vente(s))
+                    </div>
+                }
             </div>
         </div>
-        <div class="col-md-6 col-xl-3 animate-fade-up delay-2">
-            <div class="card-dashboard">
-                <div class="icon-wrapper green">
-                    <i class="fas fa-wallet"></i>
+
+        @if (isAdmin)
+        {
+            <div class="col-md-6 col-xl-3 animate-fade-up delay-2">
+                <div class="card-dashboard">
+                    <div class="icon-wrapper green">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <div class="stat-number @(Model.TotalProfit < 0 ? "text-danger" : "text-success")">@Model.TotalProfit.ToString("N2") $</div>
+                    <div class="stat-label">Bénéfice Net</div>
+                    <div class="mt-2 small text-muted">
+                        Marge nette : @((Model.TotalSales > 0 ? (Model.TotalProfit / Model.TotalSales * 100) : 0).ToString("F1"))%
+                    </div>
                 </div>
-                <div class="stat-number @(Model.TotalProfit < 0 ? "text-danger" : "text-success")">@Model.TotalProfit.ToString("N0") $</div>
-                <div class="stat-label">Bénéfice Net</div>
-                <div class="mt-2 small text-muted">Marge @((Model.TotalSales > 0 ? (Model.TotalProfit / Model.TotalSales * 100) : 0).ToString("F1"))%</div>
             </div>
-        </div>
-        <div class="col-md-6 col-xl-3 animate-fade-up delay-3">
-            <div class="card-dashboard">
-                <div class="icon-wrapper red">
-                    <i class="fas fa-hand-holding-usd"></i>
+
+            <div class="col-md-6 col-xl-3 animate-fade-up delay-3">
+                <div class="card-dashboard">
+                    <div class="icon-wrapper red">
+                        <i class="fas fa-hand-holding-usd"></i>
+                    </div>
+                    <div class="stat-number text-danger">@Model.TotalDebts.ToString("N2") $</div>
+                    <div class="stat-label">Dettes Clients impayées</div>
+                    <div class="mt-2 small">
+                        <a asp-controller="Debts" asp-action="Index" class="text-decoration-none text-muted">Gérer les recouvrements →</a>
+                    </div>
                 </div>
-                <div class="stat-number text-danger">@ViewBag.TotalDebts?.ToString("N0") $</div>
-                <div class="stat-label">Dettes Clients</div>
-                <div class="mt-2 small text-muted">à recouvrer</div>
             </div>
-        </div>
+        }
+        else
+        {
+            <div class="col-md-6 col-xl-3 animate-fade-up delay-2">
+                <div class="card-dashboard">
+                    <div class="icon-wrapper green">
+                        <i class="fas fa-cash-register"></i>
+                    </div>
+                    <div class="stat-number text-success">@Model.TodaySales.ToString("N2") $</div>
+                    <div class="stat-label">Ventes du jour</div>
+                    <div class="mt-2 small text-muted">@Model.TodayTransactions transaction(s) aujourd'hui</div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-xl-3 animate-fade-up delay-3">
+                <div class="card-dashboard">
+                    <div class="icon-wrapper purple">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <div class="stat-number">@Model.TotalTransactions</div>
+                    <div class="stat-label">Total des ventes</div>
+                    <div class="mt-2 small text-muted">Historique de la boutique</div>
+                </div>
+            </div>
+        }
+
         <div class="col-md-6 col-xl-3 animate-fade-up delay-4">
             <div class="card-dashboard">
                 <div class="icon-wrapper blue">
@@ -60,17 +113,38 @@
                 </div>
                 <div class="stat-number">@Model.LowStockCount</div>
                 <div class="stat-label">Alertes Stock</div>
-                <div class="mt-2 small @(Model.LowStockCount > 0 ? "text-danger" : "text-success")">
-                    @(Model.LowStockCount > 0 ? $"{Model.LowStockCount} produits en rupture imminente" : "Tous les stocks sont sains")
+                <div class="mt-2 small @(Model.LowStockCount > 0 ? "text-danger fw-semibold" : "text-success")">
+                    @(Model.LowStockCount > 0 ? $"{Model.LowStockCount} produit(s) à réapprovisionner" : "Tous les stocks sont sains")
                 </div>
             </div>
         </div>
     </div>
 
+    @if (Model.LowStockProducts.Any())
+    {
+        <div class="alert alert-warning border-0 shadow-sm rounded-4 mb-4 p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <div>
+                    <strong class="me-2"><i class="fas fa-exclamation-triangle me-1"></i> Produits à réapprovisionner :</strong>
+                    @foreach (var p in Model.LowStockProducts)
+                    {
+                        <span class="badge bg-white text-dark border me-1">
+                            @p.Name : <strong class="@(p.StockQuantity <= 0 ? "text-danger" : "text-warning")">@p.StockQuantity</strong> en stock
+                        </span>
+                    }
+                </div>
+                <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-sm btn-dark rounded-pill px-3">
+                    Voir le stock
+                </a>
+            </div>
+        </div>
+    }
+
     <!-- Dernières Ventes -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-header bg-white border-0 py-3 px-4">
-            <h5 class="fw-bold mb-0"><i class="fas fa-clock me-2"></i> Dernières Ventes</h5>
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold mb-0"><i class="fas fa-clock me-2 text-primary"></i> Dernières Ventes</h5>
+            <a asp-controller="Sales" asp-action="Index" class="btn btn-sm btn-soft">Tout voir</a>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -85,24 +159,33 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in Model.RecentSales)
+                        @if (!Model.RecentSales.Any())
                         {
                             <tr>
-                                <td>@item.SaleDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>
-                                    @if (item.Items != null && item.Items.Any())
-                                    {
-                                        @string.Join(", ", item.Items.Select(i => i.ProductName ?? "Produit inconnu"))
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted fst-italic">Aucun détail</span>
-                                    }
-                                </td>
-                                <td class="text-center">@(item.Items?.Sum(i => i.Quantity) ?? 0)</td>
-                                <td class="text-end fw-bold text-success">@item.FinalPrice.ToString("N2") $</td>
-                                <td class="text-center"><span class="badge-status info">@item.PaymentMethod</span></td>
+                                <td colspan="5" class="text-center py-4 text-muted">Aucune vente enregistrée pour le moment.</td>
                             </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in Model.RecentSales)
+                            {
+                                <tr>
+                                    <td>@item.SaleDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        @if (item.Items != null && item.Items.Any())
+                                        {
+                                            @string.Join(", ", item.Items.Select(i => i.ProductName ?? "Produit"))
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">Aucun détail</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">@(item.Items?.Sum(i => i.Quantity) ?? 0)</td>
+                                    <td class="text-end fw-bold text-success">@item.FinalPrice.ToString("N2") $</td>
+                                    <td class="text-center"><span class="badge-status info">@item.PaymentMethod</span></td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>

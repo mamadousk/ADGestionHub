@@ -1,42 +1,40 @@
-﻿@model Expense
+@model AdGestionHub.Models.Expense
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = "Détails de la Dépense";
+    var isAdmin = User.IsInRole("Admin");
 }
 
-<h1>Details</h1>
+<div class="row justify-content-center mt-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-4 px-4">
+                <h3 class="fw-bold mb-0"><i class="fas fa-wallet text-primary me-2"></i>Détails de la dépense #@Model.Id</h3>
+            </div>
+            <div class="card-body p-4">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 fw-bold">Description :</dt>
+                    <dd class="col-sm-8">@Model.Description</dd>
 
-<div>
-    <h4>Expense</h4>
-    <hr />
-    <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Description)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Description)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Amount)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Amount)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Date)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Date)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Category)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Category)
-        </dd>
-    </dl>
-</div>
-<div>
-    <a asp-action="Edit" asp-route-id="@Model?.Id">Edit</a> |
-    <a asp-action="Index">Back to List</a>
+                    <dt class="col-sm-4 fw-bold">Catégorie :</dt>
+                    <dd class="col-sm-8"><span class="badge-status info">@Model.Category</span></dd>
+
+                    <dt class="col-sm-4 fw-bold">Montant :</dt>
+                    <dd class="col-sm-8 fw-bold text-danger">@Model.Amount.ToString("N2") $</dd>
+
+                    <dt class="col-sm-4 fw-bold">Date :</dt>
+                    <dd class="col-sm-8">@Model.Date.ToString("dd/MM/yyyy HH:mm")</dd>
+                </dl>
+
+                <hr class="my-4" />
+                <div class="d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
+                    @if (isAdmin)
+                    {
+                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary-gradient"><i class="fas fa-edit me-2"></i>Modifier</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

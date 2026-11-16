@@ -1,8 +1,10 @@
-﻿@using AdGestionHub.Models
+@using AdGestionHub.Models
 @model Product
 
 @{
     ViewData["Title"] = $"Détails - {Model.Name}";
+    var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+    var threshold = Model.LowStockThreshold > 0 ? Model.LowStockThreshold : Model.StockAlertThreshold;
 }
 
 <div class="row justify-content-center">
@@ -15,7 +17,7 @@
                     </div>
                     <div>
                         <h1 class="display-6 fw-bold mb-0">@Model.Name</h1>
-                        <p class="text-muted small">ID Produit : #@Model.Id</p>
+                        <p class="text-muted small mb-0">Référence : #@Model.Id</p>
                     </div>
                 </div>
             </div>
@@ -27,40 +29,42 @@
                             <dt class="col-sm-5 fw-bold text-dark">Nom :</dt>
                             <dd class="col-sm-7">@Model.Name</dd>
 
+                            <dt class="col-sm-5 fw-bold text-dark">Variations :</dt>
+                            <dd class="col-sm-7">@(string.IsNullOrWhiteSpace(Model.Variations) ? "Aucune" : Model.Variations)</dd>
+
                             <dt class="col-sm-5 fw-bold text-dark">En stock :</dt>
                             <dd class="col-sm-7">
                                 @{
-                                    var stockClass = Model.StockQuantity <= Model.LowStockThreshold ? "badge-status danger" : "badge-status success";
+                                    var stockClass = Model.StockQuantity <= 0
+                                        ? "badge-status danger"
+                                        : (Model.StockQuantity <= threshold ? "badge-status warning" : "badge-status success");
                                 }
-                                <span class="@stockClass">@Model.StockQuantity unités</span>
+                                <span class="@stockClass">@Model.StockQuantity unité(s)</span>
                             </dd>
 
                             <dt class="col-sm-5 fw-bold text-dark">Seuil d'alerte :</dt>
-                            <dd class="col-sm-7">
-                                @if (Model.StockAlertThreshold > 0)
-                                {
-                                    <span>@Model.StockAlertThreshold</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">Non défini</span>
-                                }
-                            </dd>
+                            <dd class="col-sm-7">@(threshold > 0 ? $"{threshold} unité(s)" : "Non défini")</dd>
                         </dl>
                     </div>
                     <div class="col-md-6">
-                        <h5 class="fw-bold text-muted mb-3">💰 Analyse financière</h5>
+                        <h5 class="fw-bold text-muted mb-3">💰 Tarification</h5>
                         <dl class="row">
-                            <dt class="col-sm-5 fw-bold text-dark">Prix d'achat :</dt>
-                            <dd class="col-sm-7">@Model.PurchasePrice.ToString("N2") $</dd>
+                            @if (isAdmin)
+                            {
+                                <dt class="col-sm-5 fw-bold text-dark">Prix d'achat :</dt>
+                                <dd class="col-sm-7">@Model.PurchasePrice.ToString("N2") $</dd>
+                            }
 
                             <dt class="col-sm-5 fw-bold text-dark">Prix de vente :</dt>
-                            <dd class="col-sm-7 fw-bold h5" style="color: #FF8C00;">@Model.SalePrice.ToString("N2") $</dd>
+                            <dd class="col-sm-7 fw-bold h5 mb-0" style="color: #FF8C00;">@Model.SalePrice.ToString("N2") $</dd>
 
-                            <dt class="col-sm-5 fw-bold text-dark">Marge estimée :</dt>
-                            <dd class="col-sm-7 text-success fw-bold">
-                                @((Model.SalePrice - Model.PurchasePrice).ToString("N2")) $
-                            </dd>
+                            @if (isAdmin)
+                            {
+                                <dt class="col-sm-5 fw-bold text-dark mt-2">Marge unitaire :</dt>
+                                <dd class="col-sm-7 text-success fw-bold mt-2">
+                                    @((Model.SalePrice - Model.PurchasePrice).ToString("N2")) $
+                                </dd>
+                            }
                         </dl>
                     </div>
                 </div>
@@ -69,11 +73,12 @@
 
                 <div class="d-flex justify-content-between">
                     <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
-                    <div>
+                    @if (isAdmin)
+                    {
                         <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary-gradient">
                             <i class="fas fa-edit me-2"></i>Modifier
                         </a>
-                    </div>
+                    }
                 </div>
             </div>
         </div>

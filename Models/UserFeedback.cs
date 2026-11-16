@@ -1,15 +1,22 @@
-﻿using System;
+using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace AdGestionHub.Models
 {
     public class UserFeedback
     {
         public int Id { get; set; }
-        public string UserName { get; set; }
 
-        // CORRECTION ICI : Ton code HTML cherche "Note", "Commentaire" et "DateEnvoi"
+        [StringLength(256)]
+        public string UserName { get; set; } = "Anonyme";
+
+        [Range(1, 5)]
         public int Note { get; set; }
-        public string Commentaire { get; set; }
+
+        [Required]
+        [StringLength(2000)]
+        public string Commentaire { get; set; } = string.Empty;
+
         public DateTime DateEnvoi { get; set; } = DateTime.Now;
     }
 }

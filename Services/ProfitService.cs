@@ -1,4 +1,3 @@
-﻿// ==================== FILE: Services/ProfitService.cs ====================
 using AdGestionHub.Data;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -25,34 +24,25 @@ namespace AdGestionHub.Services
 
         public async Task<decimal> CalculateGrossProfitAsync(int boutiqueId, DateTime? startDate = null, DateTime? endDate = null)
         {
-            var query = _context.Sales
-                .AsNoTracking()
-                .Include(s => s.Items)
-                .Where(s => s.BoutiqueId == boutiqueId);
-
-            if (startDate.HasValue)
-                query = query.Where(s => s.SaleDate >= startDate.Value);
-            if (endDate.HasValue)
-                query = query.Where(s => s.SaleDate <= endDate.Value);
-
-            var sales = await query.ToListAsync();
-
-            decimal grossProfit = 0;
-            foreach (var sale in sales)
-            {
-                foreach (var item in sale.Items)
+            // Une seule requête SQL optimisée (sans N+1), utilisant UnitCost figé lors de la vente
+            // avec repli sur le PurchasePrice actuel du produit pour les anciennes ventes.
+            var itemsQuery =
+                from si in _context.SaleItems.AsNoTracking()
+                join s in _context.Sales.AsNoTracking() on si.SaleId equals s.Id
+                join p in _context.Products.AsNoTracking().Where(pr => pr.BoutiqueId == boutiqueId)
+                    on si.ProductId equals (int?)p.Id into prodGroup
+                from p in prodGroup.DefaultIfEmpty()
+                where s.BoutiqueId == boutiqueId
+                      && (!startDate.HasValue || s.SaleDate >= startDate.Value)
+                      && (!endDate.HasValue || s.SaleDate <= endDate.Value)
+                select new
                 {
-                    // Récupérer le prix d'achat du produit (si disponible)
-                    var product = await _context.Products
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(p => p.Id == item.ProductId && p.BoutiqueId == boutiqueId);
+                    si.Quantity,
+                    si.UnitPrice,
+                    EffectiveCost = si.UnitCost > 0m ? si.UnitCost : (p != null ? p.PurchasePrice : 0m)
+                };
 
-                    decimal purchaseCost = (product?.PurchasePrice ?? 0) * item.Quantity;
-                    grossProfit += (item.UnitPrice * item.Quantity) - purchaseCost;
-                }
-            }
-
-            return grossProfit;
+            return await itemsQuery.SumAsync(x => (x.UnitPrice - x.EffectiveCost) * x.Quantity);
         }
 
         private async Task<decimal> GetTotalExpensesAsync(int boutiqueId, DateTime? startDate = null, DateTime? endDate = null)

@@ -1,10 +1,13 @@
-﻿using AdGestionHub.Data;
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -29,13 +32,11 @@ namespace AdGestionHub.Controllers
                 || email.Length > 254
                 || !new EmailAddressAttribute().IsValid(email))
             {
-                return BadRequest();
+                return BadRequest(new { error = "Veuillez fournir une adresse email valide." });
             }
 
             var normalized = email.ToLowerInvariant();
 
-            // Pas de doublon. Même réponse si l'adresse est déjà inscrite,
-            // pour ne pas révéler qui figure dans la liste.
             var alreadyThere = await _context.WaitingListPros.AnyAsync(w => w.Email == normalized);
             if (!alreadyThere)
             {
@@ -43,7 +44,7 @@ namespace AdGestionHub.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return Ok();
+            return Ok(new { success = true });
         }
 
         // ========== FEEDBACK BÊTA (formulaire du layout, utilisateur connecté ou non) ==========
@@ -58,7 +59,11 @@ namespace AdGestionHub.Controllers
                 || string.IsNullOrWhiteSpace(commentaire)
                 || commentaire.Length > 2000)
             {
-                return BadRequest();
+                if (IsAjaxRequest())
+                    return BadRequest(new { error = "Veuillez saisir une note entre 1 et 5 et un commentaire." });
+
+                TempData["ErrorMessage"] = "Veuillez saisir un commentaire valide (maximum 2000 caractères).";
+                return RedirectToSafeReturnUrl();
             }
 
             var feedback = new UserFeedback
@@ -72,7 +77,11 @@ namespace AdGestionHub.Controllers
             _context.UserFeedbacks.Add(feedback);
             await _context.SaveChangesAsync();
 
-            return Ok();
+            if (IsAjaxRequest())
+                return Ok(new { success = true, message = "Merci beaucoup pour votre avis !" });
+
+            TempData["SuccessMessage"] = "Merci beaucoup ! Votre avis a bien été transmis à l'équipe AdGestionHub.";
+            return RedirectToSafeReturnUrl();
         }
 
         // ========== TABLEAU DE BORD MARKETING (SuperAdmin uniquement) ==========
@@ -80,14 +89,14 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> AdminDashboard()
         {
             var feedbacks = await _context.UserFeedbacks
-                                          .AsNoTracking()
-                                          .OrderByDescending(f => f.DateEnvoi)
-                                          .ToListAsync();
+                .AsNoTracking()
+                .OrderByDescending(f => f.DateEnvoi)
+                .ToListAsync();
 
             var waitingList = await _context.WaitingListPros
-                                            .AsNoTracking()
-                                            .OrderByDescending(w => w.DateInscription)
-                                            .ToListAsync();
+                .AsNoTracking()
+                .OrderByDescending(w => w.DateInscription)
+                .ToListAsync();
 
             ViewBag.WaitingList = waitingList;
             return View(feedbacks);
@@ -98,9 +107,9 @@ namespace AdGestionHub.Controllers
         public async Task<IActionResult> ExportLeads()
         {
             var leads = await _context.WaitingListPros
-                                      .AsNoTracking()
-                                      .OrderByDescending(w => w.DateInscription)
-                                      .ToListAsync();
+                .AsNoTracking()
+                .OrderByDescending(w => w.DateInscription)
+                .ToListAsync();
 
             var builder = new StringBuilder();
             builder.AppendLine("Email;Date d'inscription");
@@ -117,7 +126,24 @@ namespace AdGestionHub.Controllers
             return File(csvContent, "text/csv", "AdGestionHub_Leads_Pro.csv");
         }
 
-        // Neutralise l'injection de formules Excel (=, +, -, @) et échappe le séparateur et les guillemets.
+        private bool IsAjaxRequest() =>
+            string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+        private IActionResult RedirectToSafeReturnUrl()
+        {
+            var referer = Request.Headers.Referer.ToString();
+            if (Uri.TryCreate(referer, UriKind.Absolute, out var uri)
+                && string.Equals(uri.Host, Request.Host.Host, StringComparison.OrdinalIgnoreCase)
+                && Url.IsLocalUrl(uri.PathAndQuery))
+            {
+                return LocalRedirect(uri.PathAndQuery);
+            }
+
+            return User.Identity?.IsAuthenticated == true
+                ? RedirectToAction("Index", "Home")
+                : RedirectToAction("Welcome", "Home");
+        }
+
         private static string CsvSafe(string? value)
         {
             if (string.IsNullOrEmpty(value)) return string.Empty;

@@ -1,35 +1,142 @@
-﻿@model IEnumerable<AdGestionHub.Models.Boutique>
+@model IEnumerable<AdGestionHub.Models.Boutique>
 @{
-    ViewData["Title"] = "Super Admin - Gestion des boutiques";
+    ViewData["Title"] = "Super Admin - Console Plateforme";
+    var globalSales = ViewBag.GlobalSales as decimal? ?? 0m;
+    var boutiqueCount = ViewBag.BoutiqueCount as int? ?? 0;
+    var activeBoutiqueCount = ViewBag.ActiveBoutiqueCount as int? ?? 0;
+    var totalProducts = ViewBag.TotalProducts as int? ?? 0;
+    var waitingListCount = ViewBag.WaitingListCount as int? ?? 0;
+    var feedbacks = ViewBag.Feedbacks as IEnumerable<AdGestionHub.Models.UserFeedback>;
 }
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="fw-bold" style="color:#FF8C00;">🚀 Super Admin</h1>
-        <a asp-action="CreateBoutique" class="btn btn-primary-gradient">
-            <i class="fas fa-plus-circle me-1"></i> Nouvelle boutique
-        </a>
+<div class="py-2">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="display-6 fw-bold mb-0" style="color:#FF8C00;"><i class="fas fa-user-shield me-2"></i>Console Super Admin</h1>
+            <p class="text-muted mb-0">Supervision globale des boutiques clientes, annonces et retours utilisateurs</p>
+        </div>
+        <div class="d-flex gap-2 mt-2 mt-md-0">
+            <a asp-controller="Marketing" asp-action="AdminDashboard" class="btn btn-soft">
+                <i class="fas fa-bullhorn me-2 text-primary"></i> Leads Pro (@waitingListCount)
+            </a>
+            <a asp-action="Logs" class="btn btn-soft text-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i> Journal d'erreurs
+            </a>
+        </div>
     </div>
 
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-4" role="alert">
-            <i class="fas fa-check-circle me-2"></i> @TempData["SuccessMessage"]
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <!-- KPI globaux -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="icon-wrapper orange"><i class="fas fa-store"></i></div>
+                <div class="stat-number">@activeBoutiqueCount / @boutiqueCount</div>
+                <div class="stat-label">Boutiques actives</div>
+            </div>
         </div>
-    }
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="icon-wrapper green"><i class="fas fa-coins"></i></div>
+                <div class="stat-number">@globalSales.ToString("N2") $</div>
+                <div class="stat-label">Volume global des ventes</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="icon-wrapper blue"><i class="fas fa-boxes"></i></div>
+                <div class="stat-number">@totalProducts</div>
+                <div class="stat-label">Articles référencés</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card-dashboard">
+                <div class="icon-wrapper purple"><i class="fas fa-envelope-open-text"></i></div>
+                <div class="stat-number">@waitingListCount</div>
+                <div class="stat-label">Inscrits Liste Pro</div>
+            </div>
+        </div>
+    </div>
 
-    <div class="card shadow-sm border-0 rounded-4">
+    <div class="row g-4 mb-4">
+        <!-- Diffusion d'annonce globale -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0"><i class="fas fa-bullhorn text-primary me-2"></i>Diffuser une annonce globale</h5>
+                    <a asp-action="ManageNotifications" class="btn btn-sm btn-soft">Historique</a>
+                </div>
+                <div class="card-body p-4">
+                    <form asp-action="SendNotification" method="post">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Message affiché à tous les commerçants</label>
+                            <input type="text" name="message" class="form-control form-control-modern" maxlength="300" required placeholder="Ex: Maintenance prévue ce soir à 23h00..." />
+                        </div>
+                        <div class="row g-3 align-items-center mb-3">
+                            <div class="col-sm-6">
+                                <label class="form-label small fw-semibold">Durée d'affichage (heures)</label>
+                                <input type="number" name="hoursActive" value="4" min="1" max="720" class="form-control form-control-modern" />
+                            </div>
+                            <div class="col-sm-6 pt-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="isCritical" value="true" id="isCriticalSwitch" />
+                                    <label class="form-check-label fw-semibold text-danger" for="isCriticalSwitch">Alerte critique (rouge)</label>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary-gradient w-100">Publier la notification</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Derniers avis utilisateurs -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0"><i class="fas fa-star text-warning me-2"></i>Derniers retours utilisateurs</h5>
+                    <a asp-controller="Marketing" asp-action="AdminDashboard" class="btn btn-sm btn-soft">Tout voir</a>
+                </div>
+                <div class="card-body p-4">
+                    @if (feedbacks != null && feedbacks.Any())
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var fb in feedbacks)
+                            {
+                                <div class="list-group-item px-0">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>@fb.UserName</strong>
+                                        <span class="text-warning">@(new string('★', Math.Clamp(fb.Note, 1, 5)))</span>
+                                    </div>
+                                    <p class="small text-muted mb-0">@fb.Commentaire</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">Aucun avis reçu pour le moment.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des boutiques -->
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4">
+            <h5 class="fw-bold mb-0">🏪 Boutiques inscrites (@boutiqueCount)</h5>
+        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="bg-light">
+                <table class="table table-modern mb-0">
+                    <thead>
                         <tr>
                             <th>ID</th>
                             <th>Nom</th>
                             <th>Email</th>
-                            <th>Propriétaire</th>
-                            <th>Date création</th>
+                            <th>Téléphone</th>
+                            <th>Statut</th>
+                            <th>Créée le</th>
                             <th class="text-end">Actions</th>
                         </tr>
                     </thead>
@@ -37,21 +144,32 @@
                         @foreach (var boutique in Model)
                         {
                             <tr>
-                                <td>@boutique.Id</td>
+                                <td>#@boutique.Id</td>
                                 <td><strong>@boutique.Nom</strong></td>
                                 <td>@boutique.Email</td>
-                                <td>@boutique.OwnerEmail</td>
+                                <td>@(string.IsNullOrWhiteSpace(boutique.Telephone) ? "—" : boutique.Telephone)</td>
+                                <td>
+                                    @if (boutique.IsActive)
+                                    {
+                                        <span class="badge-status success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-status danger">Suspendue</span>
+                                    }
+                                </td>
                                 <td>@boutique.CreatedAt.ToString("dd/MM/yyyy")</td>
                                 <td class="text-end">
-                                    <a asp-action="BoutiqueDetails" asp-route-id="@boutique.Id" class="btn btn-outline-primary btn-sm me-1">
+                                    <a asp-action="BoutiqueDetails" asp-route-id="@boutique.Id" class="btn btn-sm btn-soft me-1" title="Détails">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a asp-action="EditBoutique" asp-route-id="@boutique.Id" class="btn btn-outline-warning btn-sm me-1">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <a asp-action="DeleteBoutique" asp-route-id="@boutique.Id" class="btn btn-outline-danger btn-sm">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </a>
+                                    <form asp-action="ToggleBoutiqueStatus" asp-route-id="@boutique.Id" method="post" class="d-inline"
+                                          onsubmit="return confirm('@(boutique.IsActive ? "Suspendre cette boutique ?" : "Réactiver cette boutique ?")');">
+                                        <button type="submit" class="btn btn-sm @(boutique.IsActive ? "btn-soft text-danger" : "btn-success rounded-pill px-3")">
+                                            <i class="fas @(boutique.IsActive ? "fa-ban" : "fa-check")"></i>
+                                            @(boutique.IsActive ? "Suspendre" : "Activer")
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                         }

@@ -1,4 +1,4 @@
-﻿using AdGestionHub.Models;
+using AdGestionHub.Models;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -31,22 +31,50 @@ namespace AdGestionHub.Data
             // Relation entre ApplicationUser et Boutique
             modelBuilder.Entity<ApplicationUser>()
                 .HasOne(u => u.Boutique)
-                .WithMany(b => b.Users) // Ajouter la navigation dans Boutique
+                .WithMany(b => b.Users)
                 .HasForeignKey(u => u.BoutiqueId)
-                .OnDelete(DeleteBehavior.Restrict); // Empêcher la suppression d'une boutique avec des utilisateurs
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relations des journaux (BoutiqueId nullable pour les erreurs anonymes / SuperAdmin)
+            modelBuilder.Entity<ErrorLog>()
+                .HasOne<Boutique>()
+                .WithMany(b => b.ErrorLogs)
+                .HasForeignKey(e => e.BoutiqueId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<SystemLog>()
+                .HasOne<Boutique>()
+                .WithMany(b => b.SystemLogs)
+                .HasForeignKey(s => s.BoutiqueId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<StoreSettings>()
+                .HasOne(s => s.Boutique)
+                .WithMany(b => b.StoreSettings)
+                .HasForeignKey(s => s.BoutiqueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Précision monétaire explicite
+            modelBuilder.Entity<Product>().Property(p => p.PurchasePrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Product>().Property(p => p.SalePrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Sale>().Property(s => s.FinalPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleItem>().Property(si => si.UnitPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleItem>().Property(si => si.UnitCost).HasPrecision(18, 2);
+            modelBuilder.Entity<Expense>().Property(e => e.Amount).HasPrecision(18, 2);
+            modelBuilder.Entity<Debt>().Property(d => d.Amount).HasPrecision(18, 2);
 
             // --- INDEXATION POUR PERFORMANCE MULTI-TENANT ---
-            // On crée un index sur BoutiqueId pour chaque table qui stocke des données par boutique.
             modelBuilder.Entity<StoreSettings>().HasIndex(s => s.BoutiqueId);
             modelBuilder.Entity<Product>().HasIndex(p => p.BoutiqueId);
-            modelBuilder.Entity<Sale>().HasIndex(s => s.BoutiqueId);
+            modelBuilder.Entity<Sale>().HasIndex(s => new { s.BoutiqueId, s.SaleDate });
             modelBuilder.Entity<SaleItem>().HasIndex(si => si.BoutiqueId);
-            modelBuilder.Entity<Expense>().HasIndex(e => e.BoutiqueId);
-            modelBuilder.Entity<Debt>().HasIndex(d => d.BoutiqueId);
+            modelBuilder.Entity<Expense>().HasIndex(e => new { e.BoutiqueId, e.Date });
+            modelBuilder.Entity<Debt>().HasIndex(d => new { d.BoutiqueId, d.IsArchived, d.IsPaid });
             modelBuilder.Entity<SystemLog>().HasIndex(sl => sl.BoutiqueId);
             modelBuilder.Entity<ErrorLog>().HasIndex(el => el.BoutiqueId);
-
-            // Ajoutez d'autres index si nécessaire
+            modelBuilder.Entity<WaitingListPro>().HasIndex(w => w.Email).IsUnique();
         }
     }
 }

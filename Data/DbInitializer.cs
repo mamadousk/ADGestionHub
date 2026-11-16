@@ -1,4 +1,4 @@
-﻿using AdGestionHub.Models;
+using AdGestionHub.Models;
 using Microsoft.AspNetCore.Identity;
 
 namespace AdGestionHub.Data
@@ -12,7 +12,7 @@ namespace AdGestionHub.Data
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
             var logger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbInitializer");
 
-            // 1. Création des rôles
+            // 1. Création des rôles standards
             string[] roleNames = { "Admin", "Employé", "SuperAdmin" };
             foreach (var roleName in roleNames)
             {
@@ -22,22 +22,25 @@ namespace AdGestionHub.Data
                 }
             }
 
-            // 2. Création du SuperAdmin, uniquement si ses identifiants sont fournis par la configuration
+            // 2. Création du SuperAdmin uniquement si ses identifiants sont fournis par la configuration
             //    (variables d'environnement SuperAdmin__Email / SuperAdmin__Password, ou User Secrets en développement).
-            var superAdminEmail = configuration["mamadousacko716@gmail.com"];
-            var superAdminPassword = configuration["Mamadousacko22@"];
+            var superAdminEmail = configuration["SuperAdmin:Email"];
+            var superAdminPassword = configuration["SuperAdmin:Password"];
 
             if (string.IsNullOrWhiteSpace(superAdminEmail) || string.IsNullOrWhiteSpace(superAdminPassword))
             {
-                logger.LogWarning(
-                    "SuperAdmin:Email ou SuperAdmin:Password n'est pas configuré : aucun compte SuperAdmin n'a été créé.");
+                logger.LogInformation(
+                    "SuperAdmin:Email / SuperAdmin:Password non définis dans la configuration : aucun nouveau compte SuperAdmin créé au démarrage.");
                 return;
             }
 
             var existing = await userManager.FindByEmailAsync(superAdminEmail);
             if (existing != null)
             {
-                // Le compte existe déjà : on ne touche jamais à son mot de passe.
+                if (!await userManager.IsInRoleAsync(existing, "SuperAdmin"))
+                {
+                    await userManager.AddToRoleAsync(existing, "SuperAdmin");
+                }
                 return;
             }
 
@@ -47,24 +50,20 @@ namespace AdGestionHub.Data
                 Email = superAdminEmail,
                 EmailConfirmed = true,
                 FullName = "Super Administrateur",
-                StoreName = "AdGestionHub Global",
-                BoutiqueId = null // Le SuperAdmin n'a pas de boutique attitrée
+                BoutiqueId = null
             };
 
             var result = await userManager.CreateAsync(user, superAdminPassword);
-
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(user, "SuperAdmin");
-                logger.LogInformation("Compte SuperAdmin créé.");
+                logger.LogInformation("Compte SuperAdmin initialisé avec succès.");
             }
             else
             {
-                // On journalise les raisons (mot de passe trop faible, etc.) sans jamais écrire le mot de passe.
                 logger.LogError("Création du SuperAdmin impossible : {Errors}",
                     string.Join(" | ", result.Errors.Select(e => e.Description)));
             }
         }
     }
 }
-
