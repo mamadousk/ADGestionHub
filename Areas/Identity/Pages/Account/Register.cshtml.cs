@@ -1,4 +1,4 @@
-﻿using AdGestionHub.Data;
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -39,72 +39,73 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
         }
 
         [BindProperty]
-        public InputModel Input { get; set; }
+        public InputModel Input { get; set; } = new();
 
-        public string ReturnUrl { get; set; }
+        public string? ReturnUrl { get; set; }
 
         public class InputModel
         {
+            [Required(ErrorMessage = "Le nom de votre boutique est obligatoire.")]
+            [StringLength(150, ErrorMessage = "Le nom de la boutique ne peut pas dépasser 150 caractères.")]
+            [Display(Name = "Nom de la boutique")]
+            public string StoreName { get; set; } = string.Empty;
+
+            [Phone(ErrorMessage = "Numéro de téléphone invalide.")]
+            [StringLength(40)]
+            [Display(Name = "Téléphone")]
+            public string? PhoneNumber { get; set; }
+
             [Required(ErrorMessage = "L'email est obligatoire.")]
             [EmailAddress(ErrorMessage = "Email invalide.")]
+            [StringLength(256)]
             [Display(Name = "Email")]
-            public string Email { get; set; }
+            public string Email { get; set; } = string.Empty;
 
             [Required(ErrorMessage = "Le mot de passe est obligatoire.")]
-            [StringLength(100, ErrorMessage = "Le mot de passe doit comporter au moins {2} caractères.", MinimumLength = 6)]
+            [StringLength(100, ErrorMessage = "Le mot de passe doit comporter au moins {2} caractères.", MinimumLength = 8)]
             [DataType(DataType.Password)]
             [Display(Name = "Mot de passe")]
-            public string Password { get; set; }
+            public string Password { get; set; } = string.Empty;
 
             [DataType(DataType.Password)]
             [Display(Name = "Confirmer le mot de passe")]
             [Compare("Password", ErrorMessage = "Les mots de passe ne correspondent pas.")]
-            public string ConfirmPassword { get; set; }
-
-            [Display(Name = "Nom de la boutique")]
-            public string StoreName { get; set; }
-
-            [Display(Name = "Téléphone")]
-            public string PhoneNumber { get; set; }
+            public string ConfirmPassword { get; set; } = string.Empty;
         }
 
-        public void OnGet(string returnUrl = null)
+        public void OnGet(string? returnUrl = null)
         {
             ReturnUrl = returnUrl;
         }
 
-        public async Task<IActionResult> OnPostAsync(string returnUrl = null)
+        public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
         {
             returnUrl ??= Url.Content("~/");
+            ReturnUrl = returnUrl;
 
             if (!ModelState.IsValid)
                 return Page();
 
+            var email = Input.Email.Trim();
+            var existingUser = await _userManager.FindByEmailAsync(email);
+            if (existingUser != null)
+            {
+                ModelState.AddModelError(string.Empty, "Un compte existe déjà avec cet email. Veuillez vous connecter.");
+                return Page();
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Vérifier si l'email est déjà utilisé (peu importe le rôle)
-                var existingUser = await _userManager.FindByEmailAsync(Input.Email);
-                if (existingUser != null)
-                {
-                    ModelState.AddModelError(string.Empty, "Un compte existe déjà avec cet email. Veuillez vous connecter.");
-                    return Page();
-                }
+                var storeName = string.IsNullOrWhiteSpace(Input.StoreName) ? "Ma Boutique" : Input.StoreName.Trim();
+                var phone = Input.PhoneNumber?.Trim() ?? string.Empty;
 
-                // Créer l'utilisateur
-                var user = new ApplicationUser
-                {
-                    UserName = Input.Email,
-                    Email = Input.Email,
-                    EmailConfirmed = true
-                };
-
-                // Créer la boutique associée
                 var boutique = new Boutique
                 {
-                    Nom = Input.StoreName ?? "Ma boutique",
-                    Email = Input.Email,
-                    Telephone = Input.PhoneNumber ?? "",
-                    Adresse = "",
+                    Nom = storeName,
+                    Email = email,
+                    Telephone = phone,
+                    Adresse = string.Empty,
                     CreatedAt = DateTime.Now,
                     IsActive = true
                 };
@@ -112,18 +113,58 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
                 _context.Boutiques.Add(boutique);
                 await _context.SaveChangesAsync();
 
-                user.BoutiqueId = boutique.Id;
-
-                // Créer l'utilisateur avec mot de passe
-                var result = await _userManager.CreateAsync(user, Input.Password);
-                if (result.Succeeded)
+                var settings = new StoreSettings
                 {
-                    _logger.LogInformation("Nouveau compte créé.");
+                    BoutiqueId = boutique.Id,
+                    StoreName = storeName,
+                    Phone = phone,
+                    ContactEmail = email,
+                    FooterMessage = "Merci de votre achat et à très bientôt !",
+                    IsActive = true
+                };
+                _context.StoreSettings.Add(settings);
+                await _context.SaveChangesAsync();
 
-                    // Attribuer le rôle Admin (le SuperAdmin est créé via seed)
-                    await _userManager.AddToRoleAsync(user, "Admin");
+                var user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    PhoneNumber = string.IsNullOrEmpty(phone) ? null : phone,
+                    EmailConfirmed = true,
+                    BoutiqueId = boutique.Id
+                };
 
-                    // Envoyer l'email de confirmation (optionnel)
+                var result = await _userManager.CreateAsync(user, Input.Password);
+                if (!result.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+
+                    foreach (var error in result.Errors)
+                    {
+                        string message = error.Description;
+                        if (message.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) || message.Contains("already taken", StringComparison.OrdinalIgnoreCase))
+                            message = "Cet email est déjà utilisé par un compte existant.";
+                        else if (message.Contains("digit", StringComparison.OrdinalIgnoreCase))
+                            message = "Le mot de passe doit contenir au moins un chiffre.";
+                        else if (message.Contains("uppercase", StringComparison.OrdinalIgnoreCase))
+                            message = "Le mot de passe doit contenir au moins une lettre majuscule.";
+                        else if (message.Contains("lowercase", StringComparison.OrdinalIgnoreCase))
+                            message = "Le mot de passe doit contenir au moins une lettre minuscule.";
+                        else if (message.Contains("non-alphanumeric", StringComparison.OrdinalIgnoreCase))
+                            message = "Le mot de passe doit contenir au moins un caractère spécial (ex: @, !, #).";
+
+                        ModelState.AddModelError(string.Empty, message);
+                    }
+                    return Page();
+                }
+
+                await _userManager.AddToRoleAsync(user, "Admin");
+                await transaction.CommitAsync();
+
+                _logger.LogInformation("Nouvelle boutique #{BoutiqueId} et compte Admin créés.", boutique.Id);
+
+                try
+                {
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                     code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
                     var callbackUrl = Url.Page(
@@ -132,39 +173,28 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
                         values: new { area = "Identity", userId = user.Id, code = code },
                         protocol: Request.Scheme);
 
-                    await _emailSender.SendEmailAsync(Input.Email, "Confirmez votre email",
-                        $"Veuillez confirmer votre compte en <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>cliquant ici</a>.");
-
-                    if (_userManager.Options.SignIn.RequireConfirmedAccount)
-                        return RedirectToPage("RegisterConfirmation", new { email = Input.Email });
-                    else
+                    if (!string.IsNullOrEmpty(callbackUrl))
                     {
-                        await _signInManager.SignInAsync(user, isPersistent: false);
-                        return LocalRedirect(returnUrl);
+                        await _emailSender.SendEmailAsync(email, "Bienvenue sur AdGestionHub",
+                            $"Confirmez votre adresse email en <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>cliquant ici</a>.");
                     }
                 }
-
-                // En cas d'erreur, afficher les messages
-                foreach (var error in result.Errors)
+                catch (Exception emailEx)
                 {
-                    string message = error.Description;
-                    if (message.Contains("Duplicate user name") || message.Contains("already taken"))
-                        message = "Cet email est déjà utilisé par un compte existant. Veuillez vous connecter.";
-                    else if (message.Contains("Password") && message.Contains("digit"))
-                        message = "Le mot de passe doit contenir au moins un chiffre.";
-                    else if (message.Contains("Password") && message.Contains("uppercase"))
-                        message = "Le mot de passe doit contenir au moins une majuscule.";
-                    else if (message.Contains("Password") && message.Contains("lowercase"))
-                        message = "Le mot de passe doit contenir au moins une minuscule.";
-                    else if (message.Contains("Password") && message.Contains("non-alphanumeric"))
-                        message = "Le mot de passe doit contenir au moins un caractère spécial.";
-                    ModelState.AddModelError(string.Empty, message);
+                    _logger.LogWarning(emailEx, "Échec non bloquant de l'envoi d'email de bienvenue.");
                 }
-                return Page();
+
+                if (_userManager.Options.SignIn.RequireConfirmedAccount)
+                    return RedirectToPage("RegisterConfirmation", new { email });
+
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                return LocalRedirect(returnUrl);
             }
             catch (Exception ex)
             {
-                ModelState.AddModelError(string.Empty, "Erreur technique : " + ex.Message);
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Erreur lors de la création de compte / boutique.");
+                ModelState.AddModelError(string.Empty, "Une erreur technique est survenue lors de l'inscription. Veuillez réessayer.");
                 return Page();
             }
         }

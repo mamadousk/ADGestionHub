@@ -1,4 +1,4 @@
-﻿using AdGestionHub.Models;
+using AdGestionHub.Models;
 using AdGestionHub.Models.ViewModels;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -15,11 +15,17 @@ namespace AdGestionHub.Controllers
     [Authorize(Policy = "ManageUsers")]
     public class UsersController : Controller
     {
+        // Liste blanche stricte côté serveur : un Admin de boutique ne peut JAMAIS attribuer Admin ou SuperAdmin.
+        private static readonly string[] AllowedStaffRoles = { "Employé" };
+
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IBoutiqueService _boutiqueService;
 
-        public UsersController(UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, IBoutiqueService boutiqueService)
+        public UsersController(
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
+            IBoutiqueService boutiqueService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -32,13 +38,16 @@ namespace AdGestionHub.Controllers
             var currentBoutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
             if (currentBoutiqueId == null)
             {
+                if (User.IsInRole("SuperAdmin"))
+                    return RedirectToAction("Index", "SuperAdmin");
+
                 TempData["ErrorMessage"] = "Aucune boutique associée à votre compte.";
                 return View(new List<UserViewModel>());
             }
 
-            // Récupérer tous les utilisateurs de la même boutique
             var users = await _userManager.Users
-                .Where(u => u.BoutiqueId == currentBoutiqueId)
+                .AsNoTracking()
+                .Where(u => u.BoutiqueId == currentBoutiqueId.Value)
                 .ToListAsync();
 
             var userViewModels = new List<UserViewModel>();
@@ -46,19 +55,16 @@ namespace AdGestionHub.Controllers
             foreach (var user in users)
             {
                 var roles = await _userManager.GetRolesAsync(user);
-                // On n'affiche que les utilisateurs ayant le rôle "Employé" ou "User" (pas Admin, SuperAdmin)
-                // Mais on peut aussi afficher les Admins si on veut (mais pour la confidentialité, on limite)
-                // Ici, on décide de n'afficher que les employés (rôle "Employé") pour une gestion propre.
-                // Vous pouvez ajuster selon vos besoins.
-                if (!roles.Contains("Employé") && !roles.Contains("User"))
+                if (roles.Contains("SuperAdmin") || roles.Contains("Admin"))
                     continue;
 
                 userViewModels.Add(new UserViewModel
                 {
                     Id = user.Id,
-                    Email = user.Email,
-                    UserName = user.UserName,
-                    Role = roles.FirstOrDefault() ?? "Aucun rôle"
+                    Email = user.Email ?? string.Empty,
+                    UserName = user.UserName ?? string.Empty,
+                    FullName = user.FullName,
+                    Role = roles.FirstOrDefault() ?? "Employé"
                 });
             }
 
@@ -66,7 +72,6 @@ namespace AdGestionHub.Controllers
         }
 
         // GET: /Users/Create
-        [Authorize(Policy = "ManageUsers")]
         public async Task<IActionResult> Create()
         {
             var currentBoutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
@@ -76,21 +81,13 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Récupérer les rôles disponibles (sauf SuperAdmin et Admin pour éviter de créer des admins)
-            var roles = await _roleManager.Roles
-                .Where(r => r.Name != "SuperAdmin" && r.Name != "Admin")
-                .Select(r => r.Name)
-                .ToListAsync();
-
-            ViewBag.Roles = roles;
-            ViewBag.BoutiqueId = currentBoutiqueId; // Pour passer à la vue (hidden)
-            return View();
+            ViewBag.Roles = await GetAllowedRolesListAsync();
+            return View(new CreateUserViewModel { Role = "Employé" });
         }
 
         // POST: /Users/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "ManageUsers")]
         public async Task<IActionResult> Create(CreateUserViewModel model)
         {
             var currentBoutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
@@ -100,47 +97,53 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // Sécurité anti-escalade de privilèges : valider le rôle contre la liste blanche serveur
+            if (string.IsNullOrWhiteSpace(model.Role) || !AllowedStaffRoles.Contains(model.Role, StringComparer.Ordinal))
+            {
+                ModelState.AddModelError(nameof(model.Role), "Rôle non autorisé.");
+            }
+
             if (ModelState.IsValid)
             {
-                // Vérifier si l'email ou le nom d'utilisateur existe déjà
-                var existingUser = await _userManager.FindByEmailAsync(model.Email);
-                if (existingUser != null)
+                var cleanEmail = model.Email.Trim();
+                var cleanUserName = model.UserName.Trim();
+
+                var existingByEmail = await _userManager.FindByEmailAsync(cleanEmail);
+                if (existingByEmail != null)
                 {
-                    ModelState.AddModelError("Email", "Cet email est déjà utilisé.");
-                    ViewBag.Roles = await GetRolesList();
-                    ViewBag.BoutiqueId = currentBoutiqueId;
+                    ModelState.AddModelError(nameof(model.Email), "Cet email est déjà utilisé.");
+                    ViewBag.Roles = await GetAllowedRolesListAsync();
                     return View(model);
                 }
 
-                existingUser = await _userManager.FindByNameAsync(model.UserName);
-                if (existingUser != null)
+                var existingByName = await _userManager.FindByNameAsync(cleanUserName);
+                if (existingByName != null)
                 {
-                    ModelState.AddModelError("UserName", "Ce nom d'utilisateur est déjà pris.");
-                    ViewBag.Roles = await GetRolesList();
-                    ViewBag.BoutiqueId = currentBoutiqueId;
+                    ModelState.AddModelError(nameof(model.UserName), "Ce nom d'utilisateur est déjà pris.");
+                    ViewBag.Roles = await GetAllowedRolesListAsync();
                     return View(model);
                 }
 
-                // Créer l'utilisateur avec BoutiqueId
                 var user = new ApplicationUser
                 {
-                    UserName = model.UserName,
-                    Email = model.Email,
+                    UserName = cleanUserName,
+                    Email = cleanEmail,
+                    FullName = string.IsNullOrWhiteSpace(model.FullName) ? null : model.FullName.Trim(),
                     EmailConfirmed = true,
-                    BoutiqueId = currentBoutiqueId // Assigner à la boutique de l'admin
+                    BoutiqueId = currentBoutiqueId.Value
                 };
 
                 var result = await _userManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
-                    if (!string.IsNullOrEmpty(model.Role))
+                    if (!await _roleManager.RoleExistsAsync(model.Role))
                     {
-                        var roleExists = await _roleManager.RoleExistsAsync(model.Role);
-                        if (roleExists)
-                            await _userManager.AddToRoleAsync(user, model.Role);
+                        await _roleManager.CreateAsync(new IdentityRole(model.Role));
                     }
 
-                    TempData["SuccessMessage"] = $"L'employé {user.UserName} a été créé avec succès.";
+                    await _userManager.AddToRoleAsync(user, model.Role);
+
+                    TempData["SuccessMessage"] = $"Le compte employé « {user.UserName} » a été créé avec succès.";
                     return RedirectToAction(nameof(Index));
                 }
 
@@ -148,13 +151,11 @@ namespace AdGestionHub.Controllers
                     ModelState.AddModelError(string.Empty, error.Description);
             }
 
-            ViewBag.Roles = await GetRolesList();
-            ViewBag.BoutiqueId = currentBoutiqueId;
+            ViewBag.Roles = await GetAllowedRolesListAsync();
             return View(model);
         }
 
         // GET: /Users/Edit/{id}
-        [Authorize(Policy = "ManageUsers")]
         public async Task<IActionResult> Edit(string id)
         {
             if (string.IsNullOrEmpty(id)) return NotFound();
@@ -166,31 +167,31 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId);
+            var user = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId.Value);
+
             if (user == null) return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
-            // Empêcher la modification d'un SuperAdmin ou Admin (si on ne gère que les employés)
             if (roles.Contains("SuperAdmin") || roles.Contains("Admin"))
                 return Forbid();
 
             var model = new EditUserViewModel
             {
                 Id = user.Id,
-                Email = user.Email,
-                UserName = user.UserName,
-                Role = roles.FirstOrDefault() ?? string.Empty
+                Email = user.Email ?? string.Empty,
+                UserName = user.UserName ?? string.Empty,
+                FullName = user.FullName,
+                Role = roles.FirstOrDefault() ?? "Employé"
             };
 
-            ViewBag.Roles = await GetRolesList();
-            ViewBag.BoutiqueId = currentBoutiqueId;
+            ViewBag.Roles = await GetAllowedRolesListAsync();
             return View(model);
         }
 
         // POST: /Users/Edit/{id}
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "ManageUsers")]
         public async Task<IActionResult> Edit(string id, EditUserViewModel model)
         {
             if (id != model.Id) return NotFound();
@@ -202,27 +203,54 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // Sécurité anti-escalade de privilèges : valider le rôle côté serveur
+            if (string.IsNullOrWhiteSpace(model.Role) || !AllowedStaffRoles.Contains(model.Role, StringComparer.Ordinal))
+            {
+                ModelState.AddModelError(nameof(model.Role), "Rôle non autorisé.");
+            }
+
             if (ModelState.IsValid)
             {
-                var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId);
+                var user = await _userManager.Users
+                    .FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId.Value);
+
                 if (user == null) return NotFound();
 
                 var currentRoles = await _userManager.GetRolesAsync(user);
                 if (currentRoles.Contains("SuperAdmin") || currentRoles.Contains("Admin"))
                     return Forbid();
 
-                user.Email = model.Email;
-                user.UserName = model.UserName;
+                var cleanEmail = model.Email.Trim();
+                var cleanUserName = model.UserName.Trim();
 
-                // Mise à jour du rôle
-                if (!string.IsNullOrEmpty(model.Role) && !currentRoles.Contains(model.Role))
+                var emailOwner = await _userManager.FindByEmailAsync(cleanEmail);
+                if (emailOwner != null && emailOwner.Id != user.Id)
                 {
-                    await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                    ModelState.AddModelError(nameof(model.Email), "Cet email est déjà utilisé par un autre compte.");
+                    ViewBag.Roles = await GetAllowedRolesListAsync();
+                    return View(model);
+                }
+
+                var userNameOwner = await _userManager.FindByNameAsync(cleanUserName);
+                if (userNameOwner != null && userNameOwner.Id != user.Id)
+                {
+                    ModelState.AddModelError(nameof(model.UserName), "Ce nom d'utilisateur est déjà pris.");
+                    ViewBag.Roles = await GetAllowedRolesListAsync();
+                    return View(model);
+                }
+
+                user.Email = cleanEmail;
+                user.UserName = cleanUserName;
+                user.FullName = string.IsNullOrWhiteSpace(model.FullName) ? null : model.FullName.Trim();
+
+                if (!currentRoles.Contains(model.Role))
+                {
+                    if (currentRoles.Any())
+                        await _userManager.RemoveFromRolesAsync(user, currentRoles);
                     await _userManager.AddToRoleAsync(user, model.Role);
                 }
 
-                // Changement de mot de passe
-                if (!string.IsNullOrEmpty(model.NewPassword))
+                if (!string.IsNullOrWhiteSpace(model.NewPassword))
                 {
                     var token = await _userManager.GeneratePasswordResetTokenAsync(user);
                     var resetResult = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
@@ -230,8 +258,7 @@ namespace AdGestionHub.Controllers
                     {
                         foreach (var error in resetResult.Errors)
                             ModelState.AddModelError(string.Empty, error.Description);
-                        ViewBag.Roles = await GetRolesList();
-                        ViewBag.BoutiqueId = currentBoutiqueId;
+                        ViewBag.Roles = await GetAllowedRolesListAsync();
                         return View(model);
                     }
                 }
@@ -239,7 +266,8 @@ namespace AdGestionHub.Controllers
                 var updateResult = await _userManager.UpdateAsync(user);
                 if (updateResult.Succeeded)
                 {
-                    TempData["SuccessMessage"] = $"L'employé {user.UserName} a été mis à jour.";
+                    await _userManager.UpdateSecurityStampAsync(user);
+                    TempData["SuccessMessage"] = $"L'employé « {user.UserName} » a été mis à jour.";
                     return RedirectToAction(nameof(Index));
                 }
 
@@ -247,13 +275,11 @@ namespace AdGestionHub.Controllers
                     ModelState.AddModelError(string.Empty, error.Description);
             }
 
-            ViewBag.Roles = await GetRolesList();
-            ViewBag.BoutiqueId = currentBoutiqueId;
+            ViewBag.Roles = await GetAllowedRolesListAsync();
             return View(model);
         }
 
         // GET: /Users/Delete/{id}
-        [Authorize(Policy = "ManageUsers")]
         public async Task<IActionResult> Delete(string id)
         {
             if (string.IsNullOrEmpty(id)) return NotFound();
@@ -265,15 +291,18 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId);
+            var user = await _userManager.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId.Value);
+
             if (user == null) return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
             if (roles.Contains("SuperAdmin") || roles.Contains("Admin"))
                 return Forbid();
 
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser.Id == id)
+            var currentUserId = _userManager.GetUserId(User);
+            if (currentUserId == id)
             {
                 TempData["ErrorMessage"] = "Vous ne pouvez pas supprimer votre propre compte.";
                 return RedirectToAction(nameof(Index));
@@ -282,9 +311,10 @@ namespace AdGestionHub.Controllers
             var model = new UserViewModel
             {
                 Id = user.Id,
-                UserName = user.UserName,
-                Email = user.Email,
-                Role = roles.FirstOrDefault() ?? "Aucun rôle"
+                UserName = user.UserName ?? string.Empty,
+                Email = user.Email ?? string.Empty,
+                FullName = user.FullName,
+                Role = roles.FirstOrDefault() ?? "Employé"
             };
 
             return View(model);
@@ -293,7 +323,6 @@ namespace AdGestionHub.Controllers
         // POST: /Users/Delete/{id}
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "ManageUsers")]
         public async Task<IActionResult> DeleteConfirmed(string id)
         {
             var currentBoutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
@@ -303,36 +332,40 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId);
+            var user = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.Id == id && u.BoutiqueId == currentBoutiqueId.Value);
+
             if (user == null) return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
             if (roles.Contains("SuperAdmin") || roles.Contains("Admin"))
                 return Forbid();
 
-            var currentUser = await _userManager.GetUserAsync(User);
-            if (currentUser.Id == id)
+            var currentUserId = _userManager.GetUserId(User);
+            if (currentUserId == id)
             {
                 TempData["ErrorMessage"] = "Action interdite : vous ne pouvez pas supprimer votre propre compte.";
                 return RedirectToAction(nameof(Index));
             }
 
+            await _userManager.UpdateSecurityStampAsync(user);
             var result = await _userManager.DeleteAsync(user);
             if (result.Succeeded)
-                TempData["SuccessMessage"] = $"L'employé {user.UserName} a été supprimé.";
+                TempData["SuccessMessage"] = $"L'employé « {user.UserName} » a été supprimé.";
             else
-                TempData["ErrorMessage"] = "Erreur lors de la suppression.";
+                TempData["ErrorMessage"] = "Erreur lors de la suppression du compte employé.";
 
             return RedirectToAction(nameof(Index));
         }
 
-        private async Task<List<string>> GetRolesList()
+        private async Task<List<string>> GetAllowedRolesListAsync()
         {
-            var roles = await _roleManager.Roles.ToListAsync();
-            var roleNames = roles.Select(r => r.Name).ToList();
-
-            // Filtrer pour ne proposer que "Employé" ou "User" (pas Admin/SuperAdmin)
-            return roleNames.Where(r => r != "SuperAdmin" && r != "Admin").ToList();
+            foreach (var roleName in AllowedStaffRoles)
+            {
+                if (!await _roleManager.RoleExistsAsync(roleName))
+                    await _roleManager.CreateAsync(new IdentityRole(roleName));
+            }
+            return AllowedStaffRoles.ToList();
         }
     }
 }

@@ -1,6 +1,6 @@
-﻿// ==================== FILE: Services/StockService.cs ====================
 using AdGestionHub.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AdGestionHub.Services
@@ -28,6 +28,9 @@ namespace AdGestionHub.Services
 
         public async Task<bool> DeductStockAsync(int productId, int quantity)
         {
+            if (quantity <= 0)
+                return false;
+
             var product = await _context.Products
                 .FirstOrDefaultAsync(p => p.Id == productId);
 
@@ -44,8 +47,6 @@ namespace AdGestionHub.Services
             if (quantity <= 0)
                 return false;
 
-            // UPDATE ... WHERE StockQuantity >= quantity : deux ventes simultanées ne peuvent pas
-            // descendre sous zéro, la seconde obtient 0 ligne modifiée.
             var rows = await _context.Products
                 .Where(p => p.Id == productId
                          && p.BoutiqueId == boutiqueId
@@ -57,22 +58,34 @@ namespace AdGestionHub.Services
 
         public async Task<bool> RestoreStockAsync(int productId, int quantity)
         {
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == productId);
-
-            if (product == null)
+            if (quantity <= 0)
                 return false;
 
-            product.StockQuantity += quantity;
-            await _context.SaveChangesAsync();
-            return true;
+            var rows = await _context.Products
+                .Where(p => p.Id == productId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity));
+
+            return rows == 1;
+        }
+
+        public async Task<bool> RestoreStockAsync(int productId, int boutiqueId, int quantity)
+        {
+            if (quantity <= 0)
+                return false;
+
+            var rows = await _context.Products
+                .Where(p => p.Id == productId && p.BoutiqueId == boutiqueId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity));
+
+            return rows == 1;
         }
 
         public async Task<int> GetLowStockCountAsync(int boutiqueId)
         {
             return await _context.Products
                 .AsNoTracking()
-                .CountAsync(p => p.BoutiqueId == boutiqueId && p.StockQuantity <= p.LowStockThreshold);
+                .CountAsync(p => p.BoutiqueId == boutiqueId
+                              && p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold));
         }
     }
 }

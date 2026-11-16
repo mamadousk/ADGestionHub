@@ -1,56 +1,80 @@
-﻿@model AdGestionHub.Models.Sale
+@model AdGestionHub.Models.Sale
 @{
     ViewData["Title"] = "Reçu de vente";
     var settings = ViewBag.StoreSettings as AdGestionHub.Models.StoreSettings;
-    var items = ViewBag.Items as IEnumerable<AdGestionHub.Models.SaleItem>;
-    var finalPrice = ViewBag.FinalPrice as decimal? ?? 0;
-    var discount = ViewBag.Discount as decimal? ?? 0;
-    var netTotal = ViewBag.NetTotal as decimal? ?? finalPrice;
+    var invoiceNumber = ViewBag.StoreInvoiceNumber as int? ?? Model.Id;
 }
 
-<div class="container py-4">
-    <div class="card shadow-sm border-0 rounded-4">
+<style>
+    @@media print {
+        header, footer, #cookieConsent, .no-print {
+            display: none !important;
+        }
+        body {
+            padding-top: 0 !important;
+            background: #fff !important;
+        }
+        .receipt-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+    }
+</style>
+
+<div class="container py-4" style="max-width: 760px;">
+    <div class="card shadow-sm border-0 rounded-4 receipt-card">
         <div class="card-body p-4 p-lg-5">
             <!-- En-tête -->
             <div class="text-center border-bottom pb-3 mb-4">
-                <h2 class="fw-bold" style="color:#FF8C00;">@(settings?.StoreName ?? "AdGestionHub")</h2>
-                <p class="text-muted mb-0">@(settings?.Address ?? "")</p>
-                <p class="text-muted mb-0"><i class="fas fa-phone me-1"></i> @(settings?.Phone ?? "Non renseigné")</p>
-                <p class="text-muted mb-0"><i class="fas fa-envelope me-1"></i> @(settings?.ContactEmail ?? "")</p>
+                <h2 class="fw-bold mb-1" style="color:#FF8C00;">@(string.IsNullOrWhiteSpace(settings?.StoreName) ? "AdGestionHub" : settings!.StoreName)</h2>
+                @if (!string.IsNullOrWhiteSpace(settings?.Address))
+                {
+                    <p class="text-muted mb-0">@settings.Address</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(settings?.Phone))
+                {
+                    <p class="text-muted mb-0"><i class="fas fa-phone me-1"></i> @settings.Phone</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(settings?.ContactEmail))
+                {
+                    <p class="text-muted mb-0"><i class="fas fa-envelope me-1"></i> @settings.ContactEmail</p>
+                }
             </div>
 
             <!-- Infos vente -->
             <div class="row mb-4">
                 <div class="col-6">
-                    <strong>N° facture :</strong> @Model.Id<br />
-                    <strong>Date :</strong> @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")
+                    <strong>N° reçu :</strong> #@invoiceNumber.ToString("D5")<br />
+                    <strong>Date :</strong> @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")<br />
+                    <strong>Paiement :</strong> @(Model.PaymentMethod ?? "Cash")
                 </div>
                 <div class="col-6 text-end">
-                    <strong>Client :</strong> @(Model.CustomerName ?? "Client particulier")
+                    <strong>Client :</strong><br />
+                    @(string.IsNullOrWhiteSpace(Model.CustomerName) ? "Client au comptoir" : Model.CustomerName)
                 </div>
             </div>
 
             <!-- Tableau des articles -->
             <div class="table-responsive">
-                <table class="table table-bordered">
+                <table class="table table-bordered align-middle">
                     <thead class="bg-light">
                         <tr>
-                            <th>Produit</th>
+                            <th>Désignation</th>
                             <th class="text-center">Qté</th>
                             <th class="text-end">Prix unit.</th>
-                            <th class="text-end">Total</th>
+                            <th class="text-end">Sous-total</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (items != null && items.Any())
+                        @if (Model.Items != null && Model.Items.Any())
                         {
-                            foreach (var item in items)
+                            foreach (var item in Model.Items)
                             {
                                 <tr>
-                                    <td>@(item.ProductName ?? "Produit inconnu")</td>
+                                    <td>@item.ProductName</td>
                                     <td class="text-center">@item.Quantity</td>
-                                    <td class="text-end">@item.UnitPrice.ToString("C")</td>
-                                    <td class="text-end">@(item.Quantity * item.UnitPrice).ToString("C")</td>
+                                    <td class="text-end">@item.UnitPrice.ToString("N2") $</td>
+                                    <td class="text-end fw-semibold">@((item.Quantity * item.UnitPrice).ToString("N2")) $</td>
                                 </tr>
                             }
                         }
@@ -61,43 +85,30 @@
                     </tbody>
                     <tfoot>
                         <tr>
-                            <th colspan="3" class="text-end">Total TTC :</th>
-                            <th class="text-end">@finalPrice.ToString("C")</th>
+                            <th colspan="3" class="text-end fs-5">TOTAL PAYÉ :</th>
+                            <th class="text-end fs-5 text-success">@Model.FinalPrice.ToString("N2") $</th>
                         </tr>
-                        @if (discount > 0)
-                        {
-                            <tr>
-                                <th colspan="3" class="text-end text-danger">Réduction :</th>
-                                <th class="text-end text-danger">-@discount.ToString("C")</th>
-                            </tr>
-                            <tr>
-                                <th colspan="3" class="text-end">Net à payer :</th>
-                                <th class="text-end">@netTotal.ToString("C")</th>
-                            </tr>
-                        }
                     </tfoot>
                 </table>
             </div>
 
             <!-- Pied de page -->
             <div class="text-center text-muted small border-top pt-3 mt-4">
-                @if (!string.IsNullOrEmpty(settings?.FooterMessage))
-                {
-                    <p>@settings.FooterMessage</p>
-                }
-                else
-                {
-                    <p>Merci de votre achat. Revenez vite !</p>
-                }
-                <p class="mb-0">© @DateTime.Now.Year AdGestionHub - Reçu généré automatiquement</p>
+                <p class="mb-1">
+                    @(string.IsNullOrWhiteSpace(settings?.FooterMessage) ? "Merci de votre achat et à très bientôt !" : settings!.FooterMessage)
+                </p>
+                <p class="mb-0">© @DateTime.Now.Year AdGestionHub — Document officiel</p>
             </div>
 
             <!-- Boutons -->
-            <div class="text-center mt-4">
-                <button onclick="window.print()" class="btn btn-orange-gradient px-4">
+            <div class="text-center mt-4 no-print d-flex justify-content-center gap-2">
+                <button type="button" onclick="window.print()" class="btn btn-primary-gradient px-4">
                     <i class="fas fa-print me-2"></i> Imprimer
                 </button>
-                <a asp-action="Index" class="btn btn-outline-secondary ms-2">Retour</a>
+                <a asp-action="DownloadReceipt" asp-route-id="@Model.Id" class="btn btn-outline-dark rounded-pill px-4">
+                    <i class="fas fa-file-pdf me-2"></i> Télécharger PDF
+                </a>
+                <a asp-action="Index" class="btn btn-soft">Retour</a>
             </div>
         </div>
     </div>

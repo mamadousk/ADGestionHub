@@ -1,10 +1,9 @@
-﻿// ==================== FILE: Areas/Identity/Pages/Account/Logout.cshtml.cs ====================
 using System.Threading.Tasks;
+using AdGestionHub.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
-using AdGestionHub.Models;
 
 namespace AdGestionHub.Areas.Identity.Pages.Account
 {
@@ -19,24 +18,23 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             _logger = logger;
         }
 
-        public async Task<IActionResult> OnPost(string returnUrl = null)
+        // Sécurité : jamais de déconnexion via GET (prévention Logout CSRF).
+        public IActionResult OnGet()
+        {
+            return RedirectToAction("Index", "Home", new { area = "" });
+        }
+
+        public async Task<IActionResult> OnPost(string? returnUrl = null)
         {
             await _signInManager.SignOutAsync();
             _logger.LogInformation("L'utilisateur s'est déconnecté.");
 
-            if (returnUrl != null)
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             {
                 return LocalRedirect(returnUrl);
             }
-            else
-            {
-                return RedirectToPage("/Account/Login");
-            }
-        }
 
-        public async Task<IActionResult> OnGet(string returnUrl = null)
-        {
-            return await OnPost(returnUrl);
+            return RedirectToPage("/Account/Login");
         }
     }
 }

@@ -1,14 +1,21 @@
-﻿namespace AdGestionHub.Models
+using System.Collections.Generic;
+
+namespace AdGestionHub.Models
 {
     public class DashboardViewModel
     {
         public decimal TotalSales { get; set; }
+        public decimal TodaySales { get; set; }
+        public int TodayTransactions { get; set; }
         public decimal TotalExpenses { get; set; }
         public decimal TotalProfit { get; set; }
+        public decimal TotalDebts { get; set; }
+        public decimal? MonthlyGrowthPercent { get; set; }
         public int TotalTransactions { get; set; }
         public int LowStockCount { get; set; }
         public List<Sale> RecentSales { get; set; } = new List<Sale>();
         public List<Expense> RecentExpenses { get; set; } = new List<Expense>();
+        public List<Product> LowStockProducts { get; set; } = new List<Product>();
         public int TotalBoutiques { get; set; }
     }
 }

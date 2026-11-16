@@ -1,10 +1,9 @@
-﻿@using AdGestionHub.Models
+@using AdGestionHub.Models
 @using Microsoft.AspNetCore.Identity
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
 
 @{
-    var user = await UserManager.GetUserAsync(User);
     var isAdmin = User.IsInRole("Admin");
     var isSuperAdmin = User.IsInRole("SuperAdmin");
 }
@@ -36,18 +35,18 @@
         </a>
     </li>
 
-    @if (isAdmin || isSuperAdmin)
+    @if (isAdmin)
     {
         <li class="nav-item mt-3">
-            <a class="nav-link text-primary fw-bold" asp-controller="Settings" asp-action="Index">
+            <a class="nav-link text-primary fw-bold" asp-area="" asp-controller="Settings" asp-action="Index">
                 <i class="fas fa-store me-2"></i> Gérer ma boutique
             </a>
         </li>
     }
     @if (isSuperAdmin)
     {
-        <li class="nav-item">
-            <a class="nav-link text-danger fw-bold" asp-controller="SuperAdmin" asp-action="Index">
+        <li class="nav-item mt-3">
+            <a class="nav-link text-danger fw-bold" asp-area="" asp-controller="SuperAdmin" asp-action="Index">
                 <i class="fas fa-user-shield me-2"></i> Console SuperAdmin
             </a>
         </li>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
@@ -9,42 +9,42 @@ namespace AdGestionHub.Models
         public int Id { get; set; }
 
         [Required(ErrorMessage = "Le nom est obligatoire.")]
+        [StringLength(150)]
         [Display(Name = "Nom de la boutique")]
-        public string Nom { get; set; }
+        public string Nom { get; set; } = string.Empty;
 
+        [StringLength(250)]
         [Display(Name = "Adresse")]
-        public string Adresse { get; set; }
+        public string Adresse { get; set; } = string.Empty;
 
+        [StringLength(40)]
         [Display(Name = "Téléphone")]
-        public string Telephone { get; set; }
+        public string Telephone { get; set; } = string.Empty;
 
         [EmailAddress(ErrorMessage = "Email invalide.")]
+        [StringLength(256)]
         [Display(Name = "Email")]
-        public string Email { get; set; }
+        public string Email { get; set; } = string.Empty;
 
-        // --- NOUVELLES PROPRIÉTÉS pour la compatibilité avec les vues existantes ---
-        // Propriété Name (alias de Nom) – utilisée dans certaines vues
         [Display(Name = "Nom")]
         public string Name => Nom;
 
-        // Propriété OwnerEmail (email du propriétaire) – on suppose que c'est l'email de la boutique
-        // Si vous voulez un vrai propriétaire, ajoutez un champ OwnerId (string) et une relation
         [Display(Name = "Email du propriétaire")]
         public string OwnerEmail => Email;
 
-        // Propriété CreatedAt (date de création) – ajoutée avec valeur par défaut
         [Display(Name = "Date de création")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-        // --- RELATIONS ---
-        public ICollection<ApplicationUser> Users { get; set; }
-        public ICollection<Product> Products { get; set; }
-        public ICollection<Sale> Sales { get; set; }
-        public ICollection<StoreSettings> StoreSettings { get; set; }
-        public ICollection<Expense> Expenses { get; set; }
-        public ICollection<Debt> Debts { get; set; }
-        public ICollection<SystemLog> SystemLogs { get; set; }
-        public ICollection<ErrorLog> ErrorLogs { get; set; }
         public bool IsActive { get; set; } = true;
+
+        // --- RELATIONS ---
+        public ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();
+        public ICollection<Product> Products { get; set; } = new List<Product>();
+        public ICollection<Sale> Sales { get; set; } = new List<Sale>();
+        public ICollection<StoreSettings> StoreSettings { get; set; } = new List<StoreSettings>();
+        public ICollection<Expense> Expenses { get; set; } = new List<Expense>();
+        public ICollection<Debt> Debts { get; set; } = new List<Debt>();
+        public ICollection<SystemLog> SystemLogs { get; set; } = new List<SystemLog>();
+        public ICollection<ErrorLog> ErrorLogs { get; set; } = new List<ErrorLog>();
     }
 }

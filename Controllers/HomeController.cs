@@ -1,4 +1,3 @@
-// ==================== FILE: Controllers/HomeController.cs ====================
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
@@ -6,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -38,9 +38,9 @@ namespace AdGestionHub.Controllers
         [AllowAnonymous]
         public IActionResult Welcome()
         {
-            if (User.Identity != null && User.Identity.IsAuthenticated)
+            if (User.Identity?.IsAuthenticated == true)
             {
-                return RedirectToAction("Index");
+                return RedirectToAction(nameof(Index));
             }
             return View();
         }
@@ -59,68 +59,110 @@ namespace AdGestionHub.Controllers
             var boutiqueId = user.BoutiqueId.Value;
             var cacheKey = $"Dashboard_{boutiqueId}";
 
-            // Tentative de récupérer les données depuis le cache
-            var cachedData = await _cacheService.GetOrSetAsync(cacheKey, async () =>
+            var model = await _cacheService.GetOrSetAsync(cacheKey, async () =>
             {
-                // Requêtes optimisées avec AsNoTracking()
-                var sales = await _context.Sales
+                var today = DateTime.Today;
+                var tomorrow = today.AddDays(1);
+                var currentMonthStart = new DateTime(today.Year, today.Month, 1);
+                var prevMonthStart = currentMonthStart.AddMonths(-1);
+
+                var totalSales = await _context.Sales
                     .AsNoTracking()
-                    .Include(s => s.Items)
                     .Where(s => s.BoutiqueId == boutiqueId)
-                    .OrderByDescending(s => s.SaleDate)
-                    .ToListAsync();
+                    .SumAsync(s => s.FinalPrice);
 
-                var products = await _context.Products
+                var totalTransactions = await _context.Sales
                     .AsNoTracking()
-                    .Where(p => p.BoutiqueId == boutiqueId)
-                    .ToListAsync();
+                    .CountAsync(s => s.BoutiqueId == boutiqueId);
 
-                var expenses = await _context.Expenses
+                var todaySales = await _context.Sales
+                    .AsNoTracking()
+                    .Where(s => s.BoutiqueId == boutiqueId && s.SaleDate >= today && s.SaleDate < tomorrow)
+                    .SumAsync(s => s.FinalPrice);
+
+                var todayTransactions = await _context.Sales
+                    .AsNoTracking()
+                    .CountAsync(s => s.BoutiqueId == boutiqueId && s.SaleDate >= today && s.SaleDate < tomorrow);
+
+                var currentMonthSales = await _context.Sales
+                    .AsNoTracking()
+                    .Where(s => s.BoutiqueId == boutiqueId && s.SaleDate >= currentMonthStart)
+                    .SumAsync(s => s.FinalPrice);
+
+                var prevMonthSales = await _context.Sales
+                    .AsNoTracking()
+                    .Where(s => s.BoutiqueId == boutiqueId && s.SaleDate >= prevMonthStart && s.SaleDate < currentMonthStart)
+                    .SumAsync(s => s.FinalPrice);
+
+                decimal? monthlyGrowth = prevMonthSales > 0m
+                    ? Math.Round((currentMonthSales - prevMonthSales) / prevMonthSales * 100m, 1)
+                    : null;
+
+                var totalExpenses = await _context.Expenses
                     .AsNoTracking()
                     .Where(e => e.BoutiqueId == boutiqueId)
-                    .OrderByDescending(e => e.Date)
-                    .ToListAsync();
+                    .SumAsync(e => e.Amount);
 
-                var debts = await _context.Debts
+                var totalDebts = await _context.Debts
                     .AsNoTracking()
-                    .Where(d => d.BoutiqueId == boutiqueId && !d.IsArchived)
-                    .ToListAsync();
+                    .Where(d => d.BoutiqueId == boutiqueId && !d.IsArchived && !d.IsPaid)
+                    .SumAsync(d => d.Amount);
 
-                var totalSales = sales.Sum(s => s.FinalPrice);
-                var totalExpenses = expenses.Sum(e => e.Amount);
                 var grossProfit = await _profitService.CalculateGrossProfitAsync(boutiqueId);
                 var netProfit = grossProfit - totalExpenses;
                 var lowStockCount = await _stockService.GetLowStockCountAsync(boutiqueId);
 
-                return new
+                var recentSales = await _context.Sales
+                    .AsNoTracking()
+                    .Include(s => s.Items)
+                    .Where(s => s.BoutiqueId == boutiqueId)
+                    .OrderByDescending(s => s.SaleDate)
+                    .Take(5)
+                    .ToListAsync();
+
+                var recentExpenses = await _context.Expenses
+                    .AsNoTracking()
+                    .Where(e => e.BoutiqueId == boutiqueId)
+                    .OrderByDescending(e => e.Date)
+                    .Take(5)
+                    .ToListAsync();
+
+                var lowStockProducts = await _context.Products
+                    .AsNoTracking()
+                    .Where(p => p.BoutiqueId == boutiqueId
+                             && p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold))
+                    .OrderBy(p => p.StockQuantity)
+                    .Take(5)
+                    .ToListAsync();
+
+                return new DashboardViewModel
                 {
                     TotalSales = totalSales,
+                    TodaySales = todaySales,
+                    TodayTransactions = todayTransactions,
                     TotalExpenses = totalExpenses,
                     TotalProfit = netProfit,
-                    TotalTransactions = sales.Count,
+                    TotalDebts = totalDebts,
+                    MonthlyGrowthPercent = monthlyGrowth,
+                    TotalTransactions = totalTransactions,
                     LowStockCount = lowStockCount,
-                    RecentSales = sales.Take(5).ToList(),
-                    RecentExpenses = expenses.Take(5).ToList(),
-                    TotalDebts = debts.Sum(d => d.Amount)
+                    RecentSales = recentSales,
+                    RecentExpenses = recentExpenses,
+                    LowStockProducts = lowStockProducts
                 };
-            }, TimeSpan.FromMinutes(2)); // Cache de 2 minutes
+            }, TimeSpan.FromMinutes(2));
 
-            ViewBag.TotalDebts = cachedData.TotalDebts;
-
-            var model = new DashboardViewModel
-            {
-                TotalSales = cachedData.TotalSales,
-                TotalExpenses = cachedData.TotalExpenses,
-                TotalProfit = cachedData.TotalProfit,
-                TotalTransactions = cachedData.TotalTransactions,
-                LowStockCount = cachedData.LowStockCount,
-                RecentSales = cachedData.RecentSales,
-                RecentExpenses = cachedData.RecentExpenses
-            };
-
+            ViewBag.TotalDebts = model.TotalDebts;
             return View(model);
         }
 
+        [AllowAnonymous]
+        public IActionResult Privacy()
+        {
+            return View();
+        }
+
+        [AllowAnonymous]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

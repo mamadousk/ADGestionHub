@@ -1,28 +1,30 @@
-﻿@using AdGestionHub.Models
+@using AdGestionHub.Models
 @model Sale
 
 @{
     ViewData["Title"] = "Nouvelle Vente";
+    var canOverridePrice = User.IsInRole("Admin");
 }
 
-<link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
 
 <div class="row justify-content-center">
     <div class="col-lg-10">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="card-header bg-white border-0 py-4 px-4">
                 <h3 class="fw-bold mb-0"><i class="fas fa-cart-plus text-primary me-2"></i>Enregistrer une vente</h3>
-                <p class="text-muted small">Ajoutez des produits au panier et finalisez la transaction.</p>
+                <p class="text-muted small mb-0">Recherchez un article en stock, ajoutez-le au panier et validez l'encaissement.</p>
             </div>
             <div class="card-body p-4">
-                <form asp-action="Create" id="saleForm">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                <form asp-action="Create" method="post" id="saleForm">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-modern mb-3"></div>
+                    <div id="cartClientError" class="alert alert-warning alert-modern d-none mb-3"></div>
 
                     <!-- Infos client -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label asp-for="CustomerName" class="form-label fw-semibold">Nom du client</label>
-                            <input asp-for="CustomerName" class="form-control form-control-modern" placeholder="Client au comptoir" />
+                            <label asp-for="CustomerName" class="form-label fw-semibold">Nom du client (optionnel)</label>
+                            <input asp-for="CustomerName" class="form-control form-control-modern" maxlength="100" placeholder="Client au comptoir" />
                         </div>
                         <div class="col-md-6">
                             <label asp-for="PaymentMethod" class="form-label fw-semibold">Moyen de paiement</label>
@@ -49,20 +51,28 @@
                     <div class="row g-2 align-items-end mb-4">
                         <div class="col-md-5">
                             <label class="form-label small fw-semibold">Produit</label>
-                            <input type="text" id="productInput" class="form-control form-control-modern" placeholder="Rechercher..." />
+                            <input type="text" id="productInput" class="form-control form-control-modern" placeholder="Tapez le nom du produit..." autocomplete="off" />
                             <input type="hidden" id="selectedProductId" />
+                            <input type="hidden" id="selectedProductName" />
+                            <input type="hidden" id="selectedProductStock" />
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Prix unitaire ($)</label>
-                            <input type="number" id="tempPrice" class="form-control form-control-modern" step="0.01" />
+                            <label class="form-label small fw-semibold">
+                                Prix unitaire ($)
+                                @if (!canOverridePrice)
+                                {
+                                    <span class="text-muted fw-normal">(catalogue)</span>
+                                }
+                            </label>
+                            <input type="number" id="tempPrice" class="form-control form-control-modern" step="0.01" min="0.01" readonly="@(!canOverridePrice)" />
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label small fw-semibold">Qté</label>
-                            <input type="number" id="tempQty" class="form-control form-control-modern" value="1" min="1" />
+                            <label class="form-label small fw-semibold">Quantité</label>
+                            <input type="number" id="tempQty" class="form-control form-control-modern" value="1" min="1" max="10000" />
                         </div>
                         <div class="col-md-2">
                             <button type="button" id="btnAddItem" class="btn btn-primary-gradient w-100">
-                                <i class="fas fa-plus me-2"></i> Ajouter
+                                <i class="fas fa-plus me-1"></i> Ajouter
                             </button>
                         </div>
                     </div>
@@ -73,9 +83,9 @@
                             <thead>
                                 <tr>
                                     <th>Produit</th>
-                                    <th class="text-center">Prix</th>
+                                    <th class="text-center">Prix Unit.</th>
                                     <th class="text-center">Quantité</th>
-                                    <th class="text-end">Total</th>
+                                    <th class="text-end">Sous-total</th>
                                     <th class="text-center">Action</th>
                                 </tr>
                             </thead>
@@ -90,8 +100,6 @@
                             </tfoot>
                         </table>
                     </div>
-
-                    <input type="hidden" asp-for="FinalPrice" id="inputFinalPrice" />
 
                     <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
                         <a asp-action="Index" class="btn btn-soft">Annuler</a>
@@ -108,111 +116,180 @@
 @section Scripts {
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
     <script>
-        let itemIndex = 0;
+        (function () {
+            "use strict";
 
-        // ===== AUTOCOMPLÉTION =====
-        $(function() {
-        $("#productInput").autocomplete({
-        source: function(request, response) {
-        $.ajax({
-        url: '@Url.Action("GetProducts", "Sales")',
-        dataType: "json",
-        data: { term: request.term },
-        success: function(data) {
-        response($.map(data, function(item) {
-        return {
-        label: item.label,
-        value: item.label,
-        id: item.id,
-        price: item.price
-        };
-        }));
-        }
-        });
-        },
-        minLength: 1,
-        delay: 200,
-        select: function(event, ui) {
-        $('#selectedProductId').val(ui.item.id);
-        $('#tempPrice').val(ui.item.price);
-        $('#tempQty').focus();
-        }
-        });
-        });
+            const cart = [];
+            const errorBox = document.getElementById("cartClientError");
 
-        // ===== AJOUTER AU PANIER =====
-        document.getElementById('btnAddItem').addEventListener('click', function() {
-        const productName = document.getElementById('productInput').value;
-        const productId = document.getElementById('selectedProductId').value;
-        const rawPriceStr = document.getElementById('tempPrice').value.replace(',', '.');
-        const price = parseFloat(rawPriceStr);
-        const qty = parseInt(document.getElementById('tempQty').value);
+            function showClientError(msg) {
+                if (!msg) {
+                    errorBox.classList.add("d-none");
+                    errorBox.textContent = "";
+                    return;
+                }
+                errorBox.textContent = msg;
+                errorBox.classList.remove("d-none");
+            }
 
-        if (!productName || isNaN(price) || isNaN(qty) || !productId) {
-        alert("Veuillez sélectionner un produit, un prix et une quantité.");
-        return;
-        }
+            // Autocomplétion jQuery UI
+            $(function () {
+                $("#productInput").autocomplete({
+                    source: function (request, response) {
+                        $.ajax({
+                            url: '@Url.Action("GetProducts", "Sales")',
+                            dataType: "json",
+                            data: { term: request.term },
+                            success: function (data) {
+                                response($.map(data, function (item) {
+                                    return {
+                                        label: item.label,
+                                        value: item.name,
+                                        id: item.id,
+                                        name: item.name,
+                                        price: item.price,
+                                        stock: item.stock
+                                    };
+                                }));
+                            }
+                        });
+                    },
+                    minLength: 1,
+                    delay: 150,
+                    select: function (event, ui) {
+                        $("#selectedProductId").val(ui.item.id);
+                        $("#selectedProductName").val(ui.item.name);
+                        $("#selectedProductStock").val(ui.item.stock);
+                        $("#tempPrice").val(Number(ui.item.price).toFixed(2));
+                        $("#tempQty").attr("max", ui.item.stock).val(1).focus();
+                        showClientError(null);
+                    }
+                });
+            });
 
-        const subtotal = price * qty;
-        const tbody = document.getElementById('cartBody');
-        const priceForServer = price.toFixed(2).replace('.', ',');
+            // Rendu sécurisé (sans innerHTML non échappé = 0 faille DOM XSS) et ré-indexation continue Items[0..n-1]
+            function renderCart() {
+                const tbody = document.getElementById("cartBody");
+                tbody.innerHTML = "";
+                let total = 0;
 
-        const row = document.createElement('tr');
-        row.innerHTML = `
-        <td>
-        ${productName}
-        <input type="hidden" name="Items[${itemIndex}].ProductId" value="${productId}" />
-        <input type="hidden" name="Items[${itemIndex}].ProductName" value="${productName}" />
-        </td>
-        <td class="text-center">${price.toFixed(2)} $<input type="hidden" name="Items[${itemIndex}].UnitPrice" value="${priceForServer}" /></td>
-        <td class="text-center">${qty}<input type="hidden" name="Items[${itemIndex}].Quantity" value="${qty}" /></td>
-        <td class="text-end fw-bold">${subtotal.toFixed(2)} $</td>
-        <td class="text-center"><button type="button" class="btn btn-sm btn-soft text-danger btn-remove"><i class="fas fa-trash"></i></button></td>
-        `;
+                cart.forEach(function (item, idx) {
+                    const subtotal = item.price * item.qty;
+                    total += subtotal;
 
-        tbody.appendChild(row);
-        itemIndex++;
-        updateTotal();
+                    const tr = document.createElement("tr");
 
-        document.getElementById('productInput').value = '';
-        document.getElementById('selectedProductId').value = '';
-        document.getElementById('tempPrice').value = '';
-        document.getElementById('tempQty').value = '1';
-        document.getElementById('productInput').focus();
-        });
+                    // Colonne Produit + champs cachés séquentiels
+                    const tdName = document.createElement("td");
+                    tdName.className = "fw-semibold";
+                    tdName.textContent = item.name;
 
-        // ===== VIDER LE PANIER =====
-        document.getElementById('btnClearCart').addEventListener('click', function() {
-        if (confirm("Vider tout le panier ?")) {
-        document.getElementById('cartBody').innerHTML = "";
-        itemIndex = 0;
-        updateTotal();
-        }
-        });
+                    const inputId = document.createElement("input");
+                    inputId.type = "hidden";
+                    inputId.name = `Items[${idx}].ProductId`;
+                    inputId.value = String(item.productId);
+                    tdName.appendChild(inputId);
 
-        // ===== SUPPRIMER UNE LIGNE =====
-        document.getElementById('cartBody').addEventListener('click', function(e) {
-        if (e.target.closest('.btn-remove')) {
-        e.target.closest('tr').remove();
-        updateTotal();
-        }
-        });
+                    const inputPrice = document.createElement("input");
+                    inputPrice.type = "hidden";
+                    inputPrice.name = `Items[${idx}].UnitPrice`;
+                    inputPrice.value = item.price.toFixed(2);
+                    tdName.appendChild(inputPrice);
 
-        // ===== METTRE À JOUR LE TOTAL =====
-        function updateTotal() {
-        let total = 0;
-        const rows = document.querySelectorAll('#cartBody tr');
-        rows.forEach(row => {
-        const pInput = row.querySelector('input[name*="UnitPrice"]');
-        const qInput = row.querySelector('input[name*="Quantity"]');
-        if (pInput && qInput) {
-        const p = parseFloat(pInput.value.replace(',', '.'));
-        const q = parseInt(qInput.value);
-        if (!isNaN(p) && !isNaN(q)) total += (p * q);
-        }
-        });
-        document.getElementById('grandTotal').innerText = total.toFixed(2);
-        document.getElementById('inputFinalPrice').value = total.toFixed(2).replace('.', ',');
-        }
+                    const inputQty = document.createElement("input");
+                    inputQty.type = "hidden";
+                    inputQty.name = `Items[${idx}].Quantity`;
+                    inputQty.value = String(item.qty);
+                    tdName.appendChild(inputQty);
+
+                    const tdPrice = document.createElement("td");
+                    tdPrice.className = "text-center";
+                    tdPrice.textContent = item.price.toFixed(2) + " $";
+
+                    const tdQty = document.createElement("td");
+                    tdQty.className = "text-center";
+                    tdQty.textContent = String(item.qty);
+
+                    const tdSub = document.createElement("td");
+                    tdSub.className = "text-end fw-bold";
+                    tdSub.textContent = subtotal.toFixed(2) + " $";
+
+                    const tdAction = document.createElement("td");
+                    tdAction.className = "text-center";
+                    const removeBtn = document.createElement("button");
+                    removeBtn.type = "button";
+                    removeBtn.className = "btn btn-sm btn-soft text-danger";
+                    removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                    removeBtn.addEventListener("click", function () {
+                        cart.splice(idx, 1);
+                        renderCart();
+                    });
+                    tdAction.appendChild(removeBtn);
+
+                    tr.appendChild(tdName);
+                    tr.appendChild(tdPrice);
+                    tr.appendChild(tdQty);
+                    tr.appendChild(tdSub);
+                    tr.appendChild(tdAction);
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById("grandTotal").textContent = total.toFixed(2);
+            }
+
+            document.getElementById("btnAddItem").addEventListener("click", function () {
+                const productId = parseInt(document.getElementById("selectedProductId").value, 10);
+                const productName = document.getElementById("selectedProductName").value || document.getElementById("productInput").value.trim();
+                const maxStock = parseInt(document.getElementById("selectedProductStock").value, 10) || 10000;
+                const price = parseFloat(String(document.getElementById("tempPrice").value).replace(",", "."));
+                const qty = parseInt(document.getElementById("tempQty").value, 10);
+
+                if (!productId || !productName || isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) {
+                    showClientError("Veuillez sélectionner un produit dans la liste de suggestions et vérifier la quantité.");
+                    return;
+                }
+
+                const existing = cart.find(c => c.productId === productId && Math.abs(c.price - price) < 0.001);
+                const totalQtyForProduct = cart
+                    .filter(c => c.productId === productId)
+                    .reduce((sum, c) => sum + c.qty, 0) + qty;
+
+                if (totalQtyForProduct > maxStock) {
+                    showClientError(`Stock insuffisant pour « ${productName} » (stock disponible : ${maxStock}).`);
+                    return;
+                }
+
+                if (existing) {
+                    existing.qty += qty;
+                } else {
+                    cart.push({ productId: productId, name: productName, price: price, qty: qty, stock: maxStock });
+                }
+
+                showClientError(null);
+                renderCart();
+
+                document.getElementById("productInput").value = "";
+                document.getElementById("selectedProductId").value = "";
+                document.getElementById("selectedProductName").value = "";
+                document.getElementById("selectedProductStock").value = "";
+                document.getElementById("tempPrice").value = "";
+                document.getElementById("tempQty").value = "1";
+                document.getElementById("productInput").focus();
+            });
+
+            document.getElementById("btnClearCart").addEventListener("click", function () {
+                if (cart.length > 0 && confirm("Vider tout le panier ?")) {
+                    cart.length = 0;
+                    renderCart();
+                }
+            });
+
+            document.getElementById("saleForm").addEventListener("submit", function (e) {
+                if (cart.length === 0) {
+                    e.preventDefault();
+                    showClientError("Ajoutez au moins un produit au panier avant de valider la vente.");
+                }
+            });
+        })();
     </script>
 }

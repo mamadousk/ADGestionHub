@@ -1,16 +1,54 @@
-﻿@using AdGestionHub.Models
-@using Microsoft.AspNetCore.Identity
+@using AdGestionHub.Models
 @model IEnumerable<Product>
+
+@{
+    ViewData["Title"] = "Gestion du Stock";
+    var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+    var currentSearch = ViewBag.CurrentSearch as string;
+    var currentStatus = ViewBag.CurrentStatus as string;
+}
 
 <div>
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
         <div>
             <h1 class="display-6 fw-bold mb-0">📦 Gestion du Stock</h1>
-            <p class="text-muted">Liste de vos produits et alertes de réapprovisionnement</p>
+            <p class="text-muted mb-0">Catalogue de vos articles et suivi des niveaux d'inventaire</p>
         </div>
-        <a asp-action="Create" class="btn btn-primary-gradient">
-            <i class="fas fa-plus me-2"></i> Nouveau Produit
-        </a>
+        @if (isAdmin)
+        {
+            <a asp-action="Create" class="btn btn-primary-gradient mt-2 mt-md-0">
+                <i class="fas fa-plus me-2"></i> Nouveau Produit
+            </a>
+        }
+    </div>
+
+    <!-- Barre de recherche & filtres -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <form method="get" asp-action="Index" class="row g-2 align-items-center">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                        <input type="text" name="search" value="@currentSearch" class="form-control border-start-0" placeholder="Rechercher un produit ou une variation..." />
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <select name="status" class="form-select">
+                        <option value="" selected="@(string.IsNullOrEmpty(currentStatus))">Tous les statuts</option>
+                        <option value="ok" selected="@(currentStatus == "ok")">✅ Disponible</option>
+                        <option value="low" selected="@(currentStatus == "low")">⚠️ Stock bas</option>
+                        <option value="out" selected="@(currentStatus == "out")">🚨 En rupture</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary-gradient w-100">Filtrer</button>
+                    @if (!string.IsNullOrEmpty(currentSearch) || !string.IsNullOrEmpty(currentStatus))
+                    {
+                        <a asp-action="Index" class="btn btn-soft" title="Réinitialiser"><i class="fas fa-times"></i></a>
+                    }
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -20,7 +58,8 @@
                     <thead>
                         <tr>
                             <th>Nom du produit</th>
-                            @if (User.IsInRole("Admin"))
+                            <th>Variations</th>
+                            @if (isAdmin)
                             {
                                 <th>Prix d'achat</th>
                             }
@@ -31,44 +70,60 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var item in Model)
+                        @if (!Model.Any())
                         {
                             <tr>
-                                <td class="fw-bold">@item.Name</td>
-                                @if (User.IsInRole("Admin"))
-                                {
-                                    <td>@item.PurchasePrice.ToString("N2") $</td>
-                                }
-                                <td>@item.SalePrice.ToString("N2") $</td>
-                                <td class="text-center">@item.StockQuantity</td>
-                                <td class="text-center">
-                                    @if (item.StockQuantity <= 0)
-                                    {
-                                        <span class="badge-status danger">Rupture</span>
-                                    }
-                                    else if (item.StockQuantity <= item.LowStockThreshold)
-                                    {
-                                        <span class="badge-status warning">Stock bas</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge-status success">Disponible</span>
-                                    }
-                                </td>
-                                <td class="text-center">
-                                    <div class="btn-group" role="group">
-                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Modifier">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Détails">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-soft text-danger" title="Supprimer">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
-                                    </div>
+                                <td colspan="@(isAdmin ? 7 : 6)" class="text-center py-5 text-muted">
+                                    Aucun produit trouvé dans l'inventaire.
                                 </td>
                             </tr>
+                        }
+                        else
+                        {
+                            foreach (var item in Model)
+                            {
+                                var threshold = item.LowStockThreshold > 0 ? item.LowStockThreshold : item.StockAlertThreshold;
+                                <tr>
+                                    <td class="fw-bold">@item.Name</td>
+                                    <td><small class="text-muted">@(string.IsNullOrWhiteSpace(item.Variations) ? "—" : item.Variations)</small></td>
+                                    @if (isAdmin)
+                                    {
+                                        <td>@item.PurchasePrice.ToString("N2") $</td>
+                                    }
+                                    <td class="fw-semibold">@item.SalePrice.ToString("N2") $</td>
+                                    <td class="text-center fw-bold">@item.StockQuantity</td>
+                                    <td class="text-center">
+                                        @if (item.StockQuantity <= 0)
+                                        {
+                                            <span class="badge-status danger">Rupture</span>
+                                        }
+                                        else if (item.StockQuantity <= threshold)
+                                        {
+                                            <span class="badge-status warning">Stock bas</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge-status success">Disponible</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group" role="group">
+                                            <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Détails">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            @if (isAdmin)
+                                            {
+                                                <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-soft" title="Modifier">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-sm btn-soft text-danger" title="Supprimer">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
                         }
                     </tbody>
                 </table>

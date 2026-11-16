@@ -1,30 +1,50 @@
 using AdGestionHub.Data;
 using AdGestionHub.Middlewares;
+using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using QuestPDF.Infrastructure;
 using System.Globalization;
 using System.IO.Compression;
 
+QuestPDF.Settings.License = LicenseType.Community;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+// --- BASE DE DONNÉES (SQL Server par défaut, support SQLite optionnel) ---
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+var dbProvider = builder.Configuration["DatabaseProvider"];
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+{
+    if (string.Equals(dbProvider, "Sqlite", StringComparison.OrdinalIgnoreCase)
+        || connectionString.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseSqlite(connectionString);
+    }
+    else
+    {
+        options.UseSqlServer(connectionString);
+    }
+
+    options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+});
 
 // --- SERVICES MÉTIER ---
-builder.Services.AddScoped<IProfitService, ProfitService>();
-builder.Services.AddScoped<IStockService, StockService>();
-
-// --- CACHE ---
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<IBoutiqueService, BoutiqueService>();
-builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IProfitService, ProfitService>();
+builder.Services.AddScoped<IStockService, StockService>();
+builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 
 // --- COMPRESSION GZIP / BROTLI ---
 builder.Services.AddResponseCompression(options =>
@@ -57,8 +77,8 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options =>
 builder.Services.AddHealthChecks()
     .AddCheck<DbHealthCheck>("Database");
 
-// --- IDENTITÉ ---
-builder.Services.AddDefaultIdentity<AdGestionHub.Models.ApplicationUser>(options =>
+// --- IDENTITÉ & SÉCURITÉ DES COMPTES ---
+builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
     options.Password.RequireDigit = true;
@@ -66,7 +86,7 @@ builder.Services.AddDefaultIdentity<AdGestionHub.Models.ApplicationUser>(options
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 8;
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(10);
     options.Lockout.MaxFailedAccessAttempts = 5;
     options.Lockout.AllowedForNewUsers = true;
     options.User.RequireUniqueEmail = true;
@@ -74,30 +94,56 @@ builder.Services.AddDefaultIdentity<AdGestionHub.Models.ApplicationUser>(options
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>();
 
+// Revalidation rapide du SecurityStamp (changement de rôle, mot de passe ou révocation d'employé)
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+{
+    options.ValidationInterval = TimeSpan.FromMinutes(5);
+});
+
 // --- COOKIES SÉCURISÉS ---
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.Name = "AdGestionHub.Auth";
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.ExpireTimeSpan = TimeSpan.FromDays(30);
+    options.ExpireTimeSpan = TimeSpan.FromHours(12);
     options.SlidingExpiration = true;
 });
 
+builder.Services.AddAntiforgery(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
+    options.HeaderName = "RequestVerificationToken";
+});
+
 // --- CORS ---
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "https://localhost:7221", "http://localhost:5216" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("StrictCorsPolicy", policy =>
     {
-        policy.WithOrigins("https://localhost:7221", "http://localhost:5216")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
     });
 });
 
-// --- CONTROLEURS ---
-builder.Services.AddControllersWithViews();
+// --- CONTRÔLEURS, ANTI-CSRF GLOBAL & LIAISON DÉCIMALE SOUPLE ---
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+    options.ModelBinderProviders.Insert(0, new FlexibleDecimalModelBinderProvider());
+});
 
 // --- SÉCURITÉ HSTS ---
 builder.Services.AddHsts(options =>
@@ -107,9 +153,7 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(365);
 });
 
-// =====================================================================
-//  POLITIQUES D'AUTORISATION
-// =====================================================================
+// --- POLITIQUES D'AUTORISATION ---
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("SuperAdminOnly", policy =>
@@ -140,26 +184,29 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 
 // --- Culture ---
-var supportedCultures = new[] { new CultureInfo("fr-FR") };
+var frCulture = new CultureInfo("fr-FR");
+var supportedCultures = new[] { frCulture };
 app.UseRequestLocalization(new RequestLocalizationOptions
 {
-    DefaultRequestCulture = new RequestCulture("fr-FR"),
+    DefaultRequestCulture = new RequestCulture(frCulture),
     SupportedCultures = supportedCultures,
     SupportedUICultures = supportedCultures
 });
 
-// --- Seed des rôles et du SuperAdmin ---
+// --- Migration automatique & Seed des rôles / SuperAdmin ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
+        var db = services.GetRequiredService<ApplicationDbContext>();
+        await db.Database.MigrateAsync();
         await DbInitializer.SeedAsync(services);
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
+        logger.LogError(ex, "Erreur lors de l'initialisation ou de la migration de la base de données.");
     }
 }
 
@@ -172,26 +219,31 @@ else
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
+    app.UseHttpsRedirection();
 }
 
 app.UseResponseCompression();
-app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionMiddleware>();
-app.UseMiddleware<RateLimitingMiddleware>();
-app.UseCors("StrictCorsPolicy");
 
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>
     {
-        ctx.Context.Response.Headers.Append("Cache-Control", "public, max-age=31536000");
-        ctx.Context.Response.Headers.Append("Expires", DateTime.UtcNow.AddYears(1).ToString("R"));
+        // Cache long uniquement lorsque le fichier est versionné (?v=...) ou dans /lib/
+        var hasVersion = ctx.Context.Request.Query.ContainsKey("v")
+                      || ctx.Context.Request.Path.StartsWithSegments("/lib");
+        ctx.Context.Response.Headers["Cache-Control"] = hasVersion
+            ? "public, max-age=31536000, immutable"
+            : "public, max-age=3600";
     }
 });
 
 app.UseRouting();
+app.UseCors("StrictCorsPolicy");
+app.UseMiddleware<RateLimitingMiddleware>();
 app.UseAuthentication();
+app.UseMiddleware<TenantActiveCheckMiddleware>();
 app.UseAuthorization();
 
 // --- ROUTES ---
@@ -200,26 +252,7 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Welcome}/{id?}");
 app.MapRazorPages();
 
-// ============================================================
-//  🚀 ENDPOINT DE RÉINITIALISATION DU MOT DE PASSE SUPERADMIN
-//  (À SUPPRIMER APRÈS AVOIR RÉUSSI LA CONNEXION)
-// ============================================================
-app.MapGet("/resetpassword", async (UserManager<AdGestionHub.Models.ApplicationUser> userManager) =>
-{
-    const string email = "mamadousacko716@gmail.com";
-    var user = await userManager.FindByEmailAsync(email);
-    if (user == null)
-        return Results.NotFound($"Utilisateur avec l'email {email} introuvable.");
-
-    var token = await userManager.GeneratePasswordResetTokenAsync(user);
-    var result = await userManager.ResetPasswordAsync(user, token, "Mamadousacko22@");
-    if (result.Succeeded)
-        return Results.Ok("✅ Mot de passe réinitialisé avec succès ! Vous pouvez maintenant vous connecter.");
-    else
-        return Results.BadRequest($"❌ Erreur : {string.Join(", ", result.Errors.Select(e => e.Description))}");
-});
-
-// --- HEALTH CHECKS ---
+// --- HEALTH CHECKS (limité aux sondes internes / SuperAdmin ou diagnostic simple sans fuite d'info) ---
 app.MapHealthChecks("/health");
 
 app.Run();
@@ -232,14 +265,9 @@ public class DbHealthCheck : IHealthCheck
 
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            await _context.Database.ExecuteSqlRawAsync("SELECT 1", cancellationToken);
-            return HealthCheckResult.Healthy("La base de données est accessible.");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Unhealthy("La base de données n'est pas accessible.", ex);
-        }
+        var canConnect = await _context.Database.CanConnectAsync(cancellationToken);
+        return canConnect
+            ? HealthCheckResult.Healthy("OK")
+            : HealthCheckResult.Unhealthy("Unavailable");
     }
 }

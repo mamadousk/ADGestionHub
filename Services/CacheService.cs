@@ -1,4 +1,3 @@
-﻿// ==================== FILE: Services/CacheService.cs ====================
 using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Threading.Tasks;
@@ -16,15 +15,12 @@ namespace AdGestionHub.Services
 
         public async Task<T> GetOrSetAsync<T>(string key, Func<Task<T>> factory, TimeSpan? expiry = null)
         {
-            if (_cache.TryGetValue(key, out T cachedValue))
+            if (_cache.TryGetValue(key, out T? cachedValue) && cachedValue is not null)
                 return cachedValue;
 
             var result = await factory();
-            var cacheOptions = new MemoryCacheEntryOptions();
-            if (expiry.HasValue)
-                cacheOptions.SetAbsoluteExpiration(expiry.Value);
-            else
-                cacheOptions.SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(expiry ?? TimeSpan.FromMinutes(5));
 
             _cache.Set(key, result, cacheOptions);
             return result;
@@ -36,18 +32,15 @@ namespace AdGestionHub.Services
             return Task.CompletedTask;
         }
 
-        public bool TryGet<T>(string key, out T value)
+        public bool TryGet<T>(string key, out T? value)
         {
             return _cache.TryGetValue(key, out value);
         }
 
         public void Set<T>(string key, T value, TimeSpan? expiry = null)
         {
-            var cacheOptions = new MemoryCacheEntryOptions();
-            if (expiry.HasValue)
-                cacheOptions.SetAbsoluteExpiration(expiry.Value);
-            else
-                cacheOptions.SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(expiry ?? TimeSpan.FromMinutes(5));
 
             _cache.Set(key, value, cacheOptions);
         }
