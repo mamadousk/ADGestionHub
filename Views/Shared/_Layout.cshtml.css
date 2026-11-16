@@ -1,5 +1,6 @@
-﻿/* Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
-for details on configuring this project to bundle and minify static web assets. */
+/* Scoped overrides — alignés sur le design system SaaS Pro (site.css).
+   Neutralise les styles par défaut du template Bootstrap pour éviter
+   tout conflit avec la charte AdGestionHub (sidebar sombre, dégradés, ombres). */
 
 a.navbar-brand {
   white-space: normal;
@@ -8,30 +9,42 @@ a.navbar-brand {
 }
 
 a {
-  color: #0077cc;
+  color: #6366F1;
+}
+
+a:hover {
+  color: #4F46E5;
 }
 
 .btn-primary {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background: linear-gradient(135deg, #FF5A1F 0%, #FF8A00 100%);
+  border: 1px solid transparent;
+  box-shadow: 0 6px 20px rgba(255, 90, 31, 0.35);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #FF6B35 0%, #FF9A3D 100%);
+  border-color: transparent;
+  transform: translateY(-1px);
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
   color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+  background: linear-gradient(135deg, #FF5A1F 0%, #FF8A00 100%);
+  border-color: transparent;
 }
 
 .border-top {
-  border-top: 1px solid #e5e5e5;
+  border-top: 1px solid #E6E8F0;
 }
+
 .border-bottom {
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid #E6E8F0;
 }
 
 .box-shadow {
-  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07);
 }
 
 button.accept-policy {
