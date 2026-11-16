@@ -1,70 +1,68 @@
 @model AdGestionHub.Models.ViewModels.CreateUserViewModel
 @{
-    ViewData["Title"] = "Ajouter un employé";
+    ViewData["Title"] = L.T("Nouvel employé", "New Staff Account");
 }
 
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-header bg-transparent border-0 pt-4 px-4">
-                <h4 class="fw-bold mb-0"><i class="fas fa-user-plus text-primary me-2"></i> Nouvel employé</h4>
-                <p class="text-muted small mb-0">L'employé pourra vendre et consulter le stock sans voir vos prix d'achat ni vos bénéfices.</p>
-            </div>
-            <div class="card-body p-4">
-                <form asp-action="Create" method="post">
-                    <div asp-validation-summary="ModelOnly" class="alert alert-danger alert-modern" role="alert"></div>
+    <div class="col-lg-7">
+        <div class="panel-card p-4">
+            <h1 class="h5 mb-1">@ViewData["Title"]</h1>
+            <p class="text-slate small mb-4">
+                @L.T(
+                    "Les comptes Employé ont accès à la caisse et aux stocks sans visibilité sur les coûts d'achat ni sur le bénéfice net.",
+                    "Staff accounts can operate the POS and view inventory without seeing unit costs or net profit.")
+            </p>
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label asp-for="UserName" class="form-label fw-semibold"></label>
-                            <input asp-for="UserName" class="form-control form-control-modern" placeholder="Ex: jean_caisse" />
-                            <span asp-validation-for="UserName" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="FullName" class="form-label fw-semibold"></label>
-                            <input asp-for="FullName" class="form-control form-control-modern" placeholder="Ex: Jean Kabongo" />
-                            <span asp-validation-for="FullName" class="text-danger small"></span>
-                        </div>
-                    </div>
+            <form asp-action="Create" method="post">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3"></div>
 
-                    <div class="mb-3">
-                        <label asp-for="Email" class="form-label fw-semibold"></label>
-                        <input asp-for="Email" class="form-control form-control-modern" placeholder="employe@domaine.com" />
-                        <span asp-validation-for="Email" class="text-danger small"></span>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="UserName" class="form-label">@L.T("Identifiant", "Username")</label>
+                        <input asp-for="UserName" class="form-control" />
+                        <span asp-validation-for="UserName" class="text-sober-red small"></span>
                     </div>
+                    <div class="col-md-6">
+                        <label asp-for="FullName" class="form-label">@L.T("Nom complet", "Full Name")</label>
+                        <input asp-for="FullName" class="form-control" />
+                        <span asp-validation-for="FullName" class="text-sober-red small"></span>
+                    </div>
+                </div>
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label asp-for="Password" class="form-label fw-semibold"></label>
-                            <input asp-for="Password" class="form-control form-control-modern" placeholder="Min. 8 car. (Maj, chiffre, symbole)" />
-                            <span asp-validation-for="Password" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="ConfirmPassword" class="form-label fw-semibold"></label>
-                            <input asp-for="ConfirmPassword" class="form-control form-control-modern" placeholder="Confirmer le mot de passe" />
-                            <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                        </div>
-                    </div>
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label">Email</label>
+                    <input asp-for="Email" class="form-control" />
+                    <span asp-validation-for="Email" class="text-sober-red small"></span>
+                </div>
 
-                    <div class="mb-4">
-                        <label asp-for="Role" class="form-label fw-semibold"></label>
-                        <select asp-for="Role" class="form-select form-control-modern" asp-items="@(new SelectList(ViewBag.Roles))">
-                        </select>
-                        <span asp-validation-for="Role" class="text-danger small"></span>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="Password" class="form-label">@L.T("Mot de passe", "Password")</label>
+                        <input asp-for="Password" class="form-control" />
+                        <span asp-validation-for="Password" class="text-sober-red small"></span>
                     </div>
+                    <div class="col-md-6">
+                        <label asp-for="ConfirmPassword" class="form-label">@L.T("Confirmer", "Confirm")</label>
+                        <input asp-for="ConfirmPassword" class="form-control" />
+                        <span asp-validation-for="ConfirmPassword" class="text-sober-red small"></span>
+                    </div>
+                </div>
 
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary-gradient px-5 py-2">
-                            <i class="fas fa-save me-2"></i> Créer le compte
-                        </button>
-                        <a asp-action="Index" class="btn btn-soft px-4 py-2">Annuler</a>
-                    </div>
-                </form>
-            </div>
+                <div class="mb-4">
+                    <label asp-for="Role" class="form-label">@L.T("Rôle", "Role")</label>
+                    <select asp-for="Role" class="form-select" asp-items="@(new SelectList(ViewBag.Roles))"></select>
+                    <span asp-validation-for="Role" class="text-sober-red small"></span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Cancel"]</a>
+                    <button type="submit" class="btn btn-accent">@L["Action.Save"]</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <partial name="_ValidationScriptsPartial" />
 }

@@ -13,16 +13,20 @@ namespace AdGestionHub.Data
 
         public DbSet<Boutique> Boutiques { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<Client> Clients { get; set; }
         public DbSet<Sale> Sales { get; set; }
+        public DbSet<SaleItem> SaleItems { get; set; }
+        public DbSet<Quote> Quotes { get; set; }
+        public DbSet<QuoteItem> QuoteItems { get; set; }
         public DbSet<StoreSettings> StoreSettings { get; set; }
         public DbSet<Expense> Expenses { get; set; }
+        public DbSet<Debt> Debts { get; set; }
+        public DbSet<EInvoicingOptIn> EInvoicingOptIns { get; set; }
         public DbSet<WaitingListPro> WaitingListPros { get; set; }
         public DbSet<UserFeedback> UserFeedbacks { get; set; }
-        public DbSet<Debt> Debts { get; set; }
         public DbSet<GlobalNotification> GlobalNotifications { get; set; }
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<ErrorLog> ErrorLogs { get; set; }
-        public DbSet<SaleItem> SaleItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,22 +60,77 @@ namespace AdGestionHub.Data
                 .HasForeignKey(s => s.BoutiqueId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Précision monétaire explicite
+            modelBuilder.Entity<Client>()
+                .HasOne(c => c.Boutique)
+                .WithMany(b => b.Clients)
+                .HasForeignKey(c => c.BoutiqueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Sale>()
+                .HasOne(s => s.Client)
+                .WithMany()
+                .HasForeignKey(s => s.ClientId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<Quote>()
+                .HasOne(q => q.Boutique)
+                .WithMany(b => b.Quotes)
+                .HasForeignKey(q => q.BoutiqueId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Quote>()
+                .HasOne(q => q.Client)
+                .WithMany()
+                .HasForeignKey(q => q.ClientId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // --- PRÉCISION MONÉTAIRE & FISCALE EXPLICITE ---
+            modelBuilder.Entity<StoreSettings>().Property(s => s.SecondaryExchangeRate).HasPrecision(18, 6);
+            modelBuilder.Entity<StoreSettings>().Property(s => s.DefaultVatRate).HasPrecision(5, 2);
+
             modelBuilder.Entity<Product>().Property(p => p.PurchasePrice).HasPrecision(18, 2);
             modelBuilder.Entity<Product>().Property(p => p.SalePrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Product>().Property(p => p.VatRate).HasPrecision(5, 2);
+
+            modelBuilder.Entity<Sale>().Property(s => s.SubtotalNet).HasPrecision(18, 2);
+            modelBuilder.Entity<Sale>().Property(s => s.TaxAmount).HasPrecision(18, 2);
             modelBuilder.Entity<Sale>().Property(s => s.FinalPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<Sale>().Property(s => s.ExchangeRateToSecondary).HasPrecision(18, 6);
+
             modelBuilder.Entity<SaleItem>().Property(si => si.UnitPrice).HasPrecision(18, 2);
             modelBuilder.Entity<SaleItem>().Property(si => si.UnitCost).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleItem>().Property(si => si.VatRate).HasPrecision(5, 2);
+            modelBuilder.Entity<SaleItem>().Property(si => si.LineNet).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleItem>().Property(si => si.LineTax).HasPrecision(18, 2);
+            modelBuilder.Entity<SaleItem>().Property(si => si.LineTotal).HasPrecision(18, 2);
+
+            modelBuilder.Entity<Quote>().Property(q => q.SubtotalNet).HasPrecision(18, 2);
+            modelBuilder.Entity<Quote>().Property(q => q.TaxAmount).HasPrecision(18, 2);
+            modelBuilder.Entity<Quote>().Property(q => q.TotalAmount).HasPrecision(18, 2);
+            modelBuilder.Entity<Quote>().Property(q => q.ExchangeRateToSecondary).HasPrecision(18, 6);
+
+            modelBuilder.Entity<QuoteItem>().Property(qi => qi.UnitPrice).HasPrecision(18, 2);
+            modelBuilder.Entity<QuoteItem>().Property(qi => qi.VatRate).HasPrecision(5, 2);
+            modelBuilder.Entity<QuoteItem>().Property(qi => qi.LineNet).HasPrecision(18, 2);
+            modelBuilder.Entity<QuoteItem>().Property(qi => qi.LineTax).HasPrecision(18, 2);
+            modelBuilder.Entity<QuoteItem>().Property(qi => qi.LineTotal).HasPrecision(18, 2);
+
             modelBuilder.Entity<Expense>().Property(e => e.Amount).HasPrecision(18, 2);
             modelBuilder.Entity<Debt>().Property(d => d.Amount).HasPrecision(18, 2);
 
             // --- INDEXATION POUR PERFORMANCE MULTI-TENANT ---
             modelBuilder.Entity<StoreSettings>().HasIndex(s => s.BoutiqueId);
             modelBuilder.Entity<Product>().HasIndex(p => p.BoutiqueId);
+            modelBuilder.Entity<Client>().HasIndex(c => new { c.BoutiqueId, c.Name });
             modelBuilder.Entity<Sale>().HasIndex(s => new { s.BoutiqueId, s.SaleDate });
             modelBuilder.Entity<SaleItem>().HasIndex(si => si.BoutiqueId);
+            modelBuilder.Entity<Quote>().HasIndex(q => new { q.BoutiqueId, q.CreatedAt });
+            modelBuilder.Entity<QuoteItem>().HasIndex(qi => qi.BoutiqueId);
             modelBuilder.Entity<Expense>().HasIndex(e => new { e.BoutiqueId, e.Date });
             modelBuilder.Entity<Debt>().HasIndex(d => new { d.BoutiqueId, d.IsArchived, d.IsPaid });
+            modelBuilder.Entity<EInvoicingOptIn>().HasIndex(o => new { o.BoutiqueId, o.CountryCode });
             modelBuilder.Entity<SystemLog>().HasIndex(sl => sl.BoutiqueId);
             modelBuilder.Entity<ErrorLog>().HasIndex(el => el.BoutiqueId);
             modelBuilder.Entity<WaitingListPro>().HasIndex(w => w.Email).IsUnique();

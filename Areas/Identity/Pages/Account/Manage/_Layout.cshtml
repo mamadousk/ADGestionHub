@@ -1,28 +1,21 @@
-﻿@{
-    // On force le layout principal de l'application
+@{
     Layout = "/Views/Shared/_Layout.cshtml";
 }
 
-<h1 class="display-6 fw-bold mb-4">👤 Mon Compte</h1>
+<div class="mb-3">
+    <h1 class="h4 mb-1">@L["Nav.Profile"]</h1>
+    <p class="text-slate small mb-0">@L.T("Sécurité du compte et préférences personnelles", "Account security and personal preferences")</p>
+</div>
 
-<div>
-    <div class="row g-4">
-        <!-- Menu de navigation latérale -->
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden sticky-top" style="top: 90px;">
-                <div class="card-body p-3">
-                    <partial name="_ManageNav" />
-                </div>
-            </div>
+<div class="row g-4">
+    <div class="col-lg-3">
+        <div class="panel-card p-2">
+            <partial name="_ManageNav" />
         </div>
-
-        <!-- Contenu principal -->
-        <div class="col-lg-9">
-            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <div class="card-body p-4">
-                    @RenderBody()
-                </div>
-            </div>
+    </div>
+    <div class="col-lg-9">
+        <div class="panel-card p-4">
+            @RenderBody()
         </div>
     </div>
 </div>

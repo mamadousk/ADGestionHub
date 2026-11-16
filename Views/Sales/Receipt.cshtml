@@ -1,115 +1,276 @@
 @model AdGestionHub.Models.Sale
 @{
-    ViewData["Title"] = "Reçu de vente";
-    var settings = ViewBag.StoreSettings as AdGestionHub.Models.StoreSettings;
+    var ctx = await TenantCtx.GetContextAsync();
+    var settings = ViewBag.StoreSettings as AdGestionHub.Models.StoreSettings ?? ctx.Settings;
     var invoiceNumber = ViewBag.StoreInvoiceNumber as int? ?? Model.Id;
+    var printFormat = (ViewBag.PrintFormat as string) ?? "a4";
+
+    // Respect strict de l'instantané historique de l'opération
+    var isFormalized = Model.IsFormalizedSnapshot || string.Equals(Model.DocumentType, "Invoice", StringComparison.OrdinalIgnoreCase);
+    var isVat = Model.IsVatEnabledSnapshot;
+    var docTitle = isFormalized ? L["Doc.Invoice"].ToUpperInvariant() : L["Doc.SalesReceipt"].ToUpperInvariant();
+    var docRef = !string.IsNullOrWhiteSpace(Model.DocumentNumber)
+        ? Model.DocumentNumber
+        : (isFormalized ? $"FAC-{invoiceNumber:D5}" : $"REC-{invoiceNumber:D5}");
+
+    ViewData["Title"] = $"{docTitle} {docRef}";
+    string Fmt(decimal v) => ctx.FormatHistorical(v, Model.CurrencyCode, Model.CurrencyDecimals, Model.CurrencySymbol);
+
+    string? secEquivalent = null;
+    if (!string.IsNullOrWhiteSpace(Model.SecondaryCurrencyCode) && Model.ExchangeRateToSecondary.HasValue && Model.ExchangeRateToSecondary.Value > 0m)
+    {
+        var secCur = CountryProfileCatalog.GetCurrency(Model.SecondaryCurrencyCode);
+        var conv = CountryProfileCatalog.ConvertPrimaryToSecondary(Model.FinalPrice, Model.ExchangeRateToSecondary, secCur.Decimals);
+        if (conv.HasValue)
+        {
+            secEquivalent = CountryProfileCatalog.FormatAmount(conv.Value, secCur.Code, secCur.Decimals, secCur.Symbol, L.CurrentLanguage);
+        }
+    }
 }
 
 <style>
     @@media print {
-        header, footer, #cookieConsent, .no-print {
+        .app-sidebar, .app-topbar, .no-print, #cookieConsent {
             display: none !important;
         }
-        body {
-            padding-top: 0 !important;
-            background: #fff !important;
+        .app-main-wrap {
+            margin-left: 0 !important;
         }
-        .receipt-card {
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
+        body, .app-content {
+            background: #FFFFFF !important;
+            padding: 0 !important;
+        }
+        .panel-card, .preview-a4, .preview-thermal-58mm {
+            border: none !important;
         }
     }
 </style>
 
-<div class="container py-4" style="max-width: 760px;">
-    <div class="card shadow-sm border-0 rounded-4 receipt-card">
-        <div class="card-body p-4 p-lg-5">
-            <!-- En-tête -->
-            <div class="text-center border-bottom pb-3 mb-4">
-                <h2 class="fw-bold mb-1" style="color:#FF8C00;">@(string.IsNullOrWhiteSpace(settings?.StoreName) ? "AdGestionHub" : settings!.StoreName)</h2>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+    <div class="lang-switch">
+        <a asp-action="Receipt" asp-route-id="@Model.Id" asp-route-format="a4" class="@(printFormat == "a4" ? "active" : "")">Format A4</a>
+        <a asp-action="Receipt" asp-route-id="@Model.Id" asp-route-format="thermal" class="@(printFormat == "thermal" ? "active" : "")">Ticket 58mm</a>
+    </div>
+    <div class="d-flex gap-2">
+        <button type="button" onclick="window.print()" class="btn btn-accent">
+            @LucideIcons.Svg("printer", 15, "me-1")
+            <span>@L["Action.Print"]</span>
+        </button>
+        <a asp-action="DownloadReceipt" asp-route-id="@Model.Id" class="btn btn-secondary-outline">
+            @LucideIcons.Svg("download", 15, "me-1")
+            <span>@L["Action.DownloadPdf"]</span>
+        </a>
+        <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+    </div>
+</div>
+
+@if (printFormat == "thermal")
+{
+    <!-- Ticket thermique 58mm -->
+    <div class="preview-thermal-58mm preview-doc my-3" style="width: 280px;">
+        <div class="text-center">
+            <div class="fw-bold" style="font-size:0.95rem;">@(string.IsNullOrWhiteSpace(settings?.StoreName) ? "AdGestionHub" : settings!.StoreName)</div>
+            @if (!string.IsNullOrWhiteSpace(settings?.Address))
+            {
+                <div class="text-slate">@settings.Address</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(settings?.Phone))
+            {
+                <div class="text-slate num">@settings.Phone</div>
+            }
+            @if (isFormalized && !string.IsNullOrWhiteSpace(Model.StoreLegalTaxIdSnapshot))
+            {
+                <div class="fw-medium num mt-1">
+                    @(Model.StoreTaxIdLabelSnapshot ?? "NIF") : @Model.StoreLegalTaxIdSnapshot
+                    @if (!string.IsNullOrWhiteSpace(Model.StoreRccmSnapshot))
+                    {
+                        <span> · @(Model.StoreRccmLabelSnapshot ?? "RCCM") : @Model.StoreRccmSnapshot</span>
+                    }
+                </div>
+            }
+        </div>
+        <hr />
+        <div class="d-flex justify-content-between">
+            <span class="fw-semibold">@docTitle</span>
+            <span class="num">@docRef</span>
+        </div>
+        <div class="d-flex justify-content-between text-slate num">
+            <span>@L["Doc.Date"]</span>
+            <span>@Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</span>
+        </div>
+        <div class="text-slate">
+            @L.T("Client :", "Customer:") @(string.IsNullOrWhiteSpace(Model.CustomerName) ? L["Doc.WalkInCustomer"] : Model.CustomerName)
+        </div>
+        @if (isFormalized && !string.IsNullOrWhiteSpace(Model.CustomerTaxId))
+        {
+            <div class="text-slate num">@(Model.StoreTaxIdLabelSnapshot ?? "NIF") : @Model.CustomerTaxId</div>
+        }
+        <hr />
+        @foreach (var item in Model.Items)
+        {
+            <div class="d-flex justify-content-between num mb-1">
+                <span>@item.ProductName x@item.Quantity</span>
+                <span>@Fmt(item.EffectiveLineNet)</span>
+            </div>
+        }
+        <hr />
+        @if (isVat)
+        {
+            <div class="d-flex justify-content-between text-slate num">
+                <span>@L["Doc.SubtotalExclTax"]</span>
+                <span>@Fmt(Model.EffectiveSubtotalNet)</span>
+            </div>
+            <div class="d-flex justify-content-between text-slate num mb-1">
+                <span>@L["Doc.VatAmount"]</span>
+                <span>@Fmt(Model.TaxAmount)</span>
+            </div>
+        }
+        <div class="d-flex justify-content-between fw-bold num" style="font-size:0.88rem;">
+            <span>@(isVat ? L["Doc.TotalInclTax"] : L["Doc.NetTotal"])</span>
+            <span>@Fmt(Model.FinalPrice)</span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(secEquivalent))
+        {
+            <div class="d-flex justify-content-between text-slate num mt-1" style="font-size:0.72rem;">
+                <span>@L["Doc.SecondaryEquivalent"] (@Model.SecondaryCurrencyCode)</span>
+                <span>@secEquivalent</span>
+            </div>
+        }
+        @if (isFormalized && !isVat)
+        {
+            <div class="text-center text-slate fst-italic mt-2" style="font-size:0.7rem;">
+                @L["Doc.VatNotApplicable"]
+            </div>
+        }
+        <hr />
+        <div class="text-center text-slate" style="font-size:0.72rem;">
+            @(string.IsNullOrWhiteSpace(settings?.FooterMessage) ? L.T("Merci de votre confiance.", "Thank you for your business.") : settings!.FooterMessage)
+        </div>
+    </div>
+}
+else
+{
+    <!-- Format A4 -->
+    <div class="panel-card p-4 p-lg-5 mx-auto preview-doc" style="max-width: 780px;">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 pb-3 mb-4" style="border-bottom: 1.5px solid var(--accent);">
+            <div>
+                <h2 class="h4 fw-bold mb-1">@(string.IsNullOrWhiteSpace(settings?.StoreName) ? "AdGestionHub" : settings!.StoreName)</h2>
                 @if (!string.IsNullOrWhiteSpace(settings?.Address))
                 {
-                    <p class="text-muted mb-0">@settings.Address</p>
+                    <div class="text-slate small">@settings.Address</div>
                 }
                 @if (!string.IsNullOrWhiteSpace(settings?.Phone))
                 {
-                    <p class="text-muted mb-0"><i class="fas fa-phone me-1"></i> @settings.Phone</p>
+                    <div class="text-slate small num">@settings.Phone</div>
                 }
                 @if (!string.IsNullOrWhiteSpace(settings?.ContactEmail))
                 {
-                    <p class="text-muted mb-0"><i class="fas fa-envelope me-1"></i> @settings.ContactEmail</p>
+                    <div class="text-slate small">@settings.ContactEmail</div>
+                }
+                @if (isFormalized)
+                {
+                    <div class="small fw-medium num mt-2">
+                        @if (!string.IsNullOrWhiteSpace(Model.StoreLegalTaxIdSnapshot))
+                        {
+                            <div>@(Model.StoreTaxIdLabelSnapshot ?? "NIF") : @Model.StoreLegalTaxIdSnapshot</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.StoreRccmSnapshot))
+                        {
+                            <div class="text-slate">@(Model.StoreRccmLabelSnapshot ?? "RCCM") : @Model.StoreRccmSnapshot</div>
+                        }
+                    </div>
                 }
             </div>
 
-            <!-- Infos vente -->
-            <div class="row mb-4">
-                <div class="col-6">
-                    <strong>N° reçu :</strong> #@invoiceNumber.ToString("D5")<br />
-                    <strong>Date :</strong> @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")<br />
-                    <strong>Paiement :</strong> @(Model.PaymentMethod ?? "Cash")
-                </div>
-                <div class="col-6 text-end">
-                    <strong>Client :</strong><br />
-                    @(string.IsNullOrWhiteSpace(Model.CustomerName) ? "Client au comptoir" : Model.CustomerName)
-                </div>
-            </div>
-
-            <!-- Tableau des articles -->
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle">
-                    <thead class="bg-light">
-                        <tr>
-                            <th>Désignation</th>
-                            <th class="text-center">Qté</th>
-                            <th class="text-end">Prix unit.</th>
-                            <th class="text-end">Sous-total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Model.Items != null && Model.Items.Any())
-                        {
-                            foreach (var item in Model.Items)
-                            {
-                                <tr>
-                                    <td>@item.ProductName</td>
-                                    <td class="text-center">@item.Quantity</td>
-                                    <td class="text-end">@item.UnitPrice.ToString("N2") $</td>
-                                    <td class="text-end fw-semibold">@((item.Quantity * item.UnitPrice).ToString("N2")) $</td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr><td colspan="4" class="text-center text-muted">Aucun article</td></tr>
-                        }
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <th colspan="3" class="text-end fs-5">TOTAL PAYÉ :</th>
-                            <th class="text-end fs-5 text-success">@Model.FinalPrice.ToString("N2") $</th>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-
-            <!-- Pied de page -->
-            <div class="text-center text-muted small border-top pt-3 mt-4">
-                <p class="mb-1">
-                    @(string.IsNullOrWhiteSpace(settings?.FooterMessage) ? "Merci de votre achat et à très bientôt !" : settings!.FooterMessage)
-                </p>
-                <p class="mb-0">© @DateTime.Now.Year AdGestionHub — Document officiel</p>
-            </div>
-
-            <!-- Boutons -->
-            <div class="text-center mt-4 no-print d-flex justify-content-center gap-2">
-                <button type="button" onclick="window.print()" class="btn btn-primary-gradient px-4">
-                    <i class="fas fa-print me-2"></i> Imprimer
-                </button>
-                <a asp-action="DownloadReceipt" asp-route-id="@Model.Id" class="btn btn-outline-dark rounded-pill px-4">
-                    <i class="fas fa-file-pdf me-2"></i> Télécharger PDF
-                </a>
-                <a asp-action="Index" class="btn btn-soft">Retour</a>
+            <div class="text-end">
+                <div class="h5 fw-bold mb-1">@docTitle</div>
+                <div class="fw-semibold num">@docRef</div>
+                <div class="text-slate small num">@L["Doc.Date"] : @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</div>
+                <div class="text-slate small">@L["Doc.PaymentMethod"] : @(Model.PaymentMethod ?? "Cash")</div>
+                @if (Model.IsCancelled)
+                {
+                    <div class="mt-2"><span class="status-pill danger">@L["Doc.Cancelled"]</span></div>
+                }
             </div>
         </div>
+
+        <div class="p-3 rounded border mb-4" style="background: var(--bg-canvas);">
+            <div class="text-slate small">@L.T("Client", "Customer")</div>
+            <div class="fw-semibold">@(string.IsNullOrWhiteSpace(Model.CustomerName) ? L["Doc.WalkInCustomer"] : Model.CustomerName)</div>
+            @if (isFormalized && !string.IsNullOrWhiteSpace(Model.CustomerTaxId))
+            {
+                <div class="text-slate small num">@(Model.StoreTaxIdLabelSnapshot ?? "NIF") : @Model.CustomerTaxId</div>
+            }
+        </div>
+
+        <div class="table-responsive mb-4">
+            <table class="table table-ledger">
+                <thead>
+                    <tr>
+                        <th>@L["Doc.Description"]</th>
+                        <th class="text-center">@L["Doc.Qty"]</th>
+                        <th class="text-end">@(isVat ? L.T("P.U. HT", "Unit Excl.") : L["Doc.UnitPrice"])</th>
+                        @if (isVat)
+                        {
+                            <th class="text-end">TVA</th>
+                        }
+                        <th class="text-end">@(isVat ? L.T("Montant HT", "Line Excl.") : L.T("Montant", "Amount"))</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td>@item.ProductName</td>
+                            <td class="text-center num">@item.Quantity</td>
+                            <td class="text-end num">@Fmt(item.UnitPrice)</td>
+                            @if (isVat)
+                            {
+                                <td class="text-end num text-slate">@item.VatRate.ToString("0.##")%</td>
+                            }
+                            <td class="text-end num fw-semibold">@Fmt(item.EffectiveLineNet)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-end">
+            <div class="p-3 rounded border num" style="min-width: 260px; background: var(--bg-canvas);">
+                @if (isVat)
+                {
+                    <div class="d-flex justify-content-between text-slate small mb-1">
+                        <span>@L["Doc.SubtotalExclTax"]</span>
+                        <span>@Fmt(Model.EffectiveSubtotalNet)</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-slate small pb-2 mb-2 border-bottom">
+                        <span>@L["Doc.VatAmount"]</span>
+                        <span>@Fmt(Model.TaxAmount)</span>
+                    </div>
+                }
+                <div class="d-flex justify-content-between fw-bold fs-6">
+                    <span>@(isVat ? L["Doc.TotalInclTax"] : L["Doc.NetTotal"])</span>
+                    <span>@Fmt(Model.FinalPrice)</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(secEquivalent))
+                {
+                    <div class="d-flex justify-content-between text-slate small mt-2 pt-2 border-top">
+                        <span>@L["Doc.SecondaryEquivalent"] (@Model.SecondaryCurrencyCode)</span>
+                        <span>@secEquivalent</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (isFormalized && !isVat)
+        {
+            <div class="text-end text-slate small fst-italic mt-3">
+                @L["Doc.VatNotApplicable"]
+            </div>
+        }
+
+        <div class="text-center text-slate small border-top pt-3 mt-4">
+            @(string.IsNullOrWhiteSpace(settings?.FooterMessage) ? L.T("Merci de votre confiance.", "Thank you for your business.") : settings!.FooterMessage)
+        </div>
     </div>
-</div>
+}

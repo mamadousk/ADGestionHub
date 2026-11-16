@@ -1,0 +1,104 @@
+@model IEnumerable<AdGestionHub.Models.Client>
+@{
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = L["Nav.Clients"];
+    var isAdmin = User.IsInRole("Admin");
+    var list = Model?.ToList() ?? new List<AdGestionHub.Models.Client>();
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h4 mb-1">@L["Nav.Clients"]</h1>
+        <p class="text-slate small mb-0 num">@list.Count @L.T("fiche(s) client", "customer record(s)")</p>
+    </div>
+    <a asp-action="Create" class="btn btn-accent">
+        @LucideIcons.Svg("plus", 16, "me-1")
+        <span>@L.T("Nouveau client", "New customer")</span>
+    </a>
+</div>
+
+<div class="panel-card p-3 mb-3">
+    <form method="get" asp-action="Index" class="row g-2">
+        <div class="col-md-9">
+            <input type="text" name="search" value="@ViewBag.CurrentSearch" class="form-control" placeholder="@L.T("Rechercher par nom, téléphone ou identifiant fiscal...", "Search by name, phone, or tax ID...")" />
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-secondary-outline w-100">@L["Action.Search"]</button>
+            <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Reset"]</a>
+        </div>
+    </form>
+</div>
+
+<div class="panel-card overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-ledger">
+            <thead>
+                <tr>
+                    <th>@L.T("Nom / Raison sociale", "Name / Company")</th>
+                    <th>@L.T("Type", "Type")</th>
+                    <th>@L.T("Téléphone", "Phone")</th>
+                    <th>Email</th>
+                    @if (ctx.IsFormalized)
+                    {
+                        <th>@ctx.TaxIdLabel</th>
+                    }
+                    <th class="text-end">@L.T("Actions", "Actions")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!list.Any())
+                {
+                    <tr>
+                        <td colspan="@(ctx.IsFormalized ? 6 : 5)" class="text-center text-slate py-5">
+                            @L.T("Aucun client enregistré dans le répertoire.", "No customers in directory.")
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var c in list)
+                    {
+                        <tr>
+                            <td class="fw-medium">
+                                @c.Name
+                                @if (!string.IsNullOrWhiteSpace(c.Address))
+                                {
+                                    <div class="text-slate" style="font-size:0.76rem;">@c.Address</div>
+                                }
+                            </td>
+                            <td>
+                                @if (c.IsBusinessClient)
+                                {
+                                    <span class="status-pill info">B2B</span>
+                                }
+                                else
+                                {
+                                    <span class="status-pill">@L.T("Particulier", "Individual")</span>
+                                }
+                            </td>
+                            <td class="num text-slate">@(string.IsNullOrWhiteSpace(c.Phone) ? "—" : c.Phone)</td>
+                            <td class="text-slate">@(string.IsNullOrWhiteSpace(c.Email) ? "—" : c.Email)</td>
+                            @if (ctx.IsFormalized)
+                            {
+                                <td class="num text-slate">@(string.IsNullOrWhiteSpace(c.TaxIdentificationNumber) ? "—" : c.TaxIdentificationNumber)</td>
+                            }
+                            <td class="text-end text-nowrap">
+                                <a asp-action="Edit" asp-route-id="@c.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
+                                    @LucideIcons.Svg("edit-3", 15)
+                                </a>
+                                @if (isAdmin)
+                                {
+                                    <form asp-action="Delete" asp-route-id="@c.Id" method="post" class="d-inline" onsubmit="return confirm('@L.T("Supprimer cette fiche client ?", "Delete this customer?")');">
+                                        <button type="submit" class="btn btn-danger-outline btn-sm py-1 px-2">
+                                            @LucideIcons.Svg("trash-2", 15)
+                                        </button>
+                                    </form>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

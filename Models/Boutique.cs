@@ -40,7 +40,9 @@ namespace AdGestionHub.Models
         // --- RELATIONS ---
         public ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();
         public ICollection<Product> Products { get; set; } = new List<Product>();
+        public ICollection<Client> Clients { get; set; } = new List<Client>();
         public ICollection<Sale> Sales { get; set; } = new List<Sale>();
+        public ICollection<Quote> Quotes { get; set; } = new List<Quote>();
         public ICollection<StoreSettings> StoreSettings { get; set; } = new List<StoreSettings>();
         public ICollection<Expense> Expenses { get; set; } = new List<Expense>();
         public ICollection<Debt> Debts { get; set; } = new List<Debt>();

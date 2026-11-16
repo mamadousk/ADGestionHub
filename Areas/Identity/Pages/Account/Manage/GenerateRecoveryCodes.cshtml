@@ -1,29 +1,21 @@
-﻿@page
+@page
 @model GenerateRecoveryCodesModel
 @{
-    ViewData["Title"] = "Générer des codes de récupération (2FA)";
+    ViewData["Title"] = L.T("Codes de récupération (2FA)", "2FA Recovery Codes");
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
 }
 
-<h3 class="fw-bold">@ViewData["Title"]</h3>
-<p class="text-muted">Générez de nouveaux codes de récupération pour sécuriser votre compte.</p>
-
+<h2 class="h5 fw-semibold mb-1">@ViewData["Title"]</h2>
 <partial name="_StatusMessage" for="StatusMessage" />
 
-<div class="alert alert-warning border-0 shadow-sm rounded-4">
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    <strong>Conservez ces codes dans un endroit sûr.</strong>
-    <p class="mb-0">Si vous perdez votre appareil et que vous n'avez pas ces codes, vous perdrez l'accès à votre compte.</p>
-    <p class="mb-0">La génération de nouveaux codes ne modifie pas les clés de l'application d'authentification. Pour changer la clé, <a asp-page="./ResetAuthenticator" class="fw-bold text-decoration-none">réinitialisez vos clés d'authentification</a>.</p>
+<div class="alert alert-warning mb-3">
+    <strong>@L.T("Conservez ces codes en lieu sûr.", "Store recovery codes securely.")</strong>
+    <div class="small mt-1">@L.T("Sans vos codes de secours ni votre appareil, l'accès au compte sera bloqué.", "Without recovery codes or your device, account access cannot be recovered.")</div>
 </div>
 
-<div>
-    <form method="post">
-        <button class="btn btn-danger" type="submit">
-            <i class="fas fa-sync me-2"></i> Générer des codes de récupération
-        </button>
-    </form>
-</div>
+<form method="post">
+    <button class="btn btn-accent" type="submit">@L.T("Générer de nouveaux codes", "Generate recovery codes")</button>
+</form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

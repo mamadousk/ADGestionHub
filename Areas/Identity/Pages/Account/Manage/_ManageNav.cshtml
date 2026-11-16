@@ -8,46 +8,48 @@
     var isSuperAdmin = User.IsInRole("SuperAdmin");
 }
 
-<ul class="nav nav-pills flex-column">
+<ul class="nav flex-column gap-1">
     <li class="nav-item">
-        <a class="nav-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">
-            <i class="fas fa-user me-2"></i> Profil
+        <a class="sidebar-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">
+            @L.T("Informations du profil", "Profile details")
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">
-            <i class="fas fa-envelope me-2"></i> Email
+        <a class="sidebar-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">
+            Email
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">
-            <i class="fas fa-key me-2"></i> Mot de passe
+        <a class="sidebar-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">
+            @L.T("Mot de passe", "Password")
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">
-            <i class="fas fa-shield-alt me-2"></i> Authentification à deux facteurs
+        <a class="sidebar-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">
+            @L.T("Double authentification (2FA)", "Two-factor authentication")
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">
-            <i class="fas fa-database me-2"></i> Données personnelles
+        <a class="sidebar-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">
+            @L.T("Données personnelles", "Personal data")
         </a>
     </li>
 
     @if (isAdmin)
     {
-        <li class="nav-item mt-3">
-            <a class="nav-link text-primary fw-bold" asp-area="" asp-controller="Settings" asp-action="Index">
-                <i class="fas fa-store me-2"></i> Gérer ma boutique
+        <li class="nav-item pt-2 mt-2 border-top">
+            <a class="sidebar-link" asp-area="" asp-controller="Settings" asp-action="Index">
+                @LucideIcons.Svg("settings", 16)
+                <span>@L["Nav.MyStore"]</span>
             </a>
         </li>
     }
     @if (isSuperAdmin)
     {
-        <li class="nav-item mt-3">
-            <a class="nav-link text-danger fw-bold" asp-area="" asp-controller="SuperAdmin" asp-action="Index">
-                <i class="fas fa-user-shield me-2"></i> Console SuperAdmin
+        <li class="nav-item pt-2 mt-2 border-top">
+            <a class="sidebar-link" asp-area="" asp-controller="SuperAdmin" asp-action="Index">
+                @LucideIcons.Svg("shield", 16)
+                <span>@L["Nav.SystemConsole"]</span>
             </a>
         </li>
     }

@@ -1,16 +1,23 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace AdGestionHub.Models
 {
-    // Ce que le navigateur a le droit d'envoyer pour créer une vente.
-    // Tout le reste (boutique, date, total, nom du produit) est décidé par le serveur.
     public class SaleCreateViewModel
     {
-        [StringLength(100)]
+        public int? ClientId { get; set; }
+
+        [StringLength(150)]
         public string? CustomerName { get; set; }
 
-        [StringLength(30)]
+        [StringLength(100)]
+        public string? CustomerTaxId { get; set; }
+
+        [StringLength(50)]
         public string? PaymentMethod { get; set; }
+
+        [StringLength(10)]
+        public string? PaidInCurrencyCode { get; set; }
 
         public List<SaleCreateItemViewModel> Items { get; set; } = new();
     }
@@ -20,10 +27,9 @@ namespace AdGestionHub.Models
         [Range(1, int.MaxValue, ErrorMessage = "Produit invalide.")]
         public int ProductId { get; set; }
 
-        [Range(1, 10000, ErrorMessage = "La quantité doit être comprise entre 1 et 10 000.")]
+        [Range(1, 100000, ErrorMessage = "La quantité doit être comprise entre 1 et 100 000.")]
         public int Quantity { get; set; }
 
-        // Utilisé uniquement si l'utilisateur est Admin (remise ou prix négocié). Ignoré pour les employés.
         public decimal? UnitPrice { get; set; }
     }
 }

@@ -1,63 +1,55 @@
-﻿@using System.Text.Encodings.Web
+@using System.Text.Encodings.Web
 @model IEnumerable<AdGestionHub.Models.ErrorLog>
-
 @{
-    ViewData["Title"] = "Journal des Erreurs";
+    ViewData["Title"] = L["Nav.ErrorLogs"];
+    var list = Model?.ToList() ?? new List<AdGestionHub.Models.ErrorLog>();
 }
 
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="display-5 fw-bold mb-0"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Journal des Erreurs</h1>
-            <p class="text-muted">Suivi des exceptions et incidents système</p>
-        </div>
-        <span class="badge bg-dark rounded-pill px-3 py-2 fs-6">Total : @Model.Count()</span>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h4 mb-1">@ViewData["Title"]</h1>
+        <p class="text-slate small mb-0 num">@list.Count @L.T("entrée(s)", "entry(ies)")</p>
     </div>
-
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-modern mb-0">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Utilisateur</th>
-                            <th>Emplacement</th>
-                            <th>Message</th>
-                            <th class="text-end">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var log in Model)
-                        {
-                            var severity = log.Message?.Contains("Exception", StringComparison.OrdinalIgnoreCase) == true ? "danger" : "warning";
-                            <tr>
-                                <td><span class="badge bg-light text-dark">@log.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span></td>
-                                <td><span class="badge-status info">@(log.UserEmail ?? "Anonyme")</span></td>
-                                <td><small class="text-muted">@log.ControllerName / @log.ActionName</small></td>
-                                <td>
-                                    <span class="badge-status @(severity == "danger" ? "danger" : "warning")">
-                                        @log.Message
-                                    </span>
-                                </td>
-                                <td class="text-end">
-                                    <button class="btn btn-sm btn-soft" onclick="showDetails('@Html.Raw(JavaScriptEncoder.Default.Encode(log.StackTrace ?? "Aucune trace"))')">
-                                        <i class="fas fa-eye"></i> Détails
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
 </div>
 
-@section Scripts {
-    <script>
-        function showDetails(stackTrace) {
-            alert("Détails de l'erreur :\n\n" + stackTrace);
-        }
-    </script>
-}
+<div class="panel-card overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-ledger">
+            <thead>
+                <tr>
+                    <th>@L["Doc.Date"]</th>
+                    <th>@L.T("Utilisateur", "User")</th>
+                    <th>@L.T("Contrôleur", "Controller")</th>
+                    <th>Message</th>
+                    <th class="text-end">@L.T("Trace", "Trace")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!list.Any())
+                {
+                    <tr>
+                        <td colspan="5" class="text-center text-slate py-5">@L.T("Aucune exception enregistrée.", "No exceptions logged.")</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var log in list)
+                    {
+                        <tr>
+                            <td class="num text-slate text-nowrap">@log.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(log.UserEmail ?? "—")</td>
+                            <td class="text-slate small">@log.ControllerName / @log.ActionName</td>
+                            <td class="small">@log.Message</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-secondary-outline btn-sm py-1 px-2" onclick="alert('@Html.Raw(JavaScriptEncoder.Default.Encode(log.StackTrace ?? "—"))')">
+                                    @LucideIcons.Svg("eye", 14)
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

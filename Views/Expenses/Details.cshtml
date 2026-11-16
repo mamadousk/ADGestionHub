@@ -1,39 +1,37 @@
 @model AdGestionHub.Models.Expense
-
 @{
-    ViewData["Title"] = "Détails de la Dépense";
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = L.T("Détails de la dépense", "Expense Details");
     var isAdmin = User.IsInRole("Admin");
 }
 
-<div class="row justify-content-center mt-4">
+<div class="row justify-content-center">
     <div class="col-lg-6">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-white border-0 py-4 px-4">
-                <h3 class="fw-bold mb-0"><i class="fas fa-wallet text-primary me-2"></i>Détails de la dépense #@Model.Id</h3>
-            </div>
-            <div class="card-body p-4">
-                <dl class="row mb-0">
-                    <dt class="col-sm-4 fw-bold">Description :</dt>
-                    <dd class="col-sm-8">@Model.Description</dd>
+        <div class="panel-card p-4">
+            <h1 class="h5 mb-3 pb-3 border-bottom">@ViewData["Title"] #@Model.Id</h1>
 
-                    <dt class="col-sm-4 fw-bold">Catégorie :</dt>
-                    <dd class="col-sm-8"><span class="badge-status info">@Model.Category</span></dd>
+            <dl class="row mb-0">
+                <dt class="col-sm-4 text-slate small">@L["Doc.Description"]</dt>
+                <dd class="col-sm-8 fw-medium">@Model.Description</dd>
 
-                    <dt class="col-sm-4 fw-bold">Montant :</dt>
-                    <dd class="col-sm-8 fw-bold text-danger">@Model.Amount.ToString("N2") $</dd>
+                <dt class="col-sm-4 text-slate small">@L.T("Catégorie", "Category")</dt>
+                <dd class="col-sm-8"><span class="status-pill">@Model.Category</span></dd>
 
-                    <dt class="col-sm-4 fw-bold">Date :</dt>
-                    <dd class="col-sm-8">@Model.Date.ToString("dd/MM/yyyy HH:mm")</dd>
-                </dl>
+                <dt class="col-sm-4 text-slate small">@L.T("Montant", "Amount")</dt>
+                <dd class="col-sm-8 num fw-semibold text-sober-red">
+                    @ctx.FormatHistorical(Model.Amount, Model.CurrencyCode, Model.CurrencyDecimals, Model.CurrencySymbol)
+                </dd>
 
-                <hr class="my-4" />
-                <div class="d-flex justify-content-between">
-                    <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
-                    @if (isAdmin)
-                    {
-                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary-gradient"><i class="fas fa-edit me-2"></i>Modifier</a>
-                    }
-                </div>
+                <dt class="col-sm-4 text-slate small">@L["Doc.Date"]</dt>
+                <dd class="col-sm-8 num">@ctx.FormatDateTime(Model.Date)</dd>
+            </dl>
+
+            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+                @if (isAdmin)
+                {
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-accent">@L["Action.Edit"]</a>
+                }
             </div>
         </div>
     </div>

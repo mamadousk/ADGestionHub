@@ -10,259 +10,350 @@
             .OrderByDescending(n => n.CreatedAt)
             .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
     }
-    catch { /* Ignorer si la base est en cours d'initialisation */ }
+    catch { }
 
-    var isIdentityPage = ViewContext.RouteData.Values["area"]?.ToString() == "Identity";
-    var currentPage = ViewContext.RouteData.Values["page"]?.ToString()?.ToLowerInvariant();
-    var isAuthPage = isIdentityPage && (currentPage?.Contains("login") == true || currentPage?.Contains("register") == true || currentPage?.Contains("logout") == true);
     var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var isSuperAdmin = User.IsInRole("SuperAdmin");
+    var isAdmin = User.IsInRole("Admin");
+
+    TenantFiscalContext? fiscalCtx = null;
+    if (isAuthenticated && !isSuperAdmin)
+    {
+        try { fiscalCtx = await TenantCtx.GetContextAsync(); } catch { }
+    }
+
+    var lang = L.CurrentLanguage;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var ctrl = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var act = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
 }
 
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="@lang">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - AdGestionHub</title>
+    <title>@ViewData["Title"] — AdGestionHub</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/AdGestionHub.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        @if (activeNotification != null)
-        {
-            <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") text-center mb-0 py-2" style="border-radius:0; position: fixed; top: 0; width: 100%; z-index: 1060; font-weight: 500;">
-                <i class="fas fa-bullhorn me-2"></i> @activeNotification.Message
-            </div>
-            <style>
-                body { padding-top: 114px; }
-                .navbar-main.fixed-top { top: 40px; }
-            </style>
-        }
+    @if (activeNotification != null)
+    {
+        <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") mb-0 rounded-0 border-0 border-bottom text-center py-2 px-3">
+            @LucideIcons.Svg("bell", 16, "me-2")
+            <span>@activeNotification.Message</span>
+        </div>
+    }
 
-        <nav class="navbar navbar-expand-lg navbar-main fixed-top">
-            <div class="container">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="@(isAuthenticated ? "Index" : "Welcome")">
-                    Ad<span>GestionHub</span>
+    @if (isAuthenticated)
+    {
+        <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+
+        <div class="app-shell">
+            <!-- Navigation latérale sobre -->
+            <aside class="app-sidebar">
+                <a class="sidebar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                    <span><span class="brand-dot"></span>AdGestionHub</span>
                 </a>
 
-                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-label="Menu">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
+                @if (fiscalCtx != null)
+                {
+                    <div class="sidebar-store-meta">
+                        <div class="sidebar-store-name">@fiscalCtx.Settings.StoreName</div>
+                        <div class="sidebar-store-sub num">
+                            @fiscalCtx.Country.Code · @fiscalCtx.PrimaryCurrency.Code (@fiscalCtx.PrimaryCurrency.Symbol)
+                            · @(fiscalCtx.IsFormalized ? L["Status.Formalized"] : L["Status.Informal"])
+                        </div>
+                    </div>
+                }
 
-                <div class="collapse navbar-collapse" id="mainNavbar">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        @if (isAuthenticated)
+                <nav class="sidebar-nav">
+                    @if (isSuperAdmin)
+                    {
+                        <div class="sidebar-section-label">@L["Nav.SystemConsole"]</div>
+                        <a class="sidebar-link @(ctrl == "SuperAdmin" && act == "Index" ? "active" : "")" asp-area="" asp-controller="SuperAdmin" asp-action="Index">
+                            @LucideIcons.Svg("layout-dashboard", 17)
+                            <span>@L.T("Vue d'ensemble", "Overview")</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "Marketing" ? "active" : "")" asp-area="" asp-controller="Marketing" asp-action="AdminDashboard">
+                            @LucideIcons.Svg("bar-chart-3", 17)
+                            <span>@L.T("Leads & Feedback", "Leads & Feedback")</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "SuperAdmin" && act == "ManageNotifications" ? "active" : "")" asp-area="" asp-controller="SuperAdmin" asp-action="ManageNotifications">
+                            @LucideIcons.Svg("bell", 17)
+                            <span>@L.T("Annonces globales", "Global Notices")</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "SuperAdmin" && act == "Logs" ? "active" : "")" asp-area="" asp-controller="SuperAdmin" asp-action="Logs">
+                            @LucideIcons.Svg("alert-circle", 17)
+                            <span>@L.T("Journal d'erreurs", "Error Logs")</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <div class="sidebar-section-label">@L.T("Opérations", "Operations")</div>
+                        <a class="sidebar-link @(ctrl == "Home" ? "active" : "")" asp-area="" asp-controller="Home" asp-action="Index">
+                            @LucideIcons.Svg("layout-dashboard", 17)
+                            <span>@L["Nav.Dashboard"]</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "Sales" && act == "Create" ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Create">
+                            @LucideIcons.Svg("shopping-bag", 17)
+                            <span>@L["Nav.NewSale"]</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "Sales" && act != "Create" ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Index">
+                            @LucideIcons.Svg("receipt", 17)
+                            <span>@(fiscalCtx?.IsFormalized == true ? L.T("Factures & Ventes", "Invoices & Sales") : L["Nav.Sales"])</span>
+                        </a>
+                        @if (fiscalCtx?.IsFormalized == true)
                         {
-                            if (User.IsInRole("SuperAdmin"))
-                            {
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle fw-semibold" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                                        <i class="fas fa-user-shield text-danger me-1"></i> Console Système
-                                    </a>
-                                    <ul class="dropdown-menu border-0 shadow-lg rounded-3 mt-2">
-                                        <li><a class="dropdown-item" asp-area="" asp-controller="SuperAdmin" asp-action="Index"><i class="fas fa-home me-2"></i>Vue d'ensemble</a></li>
-                                        <li><a class="dropdown-item" asp-area="" asp-controller="Marketing" asp-action="AdminDashboard"><i class="fas fa-bullhorn me-2 text-primary"></i>Marketing & Leads Pro</a></li>
-                                        <li><a class="dropdown-item" asp-area="" asp-controller="SuperAdmin" asp-action="ManageNotifications"><i class="fas fa-bell me-2"></i>Notifications Globales</a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item text-danger" asp-area="" asp-controller="SuperAdmin" asp-action="Logs"><i class="fas fa-exclamation-circle me-2"></i>Journal des Erreurs</a></li>
-                                    </ul>
-                                </li>
-                            }
-                            else
-                            {
-                                var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
-                                <li class="nav-item"><a class="nav-link @(ctrl == "Home" ? "active" : "")" asp-area="" asp-controller="Home" asp-action="Index"><i class="fas fa-chart-pie me-1"></i> Dashboard</a></li>
-                                <li class="nav-item"><a class="nav-link @(ctrl == "Products" ? "active" : "")" asp-area="" asp-controller="Products" asp-action="Index"><i class="fas fa-box me-1"></i> Produits</a></li>
-                                <li class="nav-item"><a class="nav-link @(ctrl == "Sales" ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Index"><i class="fas fa-coins me-1"></i> Ventes</a></li>
-                                <li class="nav-item"><a class="nav-link @(ctrl == "Expenses" ? "active" : "")" asp-area="" asp-controller="Expenses" asp-action="Index"><i class="fas fa-wallet me-1"></i> Dépenses</a></li>
-                                @if (User.IsInRole("Admin"))
-                                {
-                                    <li class="nav-item"><a class="nav-link @(ctrl == "Debts" ? "active" : "")" asp-area="" asp-controller="Debts" asp-action="Index"><i class="fas fa-hand-holding-usd me-1"></i> Dettes</a></li>
-                                    <li class="nav-item"><a class="nav-link @(ctrl == "Reports" ? "active" : "")" asp-area="" asp-controller="Reports" asp-action="Index"><i class="fas fa-file-chart-line fas fa-chart-bar me-1"></i> Rapports</a></li>
-                                    <li class="nav-item"><a class="nav-link @(ctrl == "Users" ? "active" : "")" asp-area="" asp-controller="Users" asp-action="Index"><i class="fas fa-users me-1"></i> Employés</a></li>
-                                    <li class="nav-item"><a class="nav-link @(ctrl == "Settings" ? "active" : "")" asp-area="" asp-controller="Settings" asp-action="Index"><i class="fas fa-sliders-h me-1"></i> Paramètres</a></li>
-                                }
-                            }
+                            <a class="sidebar-link @(ctrl == "Quotes" ? "active" : "")" asp-area="" asp-controller="Quotes" asp-action="Index">
+                                @LucideIcons.Svg("file-text", 17)
+                                <span>@L["Nav.Quotes"]</span>
+                            </a>
                         }
-                    </ul>
+                        <a class="sidebar-link @(ctrl == "Products" ? "active" : "")" asp-area="" asp-controller="Products" asp-action="Index">
+                            @LucideIcons.Svg("package", 17)
+                            <span>@L["Nav.Products"]</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "Clients" ? "active" : "")" asp-area="" asp-controller="Clients" asp-action="Index">
+                            @LucideIcons.Svg("users", 17)
+                            <span>@L["Nav.Clients"]</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "Expenses" ? "active" : "")" asp-area="" asp-controller="Expenses" asp-action="Index">
+                            @LucideIcons.Svg("wallet", 17)
+                            <span>@L["Nav.Expenses"]</span>
+                        </a>
 
-                    <ul class="navbar-nav ms-auto align-items-center gap-2">
-                        @if (isAuthenticated)
+                        @if (isAdmin)
                         {
-                            var userName = User.Identity?.Name ?? "Utilisateur";
-                            var avatarChar = userName.Length > 0 ? userName.Substring(0, 1).ToUpperInvariant() : "U";
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                                    <span class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 0.8rem; font-weight: 600;">
-                                        @avatarChar
-                                    </span>
-                                    <span class="d-none d-lg-inline">@(userName.Split('@')[0])</span>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-3 mt-2">
-                                    <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index"><i class="fas fa-user-cog me-2"></i> Mon Profil</a></li>
-                                    @if (User.IsInRole("Admin"))
+                            <div class="sidebar-section-label mt-2">@L.T("Pilotage & Conformité", "Finance & Settings")</div>
+                            <a class="sidebar-link @(ctrl == "Debts" ? "active" : "")" asp-area="" asp-controller="Debts" asp-action="Index">
+                                @LucideIcons.Svg("clock", 17)
+                                <span>@L["Nav.Debts"]</span>
+                            </a>
+                            <a class="sidebar-link @(ctrl == "Reports" ? "active" : "")" asp-area="" asp-controller="Reports" asp-action="Index">
+                                @LucideIcons.Svg("bar-chart-3", 17)
+                                <span>@L["Nav.Reports"]</span>
+                            </a>
+                            <a class="sidebar-link @(ctrl == "Users" ? "active" : "")" asp-area="" asp-controller="Users" asp-action="Index">
+                                @LucideIcons.Svg("user-check", 17)
+                                <span>@L["Nav.Staff"]</span>
+                            </a>
+                            <a class="sidebar-link @(ctrl == "Settings" ? "active" : "")" asp-area="" asp-controller="Settings" asp-action="Index">
+                                @LucideIcons.Svg("settings", 17)
+                                <span>@L["Nav.Settings"]</span>
+                            </a>
+                        }
+                    }
+                </nav>
+
+                <div class="sidebar-footer d-flex justify-content-between align-items-center">
+                    <span>AdGestionHub v2.0</span>
+                    <button type="button" class="btn btn-link p-0 text-decoration-none text-slate" style="font-size:0.75rem;" data-bs-toggle="modal" data-bs-target="#feedbackModal">
+                        @L["Nav.Feedback"]
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Zone principale -->
+            <div class="app-main-wrap">
+                <header class="app-topbar no-print">
+                    <div class="d-flex align-items-center gap-3">
+                        <button type="button" class="btn btn-secondary-outline d-lg-none py-1 px-2" onclick="document.body.classList.toggle('sidebar-open')" aria-label="Menu">
+                            @LucideIcons.Svg("menu", 18)
+                        </button>
+                        <span class="fw-semibold" style="font-size:0.95rem;">@ViewData["Title"]</span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-3">
+                        @if (fiscalCtx != null)
+                        {
+                            <div class="d-none d-md-flex align-items-center gap-2">
+                                <span class="status-pill info num">
+                                    @fiscalCtx.PrimaryCurrency.Code
+                                    @if (fiscalCtx.Settings.SecondaryCurrencyEnabled && fiscalCtx.SecondaryCurrency != null)
                                     {
-                                        <li><a class="dropdown-item" asp-area="" asp-controller="Settings" asp-action="Index"><i class="fas fa-store me-2"></i> Ma Boutique</a></li>
+                                        <span>/ @fiscalCtx.SecondaryCurrency.Code</span>
                                     }
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="d-inline">
-                                            <button type="submit" class="dropdown-item text-danger"><i class="fas fa-sign-out-alt me-2"></i> Déconnexion</button>
-                                        </form>
-                                    </li>
-                                </ul>
-                            </li>
+                                </span>
+                                @if (fiscalCtx.IsVatEnabled)
+                                {
+                                    <span class="status-pill success num">TVA @fiscalCtx.DefaultVatRate.ToString("0.##")%</span>
+                                }
+                            </div>
                         }
-                        else if (!isAuthPage)
-                        {
-                            <li class="nav-item">
-                                <a class="btn btn-outline-orange btn-sm px-4" asp-area="Identity" asp-page="/Account/Login">Connexion</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="btn btn-orange btn-sm px-4" asp-area="Identity" asp-page="/Account/Register">Essayer Gratuitement</a>
-                            </li>
+
+                        <!-- Sélecteur sobre FR / EN -->
+                        <div class="lang-switch" role="group" aria-label="Language">
+                            <a href="@Url.Action("Set", "Localization", new { lang = "fr", returnUrl })" class="@(lang == "fr" ? "active" : "")">FR</a>
+                            <a href="@Url.Action("Set", "Localization", new { lang = "en", returnUrl })" class="@(lang == "en" ? "active" : "")">EN</a>
+                        </div>
+
+                        @{
+                            var userName = User.Identity?.Name ?? "User";
+                            var shortUser = userName.Split('@')[0];
                         }
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                                <span class="fw-medium" style="font-size:0.82rem;">@shortUser</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end border shadow-sm mt-1" style="font-size:0.85rem;">
+                                <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">@L["Nav.Profile"]</a></li>
+                                @if (isAdmin)
+                                {
+                                    <li><a class="dropdown-item" asp-area="" asp-controller="Settings" asp-action="Index">@L["Nav.MyStore"]</a></li>
+                                }
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form asp-area="Identity" asp-page="/Account/Logout" method="post" class="m-0">
+                                        <button type="submit" class="dropdown-item text-sober-red">@L["Nav.Logout"]</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </header>
 
-    <main role="main" class="pb-5">
-        @if (TempData["SuccessMessage"] != null)
-        {
-            <div class="container mt-3">
-                <div class="alert alert-success border-0 shadow-sm rounded-4 d-flex align-items-center" role="alert">
-                    <i class="fas fa-check-circle me-3 fa-lg"></i>
-                    <div>@TempData["SuccessMessage"]</div>
-                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-                </div>
-            </div>
-        }
+                <main class="app-content">
+                    @if (TempData["SuccessMessage"] != null)
+                    {
+                        <div class="alert alert-success d-flex align-items-center justify-content-between mb-3 py-2 px-3" role="alert">
+                            <div class="d-flex align-items-center gap-2">
+                                @LucideIcons.Svg("check", 16)
+                                <span>@TempData["SuccessMessage"]</span>
+                            </div>
+                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
 
-        @if (TempData["ErrorMessage"] != null)
-        {
-            <div class="container mt-3">
-                <div class="alert alert-danger border-0 shadow-sm rounded-4 d-flex align-items-center" role="alert">
-                    <i class="fas fa-exclamation-circle me-3 fa-lg"></i>
-                    <div>@TempData["ErrorMessage"]</div>
-                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
-                </div>
-            </div>
-        }
+                    @if (TempData["ErrorMessage"] != null)
+                    {
+                        <div class="alert alert-danger d-flex align-items-center justify-content-between mb-3 py-2 px-3" role="alert">
+                            <div class="d-flex align-items-center gap-2">
+                                @LucideIcons.Svg("alert-circle", 16)
+                                <span>@TempData["ErrorMessage"]</span>
+                            </div>
+                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+                        </div>
+                    }
 
-        <div class="container py-3">
-            @RenderBody()
+                    @RenderBody()
+                </main>
+            </div>
         </div>
-    </main>
+    }
+    else
+    {
+        <!-- En-tête public sobre -->
+        <header class="public-topbar">
+            <div class="container d-flex justify-content-between align-items-center">
+                <a class="sidebar-brand border-0 px-0" asp-area="" asp-controller="Home" asp-action="Welcome">
+                    <span><span class="brand-dot"></span>AdGestionHub</span>
+                </a>
 
-    <footer class="footer-modern">
-        <div class="container">
-            <div class="row g-5">
-                <div class="col-lg-4">
-                    <h5 class="text-white fw-bold mb-3" style="font-size: 1.5rem;">
-                        Ad<span style="color: #FF8C00;">GestionHub</span>
-                    </h5>
-                    <p class="text-light" style="opacity: 0.9; line-height: 1.7;">
-                        La solution SaaS de gestion intelligente pour les commerçants en RDC.
-                        Simplifiez votre stock, suivez vos ventes et boostez votre boutique.
-                    </p>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                        <span class="badge bg-dark border border-secondary px-3 py-2" style="font-size: 0.8rem; letter-spacing: 0.5px;">
-                            🚀 Adhil Digital
-                        </span>
-                        <button type="button" class="btn btn-sm btn-outline-light rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#feedbackModal">
-                            <i class="fas fa-star text-warning me-1"></i> Donner mon avis
+                <div class="d-flex align-items-center gap-3">
+                    <div class="lang-switch" role="group" aria-label="Language">
+                        <a href="@Url.Action("Set", "Localization", new { lang = "fr", returnUrl })" class="@(lang == "fr" ? "active" : "")">FR</a>
+                        <a href="@Url.Action("Set", "Localization", new { lang = "en", returnUrl })" class="@(lang == "en" ? "active" : "")">EN</a>
+                    </div>
+                    <a class="btn btn-secondary-outline" asp-area="Identity" asp-page="/Account/Login">@L["Nav.Login"]</a>
+                    <a class="btn btn-accent" asp-area="Identity" asp-page="/Account/Register">@L["Nav.Register"]</a>
+                </div>
+            </div>
+        </header>
+
+        <main class="py-4">
+            <div class="container">
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="alert alert-success mb-3">@TempData["SuccessMessage"]</div>
+                }
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="alert alert-danger mb-3">@TempData["ErrorMessage"]</div>
+                }
+            </div>
+            @RenderBody()
+        </main>
+
+        <footer class="public-footer mt-5">
+            <div class="container">
+                <div class="row g-4">
+                    <div class="col-md-5">
+                        <div class="fw-semibold text-dark mb-2">AdGestionHub</div>
+                        <p class="mb-2">
+                            @L.T(
+                                "Logiciel de gestion commerciale, stocks, trésorerie et facturation conforme pour commerces et PME.",
+                                "Point-of-sale, inventory, cashflow, and compliant invoicing software for retail and SMBs.")
+                        </p>
+                        <span class="status-pill">Adhil Digital</span>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="fw-semibold text-dark mb-2">@L.T("Informations légales", "Legal")</div>
+                        <div class="d-flex flex-column gap-1">
+                            <a asp-area="" asp-controller="Infos" asp-action="Confidentialite">@L.T("Politique de confidentialité", "Privacy Policy")</a>
+                            <a asp-area="" asp-controller="Infos" asp-action="CGU">@L.T("Conditions générales d'utilisation", "Terms of Service")</a>
+                            <a asp-area="" asp-controller="Infos" asp-action="MentionsLegales">@L.T("Mentions légales", "Legal Notice")</a>
+                            <a asp-area="" asp-controller="Infos" asp-action="Cookies">@L.T("Politique de cookies", "Cookie Policy")</a>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="fw-semibold text-dark mb-2">Contact</div>
+                        <div class="mb-1">contact@adhil-digital.com</div>
+                        <button type="button" class="btn btn-secondary-outline btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#feedbackModal">
+                            @L["Nav.Feedback"]
                         </button>
                     </div>
                 </div>
-
-                <div class="col-lg-4">
-                    <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
-                        <i class="fas fa-gavel me-2"></i> Informations légales
-                    </h6>
-                    <div class="d-flex flex-column gap-2">
-                        <a asp-area="" asp-controller="Infos" asp-action="Confidentialite" class="text-light text-decoration-none" style="opacity: 0.85;">
-                            <i class="fas fa-shield-alt me-2" style="width: 20px;"></i>Politique de confidentialité
-                        </a>
-                        <a asp-area="" asp-controller="Infos" asp-action="CGU" class="text-light text-decoration-none" style="opacity: 0.85;">
-                            <i class="fas fa-file-contract me-2" style="width: 20px;"></i>Conditions générales d'utilisation (CGU)
-                        </a>
-                        <a asp-area="" asp-controller="Infos" asp-action="MentionsLegales" class="text-light text-decoration-none" style="opacity: 0.85;">
-                            <i class="fas fa-balance-scale me-2" style="width: 20px;"></i>Mentions légales
-                        </a>
-                        <a asp-area="" asp-controller="Infos" asp-action="Cookies" class="text-light text-decoration-none" style="opacity: 0.85;">
-                            <i class="fas fa-cookie-bite me-2" style="width: 20px;"></i>Gestion des cookies
-                        </a>
-                    </div>
-                </div>
-
-                <div class="col-lg-4">
-                    <h6 class="text-white fw-bold mb-3" style="font-size: 1rem; letter-spacing: 0.5px;">
-                        <i class="fas fa-address-card me-2"></i> Contact
-                    </h6>
-                    <p class="text-light mb-2" style="opacity: 0.9;">
-                        <i class="fas fa-map-pin me-2" style="width: 20px;"></i> Limete 1ère Rue, Kinshasa, RDC
-                    </p>
-                    <p class="text-light mb-3" style="opacity: 0.9;">
-                        <i class="fas fa-envelope me-2" style="width: 20px;"></i> contact@adhil-digital.com
-                    </p>
+                <div class="border-top mt-4 pt-3 d-flex justify-content-between flex-wrap gap-2 small">
+                    <span>&copy; @DateTime.Now.Year AdGestionHub — Adhil Digital</span>
+                    <span>Version 2.0</span>
                 </div>
             </div>
-
-            <hr class="border-secondary opacity-25 my-4" />
-            <div class="text-center small text-light" style="opacity: 0.7;">
-                &copy; @DateTime.Now.Year <strong>AdGestionHub</strong>. Un produit de
-                <strong style="color: #FF8C00;">Adhil Digital</strong> – Tous droits réservés.
-                <span class="badge border border-secondary ms-2" style="font-weight: 400;">Version 1.1</span>
-            </div>
-        </div>
-    </footer>
+        </footer>
+    }
 
     <partial name="_CookieConsentPartial" />
 
-    <!-- Modal Feedback (Global) -->
+    <!-- Modale Feedback sobre (sans emojis) -->
     <div class="modal fade" id="feedbackModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content modal-content-modern">
-                <div class="modal-header border-0 pt-4 px-4">
-                    <h5 class="modal-title fw-bold">Votre avis compte !</h5>
+            <div class="modal-content border">
+                <div class="modal-header border-bottom py-3 px-4">
+                    <h6 class="modal-title fw-semibold mb-0">@L["Nav.Feedback"]</h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="globalFeedbackForm" asp-area="" asp-controller="Marketing" asp-action="SubmitFeedback" method="post">
-                    <div class="modal-body px-4">
+                    <div class="modal-body p-4">
                         <div id="feedbackFormAlert" class="d-none" role="alert"></div>
                         <div class="mb-3">
-                            <label class="fw-semibold mb-2">Note</label>
-                            <select name="note" class="form-select form-control-modern">
-                                <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
-                                <option value="4">⭐⭐⭐⭐ (Très bien)</option>
-                                <option value="3">⭐⭐⭐ (Moyen)</option>
-                                <option value="2">⭐⭐ (Insuffisant)</option>
-                                <option value="1">⭐ (Mauvais)</option>
+                            <label class="form-label">@L.T("Évaluation", "Rating")</label>
+                            <select name="note" class="form-select num">
+                                <option value="5">5 / 5 — @L.T("Excellent", "Excellent")</option>
+                                <option value="4">4 / 5 — @L.T("Très bien", "Very good")</option>
+                                <option value="3">3 / 5 — @L.T("Satisfaisant", "Satisfactory")</option>
+                                <option value="2">2 / 5 — @L.T("À améliorer", "Needs improvement")</option>
+                                <option value="1">1 / 5 — @L.T("Insuffisant", "Poor")</option>
                             </select>
                         </div>
                         <div>
-                            <label class="fw-semibold mb-2">Commentaire</label>
-                            <textarea name="commentaire" class="form-control form-control-modern" rows="3" maxlength="2000" placeholder="Partagez votre expérience ou vos suggestions..." required></textarea>
+                            <label class="form-label">@L.T("Commentaire", "Comment")</label>
+                            <textarea name="commentaire" class="form-control" rows="3" maxlength="2000" placeholder="@L.T("Vos retours ou besoins métier...", "Share your feedback or feature requests...")" required></textarea>
                         </div>
                     </div>
-                    <div class="modal-footer border-0 pb-4 px-4">
-                        <button type="submit" class="btn btn-primary-gradient w-100">Envoyer mon feedback</button>
+                    <div class="modal-footer border-top py-2 px-4">
+                        <button type="button" class="btn btn-secondary-outline" data-bs-dismiss="modal">@L["Action.Cancel"]</button>
+                        <button type="submit" class="btn btn-accent">@L["Action.Save"]</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Chargement synchrone ordonné AVANT les scripts spécifiques aux vues (jQuery Validation / jQuery UI) -->
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

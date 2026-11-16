@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Models.ViewModels;
@@ -6,9 +9,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -17,16 +17,22 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ITenantContextService _tenantContext;
         private readonly ICacheService _cacheService;
+        private readonly IAppLocalizer _L;
 
         public DebtsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            ICacheService cacheService)
+            ITenantContextService tenantContext,
+            ICacheService cacheService,
+            IAppLocalizer localizer)
         {
             _context = context;
             _userManager = userManager;
+            _tenantContext = tenantContext;
             _cacheService = cacheService;
+            _L = localizer;
         }
 
         public async Task<IActionResult> Index()
@@ -61,16 +67,28 @@ namespace AdGestionHub.Controllers
 
             if (!ModelState.IsValid)
             {
-                TempData["ErrorMessage"] = "Veuillez vérifier les informations saisies (nom obligatoire et montant supérieur à 0).";
+                TempData["ErrorMessage"] = _L.T(
+                    "Veuillez vérifier les informations saisies (nom obligatoire et montant supérieur à 0).",
+                    "Please check your input (customer name required and amount greater than 0).");
                 return RedirectToAction(nameof(Index));
             }
 
+            var ctx = await _tenantContext.GetContextAsync();
             var boutiqueId = user.BoutiqueId.Value;
+            var cleanPhone = model.ClientPhone?.Trim();
+            if (string.Equals(cleanPhone, ctx.Settings.PhoneDialCode, StringComparison.OrdinalIgnoreCase))
+                cleanPhone = null;
+
             var debt = new Debt
             {
+                ClientId = model.ClientId,
                 ClientName = model.ClientName.Trim(),
-                ClientPhone = string.IsNullOrWhiteSpace(model.ClientPhone) ? null : model.ClientPhone.Trim(),
-                Amount = decimal.Round(model.Amount, 2),
+                ClientPhone = string.IsNullOrWhiteSpace(cleanPhone) ? null : cleanPhone,
+                ClientTaxId = ctx.IsFormalized && !string.IsNullOrWhiteSpace(model.ClientTaxId) ? model.ClientTaxId.Trim() : null,
+                Amount = decimal.Round(model.Amount, ctx.PrimaryCurrency.Decimals),
+                CurrencyCode = ctx.PrimaryCurrency.Code,
+                CurrencySymbol = ctx.PrimaryCurrency.Symbol,
+                CurrencyDecimals = ctx.PrimaryCurrency.Decimals,
                 DueDate = model.DueDate,
                 Note = string.IsNullOrWhiteSpace(model.Note) ? null : model.Note.Trim(),
                 BoutiqueId = boutiqueId,
@@ -83,7 +101,7 @@ namespace AdGestionHub.Controllers
             await _context.SaveChangesAsync();
             await _cacheService.RemoveAsync($"Dashboard_{boutiqueId}");
 
-            TempData["SuccessMessage"] = "Crédit client enregistré avec succès !";
+            TempData["SuccessMessage"] = _L.T("Créance client enregistrée.", "Customer receivable recorded.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -104,7 +122,7 @@ namespace AdGestionHub.Controllers
                 debt.IsArchived = true;
                 await _context.SaveChangesAsync();
                 await _cacheService.RemoveAsync($"Dashboard_{boutiqueId}");
-                TempData["SuccessMessage"] = "La dette a été archivée.";
+                TempData["SuccessMessage"] = _L.T("Créance archivée.", "Receivable archived.");
             }
 
             return RedirectToAction(nameof(Index));
@@ -118,6 +136,7 @@ namespace AdGestionHub.Controllers
             if (user == null || user.BoutiqueId == null)
                 return Challenge();
 
+            var ctx = await _tenantContext.GetContextAsync();
             var boutiqueId = user.BoutiqueId.Value;
             var debt = await _context.Debts
                 .FirstOrDefaultAsync(d => d.Id == id && d.BoutiqueId == boutiqueId);
@@ -127,7 +146,10 @@ namespace AdGestionHub.Controllers
                 debt.IsPaid = true;
                 await _context.SaveChangesAsync();
                 await _cacheService.RemoveAsync($"Dashboard_{boutiqueId}");
-                TempData["SuccessMessage"] = $"La dette de {debt.ClientName} ({debt.Amount:N2} $) a été marquée comme encaissée.";
+                var formatted = ctx.FormatHistorical(debt.Amount, debt.CurrencyCode, debt.CurrencyDecimals, debt.CurrencySymbol);
+                TempData["SuccessMessage"] = _L.T(
+                    $"Créance de {debt.ClientName} ({formatted}) marquée comme réglée.",
+                    $"Receivable from {debt.ClientName} ({formatted}) marked as paid.");
             }
 
             return RedirectToAction(nameof(Index));
@@ -150,7 +172,7 @@ namespace AdGestionHub.Controllers
                 _context.Debts.Remove(debt);
                 await _context.SaveChangesAsync();
                 await _cacheService.RemoveAsync($"Dashboard_{boutiqueId}");
-                TempData["SuccessMessage"] = "L'enregistrement de dette a été supprimé.";
+                TempData["SuccessMessage"] = _L.T("Créance supprimée.", "Receivable deleted.");
             }
 
             return RedirectToAction(nameof(Index));

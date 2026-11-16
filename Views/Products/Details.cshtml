@@ -1,85 +1,89 @@
-@using AdGestionHub.Models
 @model Product
-
 @{
-    ViewData["Title"] = $"Détails - {Model.Name}";
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = Model.Name;
     var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
     var threshold = Model.LowStockThreshold > 0 ? Model.LowStockThreshold : Model.StockAlertThreshold;
+    var margin = Model.SalePrice - Model.PurchasePrice;
+    var effectiveVat = Model.VatRate ?? ctx.DefaultVatRate;
 }
 
 <div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-white border-0 py-4 px-4">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="icon-wrapper orange" style="width: 56px; height: 56px; border-radius: 16px; background: #fff3e0; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-box fa-2x" style="color: #FF8C00;"></i>
-                    </div>
-                    <div>
-                        <h1 class="display-6 fw-bold mb-0">@Model.Name</h1>
-                        <p class="text-muted small mb-0">Référence : #@Model.Id</p>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body p-4 p-lg-5">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <h5 class="fw-bold text-muted mb-3">📊 Informations générales</h5>
-                        <dl class="row">
-                            <dt class="col-sm-5 fw-bold text-dark">Nom :</dt>
-                            <dd class="col-sm-7">@Model.Name</dd>
-
-                            <dt class="col-sm-5 fw-bold text-dark">Variations :</dt>
-                            <dd class="col-sm-7">@(string.IsNullOrWhiteSpace(Model.Variations) ? "Aucune" : Model.Variations)</dd>
-
-                            <dt class="col-sm-5 fw-bold text-dark">En stock :</dt>
-                            <dd class="col-sm-7">
-                                @{
-                                    var stockClass = Model.StockQuantity <= 0
-                                        ? "badge-status danger"
-                                        : (Model.StockQuantity <= threshold ? "badge-status warning" : "badge-status success");
-                                }
-                                <span class="@stockClass">@Model.StockQuantity unité(s)</span>
-                            </dd>
-
-                            <dt class="col-sm-5 fw-bold text-dark">Seuil d'alerte :</dt>
-                            <dd class="col-sm-7">@(threshold > 0 ? $"{threshold} unité(s)" : "Non défini")</dd>
-                        </dl>
-                    </div>
-                    <div class="col-md-6">
-                        <h5 class="fw-bold text-muted mb-3">💰 Tarification</h5>
-                        <dl class="row">
-                            @if (isAdmin)
-                            {
-                                <dt class="col-sm-5 fw-bold text-dark">Prix d'achat :</dt>
-                                <dd class="col-sm-7">@Model.PurchasePrice.ToString("N2") $</dd>
-                            }
-
-                            <dt class="col-sm-5 fw-bold text-dark">Prix de vente :</dt>
-                            <dd class="col-sm-7 fw-bold h5 mb-0" style="color: #FF8C00;">@Model.SalePrice.ToString("N2") $</dd>
-
-                            @if (isAdmin)
-                            {
-                                <dt class="col-sm-5 fw-bold text-dark mt-2">Marge unitaire :</dt>
-                                <dd class="col-sm-7 text-success fw-bold mt-2">
-                                    @((Model.SalePrice - Model.PurchasePrice).ToString("N2")) $
-                                </dd>
-                            }
-                        </dl>
-                    </div>
-                </div>
-
-                <hr class="my-4" />
-
-                <div class="d-flex justify-content-between">
-                    <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
-                    @if (isAdmin)
+    <div class="col-lg-7">
+        <div class="panel-card p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3 pb-3 border-bottom">
+                <div>
+                    <h1 class="h5 mb-1">@Model.Name</h1>
+                    @if (!string.IsNullOrWhiteSpace(Model.Sku))
                     {
-                        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary-gradient">
-                            <i class="fas fa-edit me-2"></i>Modifier
-                        </a>
+                        <div class="text-slate small num">SKU : @Model.Sku</div>
                     }
                 </div>
+                @if (Model.StockQuantity <= 0)
+                {
+                    <span class="status-pill danger">@L.T("Rupture", "Out of stock")</span>
+                }
+                else if (Model.StockQuantity <= threshold)
+                {
+                    <span class="status-pill warning">@L.T("Stock bas", "Low stock")</span>
+                }
+                else
+                {
+                    <span class="status-pill success">@L.T("Disponible", "In stock")</span>
+                }
+            </div>
+
+            <div class="row g-3 num">
+                <div class="col-6">
+                    <div class="text-slate small">@(ctx.IsVatEnabled ? L.T("Prix de vente HT", "Sale Price Excl. Tax") : L.T("Prix de vente", "Sale Price"))</div>
+                    <div class="h5 fw-semibold mb-0">@ctx.FormatPrimary(Model.SalePrice)</div>
+                </div>
+
+                @if (ctx.IsVatEnabled)
+                {
+                    <div class="col-6">
+                        <div class="text-slate small">@L.T("Taux de TVA", "VAT Rate")</div>
+                        <div class="h5 fw-semibold mb-0">@effectiveVat.ToString("0.##")%</div>
+                    </div>
+                }
+
+                @if (isAdmin)
+                {
+                    <div class="col-6">
+                        <div class="text-slate small">@L.T("Coût d'achat", "Unit Cost")</div>
+                        <div class="fw-medium">@ctx.FormatPrimary(Model.PurchasePrice)</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-slate small">@L.T("Marge unitaire", "Unit Margin")</div>
+                        <div class="fw-semibold @(margin >= 0 ? "text-forest" : "text-sober-red")">@ctx.FormatPrimary(margin)</div>
+                    </div>
+                }
+
+                <div class="col-6">
+                    <div class="text-slate small">@L.T("Stock disponible", "Current Stock")</div>
+                    <div class="fw-semibold">@Model.StockQuantity</div>
+                </div>
+
+                <div class="col-6">
+                    <div class="text-slate small">@L.T("Seuil d'alerte", "Alert Threshold")</div>
+                    <div class="fw-medium">@threshold</div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(Model.Variations))
+                {
+                    <div class="col-12">
+                        <div class="text-slate small">@L.T("Variantes", "Variants")</div>
+                        <div>@Model.Variations</div>
+                    </div>
+                }
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+                @if (isAdmin)
+                {
+                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-accent">@L["Action.Edit"]</a>
+                }
             </div>
         </div>
     </div>

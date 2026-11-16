@@ -1,55 +1,50 @@
 @model AdGestionHub.Models.Expense
-
 @{
-    ViewData["Title"] = "Modifier la Dépense";
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = L.T("Modifier la dépense", "Edit Expense");
+    var sym = string.IsNullOrWhiteSpace(Model.CurrencySymbol) ? "$" : Model.CurrencySymbol;
+    var step = Model.CurrencyDecimals == 0 ? "1" : "0.01";
 }
 
-<div class="row justify-content-center mt-4">
+<div class="row justify-content-center">
     <div class="col-lg-6">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-white border-0 py-4 px-4">
-                <h3 class="fw-bold mb-0"><i class="fas fa-edit text-primary me-2"></i>Modifier la dépense</h3>
-            </div>
-            <div class="card-body p-4">
-                <form asp-action="Edit" method="post">
-                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-                    <input type="hidden" asp-for="Id" />
+        <div class="panel-card p-4">
+            <h1 class="h5 mb-3">@ViewData["Title"]</h1>
 
-                    <div class="mb-3">
-                        <label asp-for="Description" class="form-label fw-semibold">Description</label>
-                        <input asp-for="Description" class="form-control form-control-modern" required />
-                        <span asp-validation-for="Description" class="text-danger small"></span>
-                    </div>
+            <form asp-action="Edit" method="post">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3"></div>
+                <input type="hidden" asp-for="Id" />
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label asp-for="Amount" class="form-label fw-semibold">Montant ($)</label>
-                            <input asp-for="Amount" type="number" step="0.01" min="0.01" class="form-control form-control-modern" required />
-                            <span asp-validation-for="Amount" class="text-danger small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="Category" class="form-label fw-semibold">Catégorie</label>
-                            <input asp-for="Category" class="form-control form-control-modern" required />
-                            <span asp-validation-for="Category" class="text-danger small"></span>
-                        </div>
-                    </div>
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label">@L["Doc.Description"]</label>
+                    <input asp-for="Description" class="form-control" required />
+                </div>
 
-                    <div class="mb-4">
-                        <label asp-for="Date" class="form-label fw-semibold">Date de l'opération</label>
-                        <input asp-for="Date" type="datetime-local" class="form-control form-control-modern" value="@Model.Date.ToString("yyyy-MM-ddTHH:mm")" />
-                        <span asp-validation-for="Date" class="text-danger small"></span>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="Amount" class="form-label">@L.T("Montant", "Amount") (@sym)</label>
+                        <input asp-for="Amount" type="number" step="@step" min="0" class="form-control num" required />
                     </div>
+                    <div class="col-md-6">
+                        <label asp-for="Category" class="form-label">@L.T("Catégorie", "Category")</label>
+                        <input asp-for="Category" class="form-control" required />
+                    </div>
+                </div>
 
-                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
-                        <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
-                        <button type="submit" class="btn btn-primary-gradient px-5"><i class="fas fa-save me-2"></i>Enregistrer</button>
-                    </div>
-                </form>
-            </div>
+                <div class="mb-4">
+                    <label asp-for="Date" class="form-label">@L["Doc.Date"]</label>
+                    <input asp-for="Date" type="datetime-local" class="form-control num" value="@Model.Date.ToString("yyyy-MM-ddTHH:mm")" />
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Cancel"]</a>
+                    <button type="submit" class="btn btn-accent">@L["Action.Save"]</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <partial name="_ValidationScriptsPartial" />
 }

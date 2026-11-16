@@ -1,12 +1,12 @@
+using System.Linq;
+using System.Security.Claims;
+using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models.ViewModels;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
-using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
 {
@@ -15,19 +15,24 @@ namespace AdGestionHub.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IBoutiqueService _boutiqueService;
+        private readonly ITenantContextService _tenantContext;
         private readonly ICacheService _cacheService;
+        private readonly IAppLocalizer _L;
 
         public ProductsController(
             ApplicationDbContext context,
             IBoutiqueService boutiqueService,
-            ICacheService cacheService)
+            ITenantContextService tenantContext,
+            ICacheService cacheService,
+            IAppLocalizer localizer)
         {
             _context = context;
             _boutiqueService = boutiqueService;
+            _tenantContext = tenantContext;
             _cacheService = cacheService;
+            _L = localizer;
         }
 
-        // GET: Products (accessible aux Admin et Employés de la boutique)
         public async Task<IActionResult> Index(string? search, string? status)
         {
             var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
@@ -40,7 +45,10 @@ namespace AdGestionHub.Controllers
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var term = search.Trim();
-                query = query.Where(p => p.Name.Contains(term) || (p.Variations != null && p.Variations.Contains(term)));
+                query = query.Where(p =>
+                    p.Name.Contains(term)
+                    || (p.Sku != null && p.Sku.Contains(term))
+                    || (p.Variations != null && p.Variations.Contains(term)));
             }
 
             if (!string.IsNullOrWhiteSpace(status))
@@ -62,14 +70,10 @@ namespace AdGestionHub.Controllers
             ViewBag.CurrentSearch = search;
             ViewBag.CurrentStatus = status;
 
-            var products = await query
-                .OrderBy(p => p.Name)
-                .ToListAsync();
-
+            var products = await query.OrderBy(p => p.Name).ToListAsync();
             return View(products);
         }
 
-        // GET: Products/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
@@ -85,14 +89,18 @@ namespace AdGestionHub.Controllers
             return View(product);
         }
 
-        // GET: Products/Create
         [Authorize(Policy = "AdminOrSuperAdmin")]
-        public IActionResult Create()
+        public async Task<IActionResult> Create()
         {
-            return View(new Product { StockAlertThreshold = 5, LowStockThreshold = 5 });
+            var ctx = await _tenantContext.GetContextAsync();
+            return View(new Product
+            {
+                StockAlertThreshold = 5,
+                LowStockThreshold = 5,
+                VatRate = ctx.IsVatEnabled ? ctx.DefaultVatRate : null
+            });
         }
 
-        // POST: Products/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "AdminOrSuperAdmin")]
@@ -101,17 +109,20 @@ namespace AdGestionHub.Controllers
             var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
             if (boutiqueId == null) return Challenge();
 
+            var ctx = await _tenantContext.GetContextAsync();
+            var decimals = ctx.PrimaryCurrency.Decimals;
+
             if (!ModelState.IsValid)
-            {
                 return View(MapToEntity(model, boutiqueId.Value));
-            }
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
             var product = new Product
             {
                 Name = model.Name.Trim(),
-                PurchasePrice = decimal.Round(model.PurchasePrice, 2),
-                SalePrice = decimal.Round(model.SalePrice, 2),
+                Sku = string.IsNullOrWhiteSpace(model.Sku) ? null : model.Sku.Trim(),
+                PurchasePrice = decimal.Round(model.PurchasePrice, decimals),
+                SalePrice = decimal.Round(model.SalePrice, decimals),
+                VatRate = ctx.IsVatEnabled ? (model.VatRate ?? ctx.DefaultVatRate) : null,
                 StockQuantity = model.StockQuantity,
                 LowStockThreshold = model.StockAlertThreshold,
                 StockAlertThreshold = model.StockAlertThreshold,
@@ -124,11 +135,12 @@ namespace AdGestionHub.Controllers
             await _context.SaveChangesAsync();
             await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
 
-            TempData["SuccessMessage"] = $"Le produit « {product.Name} » a été ajouté avec succès.";
+            TempData["SuccessMessage"] = _L.T(
+                $"Produit « {product.Name} » ajouté au catalogue.",
+                $"Product « {product.Name} » added to catalog.");
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Products/Edit/5
         [Authorize(Policy = "AdminOrSuperAdmin")]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -146,10 +158,13 @@ namespace AdGestionHub.Controllers
             if (product.StockAlertThreshold <= 0 && product.LowStockThreshold > 0)
                 product.StockAlertThreshold = product.LowStockThreshold;
 
+            var ctx = await _tenantContext.GetContextAsync();
+            if (ctx.IsVatEnabled && !product.VatRate.HasValue)
+                product.VatRate = ctx.DefaultVatRate;
+
             return View(product);
         }
 
-        // POST: Products/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "AdminOrSuperAdmin")]
@@ -166,13 +181,18 @@ namespace AdGestionHub.Controllers
             if (existing == null) return NotFound();
 
             if (!ModelState.IsValid)
-            {
                 return View(MapToEntity(model, boutiqueId.Value));
-            }
+
+            var ctx = await _tenantContext.GetContextAsync();
+            var decimals = ctx.PrimaryCurrency.Decimals;
 
             existing.Name = model.Name.Trim();
-            existing.PurchasePrice = decimal.Round(model.PurchasePrice, 2);
-            existing.SalePrice = decimal.Round(model.SalePrice, 2);
+            existing.Sku = string.IsNullOrWhiteSpace(model.Sku) ? null : model.Sku.Trim();
+            existing.PurchasePrice = decimal.Round(model.PurchasePrice, decimals);
+            existing.SalePrice = decimal.Round(model.SalePrice, decimals);
+            if (ctx.IsVatEnabled)
+                existing.VatRate = model.VatRate ?? ctx.DefaultVatRate;
+
             existing.StockQuantity = model.StockQuantity;
             existing.LowStockThreshold = model.StockAlertThreshold;
             existing.StockAlertThreshold = model.StockAlertThreshold;
@@ -181,11 +201,12 @@ namespace AdGestionHub.Controllers
             await _context.SaveChangesAsync();
             await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
 
-            TempData["SuccessMessage"] = $"Le produit « {existing.Name} » a été mis à jour.";
+            TempData["SuccessMessage"] = _L.T(
+                $"Produit « {existing.Name} » mis à jour.",
+                $"Product « {existing.Name} » updated.");
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Products/Delete/5
         [Authorize(Policy = "AdminOrSuperAdmin")]
         public async Task<IActionResult> Delete(int? id)
         {
@@ -202,7 +223,6 @@ namespace AdGestionHub.Controllers
             return View(product);
         }
 
-        // POST: Products/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "AdminOrSuperAdmin")]
@@ -216,15 +236,18 @@ namespace AdGestionHub.Controllers
 
             if (product != null)
             {
-                // Détacher les lignes de ventes passées (le nom et le prix sont déjà conservés sur SaleItem)
                 await _context.SaleItems
                     .Where(si => si.BoutiqueId == boutiqueId.Value && si.ProductId == product.Id)
                     .ExecuteUpdateAsync(s => s.SetProperty(si => si.ProductId, (int?)null));
 
+                await _context.QuoteItems
+                    .Where(qi => qi.BoutiqueId == boutiqueId.Value && qi.ProductId == product.Id)
+                    .ExecuteUpdateAsync(q => q.SetProperty(qi => qi.ProductId, (int?)null));
+
                 _context.Products.Remove(product);
                 await _context.SaveChangesAsync();
                 await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-                TempData["SuccessMessage"] = "Produit supprimé de l'inventaire.";
+                TempData["SuccessMessage"] = _L.T("Produit supprimé du catalogue.", "Product removed from catalog.");
             }
 
             return RedirectToAction(nameof(Index));
@@ -234,8 +257,10 @@ namespace AdGestionHub.Controllers
         {
             Id = model.Id,
             Name = model.Name,
+            Sku = model.Sku,
             PurchasePrice = model.PurchasePrice,
             SalePrice = model.SalePrice,
+            VatRate = model.VatRate,
             StockQuantity = model.StockQuantity,
             LowStockThreshold = model.StockAlertThreshold,
             StockAlertThreshold = model.StockAlertThreshold,

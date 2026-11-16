@@ -1,68 +1,60 @@
-﻿@using AdGestionHub.Models
-@model IEnumerable<GlobalNotification>
-
+@model IEnumerable<AdGestionHub.Models.GlobalNotification>
 @{
-    ViewData["Title"] = "Historique des notifications";
+    ViewData["Title"] = L["Nav.SystemNotices"];
+    var list = Model?.ToList() ?? new List<AdGestionHub.Models.GlobalNotification>();
 }
 
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="display-5 fw-bold mb-0"><i class="fas fa-history me-2"></i>Historique des notifications</h1>
-            <p class="text-muted">Liste de toutes les annonces globales envoyées</p>
-        </div>
-        <a asp-action="Index" class="btn btn-soft"><i class="fas fa-arrow-left me-2"></i>Retour</a>
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h4 mb-0">@ViewData["Title"]</h1>
+    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+</div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-modern mb-0">
-                    <thead>
+<div class="panel-card overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-ledger">
+            <thead>
+                <tr>
+                    <th>@L.T("Expiration", "Expires")</th>
+                    <th>Message</th>
+                    <th>@L.T("Niveau", "Severity")</th>
+                    <th class="text-end">@L.T("Action", "Action")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!list.Any())
+                {
+                    <tr>
+                        <td colspan="4" class="text-center text-slate py-5">@L.T("Aucune annonce enregistrée.", "No notices recorded.")</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var item in list)
+                    {
                         <tr>
-                            <th>Expiration</th>
-                            <th>Message</th>
-                            <th>Importance</th>
-                            <th class="text-end">Action</th>
+                            <td class="num text-slate">@item.ExpiryDate.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="fw-medium">@item.Message</td>
+                            <td>
+                                @if (item.IsCritical)
+                                {
+                                    <span class="status-pill danger">@L.T("Critique", "Critical")</span>
+                                }
+                                else
+                                {
+                                    <span class="status-pill info">@L.T("Information", "Info")</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <form asp-action="DeleteNotification" asp-route-id="@item.Id" method="post" onsubmit="return confirm('@L.T("Supprimer cette annonce ?", "Delete this notice?")');" class="d-inline">
+                                    <button type="submit" class="btn btn-danger-outline btn-sm py-1 px-2">
+                                        @LucideIcons.Svg("trash-2", 14)
+                                    </button>
+                                </form>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @if (Model != null && Model.Any())
-                        {
-                            foreach (var item in Model)
-                            {
-                                <tr>
-                                    <td>
-                                        <span class="badge bg-light text-dark">@item.ExpiryDate.ToString("dd/MM/yyyy HH:mm")</span>
-                                    </td>
-                                    <td class="fw-semibold">@item.Message</td>
-                                    <td>
-                                        @if (item.IsCritical)
-                                        {
-                                            <span class="badge-status danger"><i class="fas fa-exclamation-circle me-1"></i> Critique</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge-status info"><i class="fas fa-info-circle me-1"></i> Information</span>
-                                        }
-                                    </td>
-                                    <td class="text-end">
-                                        <form asp-action="DeleteNotification" asp-route-id="@item.Id" method="post" onsubmit="return confirm('Supprimer définitivement cette annonce ?');" class="d-inline">
-                                            <button type="submit" class="btn btn-sm btn-soft text-danger">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            }
-                        }
-                        else
-                        {
-                            <tr><td colspan="4" class="text-center py-4 text-muted">Aucune notification enregistrée.</td></tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    }
+                }
+            </tbody>
+        </table>
     </div>
 </div>

@@ -1,28 +1,20 @@
-﻿@page
+@page
 @model ResetAuthenticatorModel
 @{
-    ViewData["Title"] = "Réinitialiser l'application d'authentification";
+    ViewData["Title"] = L.T("Réinitialiser la clé TOTP", "Reset Authenticator Key");
     ViewData["ActivePage"] = ManageNavPages.TwoFactorAuthentication;
 }
 
-<h3 class="fw-bold">@ViewData["Title"]</h3>
-<p class="text-muted">Cette action désactivera la 2FA jusqu'à ce que vous reconfiguriez l'application.</p>
-
+<h2 class="h5 fw-semibold mb-1">@ViewData["Title"]</h2>
 <partial name="_StatusMessage" for="StatusMessage" />
 
-<div class="alert alert-warning border-0 shadow-sm rounded-4">
-    <i class="fas fa-exclamation-triangle me-2"></i>
-    <strong>Si vous réinitialisez votre clé d'authentification, votre application ne fonctionnera plus tant que vous ne l'aurez pas reconfigurée.</strong>
-    <p class="mb-0">Ce processus désactive la 2FA jusqu'à ce que vous vérifiiez à nouveau l'application. Si vous ne terminez pas la configuration, vous pourriez perdre l'accès à votre compte.</p>
+<div class="alert alert-warning mb-3 small">
+    @L.T("La réinitialisation désactive temporairement la double authentification jusqu'à la reconfiguration.", "Resetting disables 2FA until you reconfigure your authenticator app.")
 </div>
 
-<div>
-    <form id="reset-authenticator-form" method="post">
-        <button id="reset-authenticator-button" class="btn btn-danger">
-            <i class="fas fa-redo me-2"></i> Réinitialiser la clé d'authentification
-        </button>
-    </form>
-</div>
+<form id="reset-authenticator-form" method="post">
+    <button id="reset-authenticator-button" class="btn btn-danger-outline">@L.T("Réinitialiser la clé", "Reset key")</button>
+</form>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

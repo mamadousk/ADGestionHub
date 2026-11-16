@@ -1,112 +1,115 @@
 @model IEnumerable<AdGestionHub.Models.Sale>
-
 @{
-    ViewData["Title"] = "Historique des Ventes";
+    var ctx = await TenantCtx.GetContextAsync();
+    ViewData["Title"] = ctx.IsFormalized ? L.T("Factures & Ventes", "Invoices & Sales") : L["Nav.Sales"];
     var isAdmin = User.IsInRole("Admin");
+    var salesList = Model?.ToList() ?? new List<AdGestionHub.Models.Sale>();
+    var activeCount = salesList.Count(s => !s.IsCancelled);
 }
 
-<div>
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="display-6 fw-bold mb-0">💰 Historique des Ventes</h1>
-            <p class="text-muted mb-0">Toutes vos transactions enregistrées</p>
-        </div>
-        <a asp-action="Create" class="btn btn-primary-gradient mt-2 mt-md-0">
-            <i class="fas fa-plus me-2"></i> Enregistrer une Vente
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <div>
+        <h1 class="h4 mb-1">@ViewData["Title"]</h1>
+        <p class="text-slate small mb-0 num">
+            @activeCount @L.T("opération(s) valide(s)", "active transaction(s)")
+        </p>
+    </div>
+    <div class="d-flex gap-2">
+        @if (ctx.IsFormalized)
+        {
+            <a asp-controller="Quotes" asp-action="Index" class="btn btn-secondary-outline">
+                @LucideIcons.Svg("file-text", 16, "me-1")
+                <span>@L["Nav.Quotes"]</span>
+            </a>
+        }
+        <a asp-action="Create" class="btn btn-accent">
+            @LucideIcons.Svg("plus", 16, "me-1")
+            <span>@L["Nav.NewSale"]</span>
         </a>
     </div>
+</div>
 
-    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-modern mb-0">
-                    <thead>
+<div class="panel-card overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-ledger">
+            <thead>
+                <tr>
+                    <th>@L["Doc.Number"]</th>
+                    <th>@L["Doc.Date"]</th>
+                    <th>@L.T("Client", "Customer")</th>
+                    <th>@L.T("Articles", "Items")</th>
+                    <th>@L["Doc.PaymentMethod"]</th>
+                    <th class="text-end">@L.T("Montant", "Total")</th>
+                    <th class="text-end">@L.T("Actions", "Actions")</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!salesList.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="text-center text-slate py-5">
+                            @L.T("Aucune vente enregistrée.", "No sales recorded yet.")
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var s in salesList)
+                    {
+                        var docRef = !string.IsNullOrWhiteSpace(s.DocumentNumber)
+                            ? s.DocumentNumber
+                            : (s.IsFormalizedSnapshot ? $"FAC-{s.Id:D5}" : $"REC-{s.Id:D5}");
                         <tr>
-                            <th>Date</th>
-                            <th>Produits</th>
-                            <th class="text-center">Qté Totale</th>
-                            <th class="text-end">Total</th>
-                            <th>Client</th>
-                            <th>Paiement</th>
-                            <th class="text-center">Actions</th>
+                            <td class="num fw-medium">
+                                @docRef
+                                @if (s.IsCancelled)
+                                {
+                                    <span class="status-pill danger ms-1">@L["Doc.Cancelled"]</span>
+                                }
+                            </td>
+                            <td class="num text-slate text-nowrap">@ctx.FormatDate(s.SaleDate, true)</td>
+                            <td>
+                                @(string.IsNullOrWhiteSpace(s.CustomerName) ? L["Doc.WalkInCustomer"] : s.CustomerName)
+                                @if (!string.IsNullOrWhiteSpace(s.CustomerTaxId))
+                                {
+                                    <div class="text-slate num" style="font-size:0.75rem;">@s.CustomerTaxId</div>
+                                }
+                            </td>
+                            <td>
+                                @if (s.Items != null && s.Items.Any())
+                                {
+                                    @string.Join(", ", s.Items.Select(i => $"{i.ProductName} (x{i.Quantity})"))
+                                }
+                                else
+                                {
+                                    <span class="text-slate">—</span>
+                                }
+                            </td>
+                            <td><span class="status-pill">@(s.PaymentMethod ?? "Cash")</span></td>
+                            <td class="text-end num fw-semibold @(s.IsCancelled ? "text-decoration-line-through text-slate" : "text-forest")">
+                                @ctx.FormatHistorical(s.FinalPrice, s.CurrencyCode, s.CurrencyDecimals, s.CurrencySymbol)
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <a asp-action="Receipt" asp-route-id="@s.Id" class="btn btn-secondary-outline btn-sm py-1 px-2" title="@L["Action.Print"]">
+                                    @LucideIcons.Svg("printer", 15)
+                                </a>
+                                <a asp-action="DownloadReceipt" asp-route-id="@s.Id" class="btn btn-secondary-outline btn-sm py-1 px-2" title="PDF">
+                                    @LucideIcons.Svg("download", 15)
+                                </a>
+                                <a asp-action="Details" asp-route-id="@s.Id" class="btn btn-secondary-outline btn-sm py-1 px-2" title="@L["Action.Details"]">
+                                    @LucideIcons.Svg("eye", 15)
+                                </a>
+                                @if (isAdmin && !s.IsCancelled)
+                                {
+                                    <a asp-action="Delete" asp-route-id="@s.Id" class="btn btn-danger-outline btn-sm py-1 px-2" title="@L["Action.Cancel"]">
+                                        @LucideIcons.Svg("x", 15)
+                                    </a>
+                                }
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @if (!Model.Any())
-                        {
-                            <tr>
-                                <td colspan="7" class="text-center py-5 text-muted">Aucune vente enregistrée pour le moment.</td>
-                            </tr>
-                        }
-                        else
-                        {
-                            foreach (var vente in Model)
-                            {
-                                <tr>
-                                    <td class="text-nowrap">@vente.SaleDate.ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td>
-                                        @if (vente.Items != null && vente.Items.Any())
-                                        {
-                                            @string.Join(", ", vente.Items.Select(i => $"{i.ProductName} (x{i.Quantity})"))
-                                        }
-                                        else
-                                        {
-                                            <span class="text-muted fst-italic">Aucun article</span>
-                                        }
-                                    </td>
-                                    <td class="text-center">@(vente.Items?.Sum(i => i.Quantity) ?? 0)</td>
-                                    <td class="text-end fw-bold text-success">@vente.FinalPrice.ToString("N2") $</td>
-                                    <td>@(string.IsNullOrWhiteSpace(vente.CustomerName) ? "Client au comptoir" : vente.CustomerName)</td>
-                                    <td><span class="badge-status info">@vente.PaymentMethod</span></td>
-                                    <td class="text-center">
-                                        <div class="btn-group" role="group">
-                                            <a asp-action="Receipt" asp-route-id="@vente.Id" class="btn btn-sm btn-soft" title="Imprimer le reçu">
-                                                <i class="fas fa-print"></i>
-                                            </a>
-                                            <a asp-action="DownloadReceipt" asp-route-id="@vente.Id" class="btn btn-sm btn-soft" title="Télécharger PDF">
-                                                <i class="fas fa-file-pdf text-danger"></i>
-                                            </a>
-                                            <a asp-action="Details" asp-route-id="@vente.Id" class="btn btn-sm btn-soft" title="Détails">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
-                                            @if (isAdmin)
-                                            {
-                                                <button type="button" class="btn btn-sm btn-soft text-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-@vente.Id" title="Annuler la vente">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            }
-                                        </div>
-
-                                        @if (isAdmin)
-                                        {
-                                            <div class="modal fade" id="deleteModal-@vente.Id" tabindex="-1" aria-hidden="true">
-                                                <div class="modal-dialog modal-dialog-centered">
-                                                    <div class="modal-content modal-content-modern">
-                                                        <div class="modal-header border-0 pt-4">
-                                                            <h5 class="modal-title fw-bold text-danger"><i class="fas fa-exclamation-triangle me-2"></i> Annuler la vente</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                        </div>
-                                                        <div class="modal-body text-center py-4">
-                                                            <p class="mb-1">Confirmer l'annulation de la vente de <strong>@(vente.CustomerName ?? "ce client")</strong> (@vente.FinalPrice.ToString("N2") $) ?</p>
-                                                            <small class="text-muted">Les quantités vendues seront automatiquement réintégrées au stock.</small>
-                                                        </div>
-                                                        <div class="modal-footer border-0 pb-4 d-flex justify-content-between">
-                                                            <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Retour</button>
-                                                            <form asp-action="Delete" asp-route-id="@vente.Id" method="post">
-                                                                <button type="submit" class="btn btn-danger px-4">Confirmer l'annulation</button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    }
+                }
+            </tbody>
+        </table>
     </div>
 </div>
