@@ -1,4 +1,4 @@
-// Scripts globaux AdGestionHub
+// Scripts globaux AdGestionHub — micro-interactions SaaS Pro
 (function () {
     "use strict";
 
@@ -18,7 +18,44 @@
             };
         }
 
-        // 2. Soumission AJAX fluide du formulaire de Feedback global
+        // 2. Ombre de la topbar au défilement (effet glass premium)
+        var topbar = document.querySelector(".app-topbar");
+        if (topbar) {
+            var onScroll = function () {
+                topbar.classList.toggle("scrolled", window.scrollY > 8);
+            };
+            window.addEventListener("scroll", onScroll, { passive: true });
+            onScroll();
+        }
+
+        // 3. Lien actif de la sidebar toujours visible dans la navigation
+        var activeLink = document.querySelector(".sidebar-link.active");
+        if (activeLink && typeof activeLink.scrollIntoView === "function") {
+            activeLink.scrollIntoView({ block: "nearest" });
+        }
+
+        // 4. Apparition en cascade des cartes KPI / panneaux (stagger léger)
+        var cards = document.querySelectorAll(".card-dashboard, .kpi-card");
+        if (cards.length && "IntersectionObserver" in window) {
+            cards.forEach(function (card, i) {
+                card.style.opacity = "0";
+                card.style.transform = "translateY(8px)";
+                card.style.transition = "opacity 0.4s cubic-bezier(0.4,0,0.2,1), transform 0.4s cubic-bezier(0.4,0,0.2,1), box-shadow 0.22s cubic-bezier(0.4,0,0.2,1), border-color 0.22s cubic-bezier(0.4,0,0.2,1)";
+                card.style.transitionDelay = (i * 60) + "ms";
+            });
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = "1";
+                        entry.target.style.transform = "translateY(0)";
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.08 });
+            cards.forEach(function (card) { observer.observe(card); });
+        }
+
+        // 5. Soumission AJAX fluide du formulaire de Feedback global
         var feedbackForm = document.getElementById("globalFeedbackForm");
         if (feedbackForm) {
             feedbackForm.addEventListener("submit", function (e) {
