@@ -34,6 +34,14 @@ def assert_accent_contrast(element):
     assert ratio >= 4.5, ratio
 
 
+def assert_centered_with_gutters(element):
+    left, right = element.evaluate('''node => {
+        const bounds = node.getBoundingClientRect();
+        return [bounds.left, document.documentElement.clientWidth - bounds.right];
+    }''')
+    assert min(left, right) >= 11 and abs(left - right) <= 1, (left, right)
+
+
 def run_browser(base, cookies, product, server_pdf):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel=os.environ.get('ADGH_SMOKE_BROWSER_CHANNEL'))
@@ -56,14 +64,18 @@ def run_browser(base, cookies, product, server_pdf):
             public.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base + '/') else route.abort())
             visitor = public.new_page()
             visitor.on('pageerror', lambda error: failures.append(str(error)))
-            for width, height in ((320, 760), (390, 844), (768, 1024), (1440, 900)):
+            public_sizes = ((320, 760), (390, 844), (768, 1024), (1366, 768), (1440, 900))
+            for width, height in public_sizes:
                 visitor.set_viewport_size({'width': width, 'height': height})
                 assert visitor.goto(base + '/').ok
                 assert visitor.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+                assert_centered_with_gutters(visitor.locator('.marketing-hero'))
                 cta = visitor.locator('.marketing-hero').get_by_role('link', name='Créer mon compte gratuit')
                 expect(cta).to_be_visible()
                 assert_accent_contrast(cta)  # no hover
             visitor.set_viewport_size({'width': 390, 'height': 844})
+            visitor.locator('.public-footer').get_by_role('link', name='Politique de confidentialité').click()
+            expect(visitor.get_by_role('heading', name='Politique de confidentialité')).to_be_visible()
             visitor.goto(base + '/')
             for _ in range(14):
                 visitor.keyboard.press('Tab')
@@ -80,16 +92,30 @@ def run_browser(base, cookies, product, server_pdf):
             visitor.locator('#Input_ConfirmPassword').fill(password)
             visitor.get_by_role('button', name='Créer mon entreprise').click()
             expect(visitor.locator('#acceptTerms')).not_to_be_checked()
+            with visitor.expect_popup() as privacy_tab:
+                visitor.locator('main').get_by_role('link', name='politique de confidentialité').click()
+            privacy = privacy_tab.value
+            expect(privacy.get_by_role('heading', name='Politique de confidentialité')).to_be_visible()
+            privacy.close()
             visitor.get_by_role('button', name='Accepter et continuer').click()
             expect(visitor.locator('#acceptTerms')).to_be_visible()
             visitor.locator('#acceptTerms').check()
             visitor.get_by_role('button', name='Accepter et continuer').click()
             expect(visitor.get_by_role('heading', name='Configurer ma boutique')).to_be_visible()
-            assert visitor.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+            for width, height in public_sizes:
+                visitor.set_viewport_size({'width': width, 'height': height})
+                assert visitor.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+                assert_centered_with_gutters(visitor.locator('main .page-heading'))
+                assert_centered_with_gutters(visitor.locator('.settings-form'))
+            visitor.set_viewport_size({'width': 390, 'height': 844})
             # Skipping is independent of this form, even when a required field is blank.
             visitor.locator('#StoreName').fill('')
             visitor.get_by_role('button', name='Configurer plus tard').click()
             expect(visitor.get_by_role('heading', name='Tableau de bord')).to_be_visible()
+            expect(visitor.locator('.app-topbar .dropdown-menu a[href^="/Infos/"]')).to_have_count(0)
+            expect(visitor.locator('.app-footer').get_by_role('link', name='Mentions légales')).to_be_visible()
+            visitor.locator('.app-footer').get_by_role('link', name='Confidentialité').click()
+            expect(visitor.get_by_role('heading', name='Politique de confidentialité')).to_be_visible()
             public.close()
 
             page.set_viewport_size({'width': 390, 'height': 844})
@@ -127,6 +153,7 @@ def run_browser(base, cookies, product, server_pdf):
             assert_receipt_pdf(page.pdf(format='A4'))
             assert_receipt_pdf(server_pdf)
             assert not failures, failures
-            print('Chromium : vitrine, contraste clavier, onboarding, saisie multiligne et logo/attribution dans les deux PDF validés.')
+            print('Chromium : marges de la vitrine et de la configuration, liens légaux, contraste clavier, '
+                  'onboarding, saisie multiligne et logo/attribution dans les deux PDF validés.')
         finally:
             browser.close()

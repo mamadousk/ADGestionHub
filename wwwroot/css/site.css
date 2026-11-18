@@ -385,6 +385,26 @@ input[type="number"],
     animation: fadeUp 0.45s var(--ease) both;
 }
 
+.app-footer {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    width: 100%;
+    max-width: 1380px;
+    margin-inline: auto;
+    padding: 0 1.6rem 1rem;
+    font-size: 0.78rem;
+}
+
+.app-footer a {
+    color: var(--text-secondary);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.app-footer a:hover { color: var(--text-primary); }
+
 @keyframes fadeUp {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -1131,6 +1151,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
         padding: 1rem;
     }
 
+    .app-footer { padding-inline: 1rem; }
+
     .topbar-search {
         display: none;
     }
@@ -1201,7 +1223,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 .section-eyebrow a:hover { text-decoration:underline; }
 .tiny-dot { width:7px; height:7px; border-radius:50%; background:#ed6a3a; display:inline-block; margin-right:.4rem; vertical-align:.1em; }
 .compact-form { max-width:760px; }
-.auth-surface { max-width:560px; padding:0 1rem; }
+.auth-surface { max-width:560px; }
 .filter-panel { display:flex; align-items:flex-end; flex-wrap:wrap; gap:.75rem; padding:.85rem 1rem; }
 .filter-panel .form-label { margin-bottom:.25rem; font-size:.8rem; }
 .filter-grow { flex:1 1 14rem; }
