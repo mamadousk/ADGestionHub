@@ -74,6 +74,12 @@ try
         finally { await server.Database.EnsureDeletedAsync(); }
     }
 }
+catch (Exception error)
+{
+    var annotation = error.ToString().Replace("%", "%25").Replace("\r", "%0D").Replace("\n", "%0A");
+    Console.Error.WriteLine($"::error title=Échec du scénario métier ou de migration::{annotation}");
+    throw;
+}
 finally { directory.Delete(recursive: true); }
 
 static void CheckSnapshot(ApplicationDbContext db)
