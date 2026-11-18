@@ -4,6 +4,10 @@ name: Vérifications du MVP
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke:
     runs-on: ubuntu-24.04
@@ -24,18 +28,12 @@ jobs:
       - run: dotnet run --project tests/CommerceSmoke --no-build
       - name: Parcours HTTP
         run: python3 tests/http_smoke.py
-      - name: Installer Chromium
-        shell: bash
+      - name: Recette responsive et impression
         run: |
-          set -o pipefail
+          google-chrome --version
           python3 -m venv .venv
           .venv/bin/python -m pip install playwright==1.65.2
-          if ! .venv/bin/python -m playwright install --with-deps chromium 2>&1 | tee "$RUNNER_TEMP/playwright-install.log"; then
-            echo "::error title=Installation Chromium::$(tail -8 "$RUNNER_TEMP/playwright-install.log" | tr '\n' ' ')"
-            exit 1
-          fi
-      - name: Recette responsive et impression
-        run: ADGH_SMOKE_BROWSER=1 .venv/bin/python tests/http_smoke.py
+          ADGH_SMOKE_BROWSER=1 ADGH_SMOKE_BROWSER_CHANNEL=chrome .venv/bin/python tests/http_smoke.py
 
   sql-server:
     runs-on: ubuntu-24.04

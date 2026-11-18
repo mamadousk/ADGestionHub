@@ -162,6 +162,10 @@ def run(base):
     except AssertionError:
         path, _, _ = staff.request('/Reports/Index', expected=403)
     assert path.endswith('/AccessDenied'), path
+    _, audit, _ = a.request('/Settings/Audit')
+    assert f'Compte employé créé : {username}' in small_text(audit)
+    _, audit, _ = b.request('/Settings/Audit')
+    assert username not in small_text(audit)
     print('Parcours HTTP : inscription, stock, ventes, règlements, achats, devis, exports et isolation réussis.')
     if os.environ.get('ADGH_SMOKE_BROWSER') == '1':
         from browser_smoke import run_browser

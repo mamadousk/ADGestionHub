@@ -1,4 +1,5 @@
 """Vérification Chromium, appelée par http_smoke.py avec ADGH_SMOKE_BROWSER=1."""
+import os
 from urllib.parse import urlparse
 
 from playwright.sync_api import expect, sync_playwright
@@ -6,7 +7,7 @@ from playwright.sync_api import expect, sync_playwright
 
 def run_browser(base, cookies, product):
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(channel=os.environ.get('ADGH_SMOKE_BROWSER_CHANNEL'))
         try:
             context = browser.new_context(locale='fr-CD')
             context.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base + '/') else route.abort())
