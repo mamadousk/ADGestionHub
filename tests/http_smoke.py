@@ -17,7 +17,7 @@ import tempfile
 import time
 import traceback
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import quote, urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 from uuid import uuid4
 import zlib
@@ -83,6 +83,8 @@ def small_text(html):
 PNG_HEADER = b'\x89PNG\r\n\x1a\n'
 TERMS = '/Onboarding/Terms'
 SETUP = '/Settings/Setup'
+PRIVACY = '/Infos/Confidentialite'
+PRIVACY_ACCENTED = quote('/Infos/Confidentialité')
 SETTINGS = {'StoreName': 'Pilote Marchand A', 'PrimaryCurrencyCode': 'CDF', 'CdfPerUsd': '2800,125678',
             'CustomPaymentMethods': 'Bon test', 'Address': '12 avenue des tests', 'Phone': '+243800000000',
             'ContactEmail': 'boutique-a@example.test', 'Description': 'Épicerie et denrées', 'FooterMessage': 'Merci pour votre passage.'}
@@ -103,6 +105,12 @@ def receipt_logo(html):
     return b64decode(match[1]) if match else None
 
 
+def assert_privacy(browser, url=PRIVACY):
+    path, html, kind = browser.request(url)
+    assert path == PRIVACY and kind == 'text/html', (url, path, kind)
+    assert '<h1>Politique de confidentialité</h1>' in small_text(html)
+
+
 def checkout(browser, password, name, configure):
     email = f'{uuid4().hex}@example.test'
     path, terms, _ = browser.post('/Identity/Account/Register', {
@@ -114,6 +122,7 @@ def checkout(browser, password, name, configure):
     for url in ('/Home/Index', '/Settings/Setup', '/Reports/Export?format=csv'):
         assert browser.request(url)[0] == TERMS
     browser.request('/Infos/CGU')  # The legal texts remain accessible before acceptance.
+    assert_privacy(browser, PRIVACY_ACCENTED)
     assert browser.post('/Settings/SkipSetup', {}, source=TERMS)[0] == TERMS
     browser.request(TERMS, {'version': version, 'acceptTerms': 'true'}, expected=400)
     assert browser.post(TERMS, {'version': version})[0] == TERMS
@@ -169,13 +178,18 @@ def run(base, db_file):
     password = 'Pilote-' + uuid4().hex + '!9'
     a, b, staff, public = (Browser(base) for _ in range(4))
     path, html, _ = public.request('/')
-    assert path == '/' and 'Version 1 gratuite' in small_text(html) and 'Créer mon compte gratuit' in small_text(html)
+    text = small_text(html)
+    assert path == '/' and 'Accès gratuit' in text and 'Créer mon compte gratuit' in text
+    assert 'Version 1 gratuite' not in text and 'V1 gratuite' not in text
     assert 'https://fonts.googleapis' not in html.decode() and 'cookieConsent' not in html.decode()
     for doc in ('CGU', 'MentionsLegales', 'Confidentialite', 'Cookies'):
         path, html, _ = public.request(f'/Infos/{doc}')
         text = small_text(html)
         assert doc in path and 'Adhil Digital Solutions' in text and 'contact@adhildigital.com' in text
         assert 'RCCM' not in text and 'contact@adhil-digital.com' not in text
+    assert_privacy(public)
+    assert_privacy(public, PRIVACY_ACCENTED)
+    assert_privacy(public, '/Home/Privacy')
     email_a = checkout(a, password, 'Pilote Marchand A', configure=True)
     path, _, _ = a.post('/Products/Create', {
         'Name': 'Riz Pilote', 'PurchasePrice': '900,35', 'SalePrice': '2000,50', 'StockQuantity': '8',

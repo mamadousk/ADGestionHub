@@ -1,4 +1,4 @@
-# AD Gestion Hub — V1 gratuite
+# AD Gestion Hub — Gestion commerciale gratuite
 
 **Gérez votre boutique. Gardez le contrôle.**
 
