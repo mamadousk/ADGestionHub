@@ -1,23 +1,18 @@
 @model IReadOnlyList<DocumentBalance>
 @{
-    ViewData["Title"] = "Créances et dettes";
-    var receivables = Model.Where(d => d.Kind != "Purchase").ToList();
-    var payables = Model.Where(d => d.Kind == "Purchase").ToList();
+    ViewData["Title"] = "Créances clients";
     var currentCurrency = Context.Request.Query["currency"].ToString();
 }
-<div class="page-heading"><div><p class="section-eyebrow">Trésorerie</p><h1>Créances et dettes</h1><p>Les soldes ouverts sont calculés automatiquement à partir des ventes, des achats et de leurs règlements.</p></div></div>
+<div class="page-heading"><div><p class="section-eyebrow">Trésorerie</p><h1>Créances clients</h1><p>Retrouvez les montants qu’il vous reste à encaisser après les règlements déjà enregistrés.</p></div></div>
 <form asp-action="Index" method="get" class="panel-card filter-panel mb-3">
     <div><label for="debtCurrency" class="form-label">Devise</label><select id="debtCurrency" name="currency" class="form-select"><option value="">Toutes</option><option value="CDF" selected="@(currentCurrency == "CDF")">CDF</option><option value="USD" selected="@(currentCurrency == "USD")">USD</option></select></div>
     <button type="submit" class="btn btn-secondary-outline">Filtrer</button>
 </form>
-@foreach (var group in new[] { (Title: "Créances clients", Rows: receivables), (Title: "Dettes fournisseurs", Rows: payables) })
-{
-    <section class="panel-card mb-3">
-        <div class="p-3 p-md-4 d-flex flex-wrap gap-2 justify-content-between align-items-center"><h2 class="h6 mb-0">@group.Title</h2>
-            <div class="d-flex gap-2 flex-wrap">
-                @foreach (var currency in group.Rows.GroupBy(r => r.Currency).OrderBy(r => r.Key)) { <span class="status-pill warning num">@Money.Display(currency.Sum(r => r.Balance), currency.Key)</span> }
-            </div>
+<section class="panel-card mb-3">
+    <div class="p-3 p-md-4 d-flex flex-wrap gap-2 justify-content-between align-items-center"><h2 class="h6 mb-0">Soldes à encaisser</h2>
+        <div class="d-flex gap-2 flex-wrap">
+            @foreach (var currency in Model.GroupBy(r => r.Currency).OrderBy(r => r.Key)) { <span class="status-pill warning num">@Money.Display(currency.Sum(r => r.Balance), currency.Key)</span> }
         </div>
-        <partial name="_BalanceTable" model="group.Rows" />
-    </section>
-}
+    </div>
+    <partial name="_BalanceTable" model="Model" />
+</section>

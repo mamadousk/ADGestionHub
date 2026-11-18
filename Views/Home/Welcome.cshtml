@@ -1,35 +1,132 @@
-@{ ViewData["Title"] = "Gestion commerciale en RDC"; }
-<div class="container welcome-surface py-4 py-lg-5">
-    <section class="welcome-hero">
-        <div class="welcome-copy">
-            <span class="welcome-kicker"><span class="tiny-dot"></span> Gestion commerciale · RDC</span>
-            <h1>Pilotez votre activité.<br /><span>Maîtrisez vos chiffres.</span></h1>
-            <p>Ventes, stocks, achats et règlements : gérez votre commerce au même endroit et voyez ce qui reste à encaisser, en CDF ou en USD.</p>
-            <div class="d-flex flex-wrap gap-2"><a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent">Créer mon entreprise @LucideIcons.Svg("arrow-right", 17, "ms-2")</a><a asp-area="Identity" asp-page="/Account/Login" class="btn btn-secondary-outline">Se connecter</a></div>
-            <div class="welcome-footnote">@LucideIcons.Svg("check", 16, "me-1") Accessible sur téléphone et ordinateur</div>
+@{
+    ViewData["Title"] = "Logiciel gratuit de gestion commerciale en RDC";
+    ViewData["MetaDescription"] = "AD Gestion Hub est un logiciel gratuit pour gérer vos ventes, stocks, créances et dépenses en RDC. Créez votre boutique et suivez votre activité en CDF ou USD.";
+    ViewData["Marketing"] = true;
+}
+<div class="marketing-page">
+    <section class="marketing-hero" aria-labelledby="hero-title">
+        <div class="marketing-hero-copy">
+            <span class="marketing-tag"><span class="tiny-dot"></span> Gestion commerciale en RDC</span>
+            <h1 id="hero-title">Gérez votre boutique. <span>Gardez le contrôle.</span></h1>
+            <p class="marketing-lead">De la vente au suivi des créances, AD Gestion Hub rassemble les outils dont votre commerce a besoin au quotidien. Retrouvez vos ventes, votre stock et votre trésorerie au même endroit.</p>
+            <div class="marketing-actions">
+                <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent">Créer mon compte gratuit @LucideIcons.Svg("arrow-right", 18)</a>
+                <a href="#fonctionnalites" class="btn btn-secondary-outline">Découvrir les fonctionnalités</a>
+            </div>
+            <ul class="marketing-checks list-unstyled mb-0" aria-label="Informations sur l’offre">
+                <li>@LucideIcons.Svg("check", 16) Version 1 gratuite</li>
+                <li>@LucideIcons.Svg("check", 16) Sans carte bancaire</li>
+                <li>@LucideIcons.Svg("check", 16) Téléphone et ordinateur</li>
+            </ul>
         </div>
-        <div class="welcome-preview" aria-label="Exemple de tableau de bord">
-            <div class="preview-top"><span class="brand-mark">A</span><div><strong>Tableau de bord</strong><small>Boutique exemple</small></div><span class="status-pill ms-auto">CDF</span></div>
-            <div class="preview-metrics">
-                <div><small>Ventes du mois</small><b class="num">1 245 000 CDF</b></div>
-                <div><small>Recettes encaissées</small><b class="num">970 000 CDF</b></div>
+        <figure class="marketing-preview mb-0" aria-labelledby="preview-caption">
+            <div class="preview-hdr">
+                <div class="preview-app-logo" aria-hidden="true">A</div>
+                <div><strong>Boutique Limete</strong><small>Espace de gestion</small></div>
+                <span class="preview-demo">Démo</span>
             </div>
-            <div class="preview-chart"><div class="d-flex justify-content-between gap-2"><strong>Évolution des ventes</strong><small>Exemple</small></div>
-                <svg viewBox="0 0 360 105" role="img" aria-label="Courbe illustrative des ventes">
-                    <defs><linearGradient id="previewGradient" x1="0" x2="0" y1="0" y2="1" gradientUnits="objectBoundingBox"><stop offset="0%" stop-color="#ff6539" stop-opacity=".25"/><stop offset="100%" stop-color="#ff6539" stop-opacity="0"/></linearGradient></defs>
-                    <path d="M4 93 H356 M4 60 H356 M4 27 H356" fill="none" stroke="#e8eaf2" stroke-dasharray="4 4" />
-                    <path d="M4 90 C40 91 52 70 79 75 S111 52 145 56 S175 81 211 53 S242 65 269 43 S309 53 356 13 V103 H4 Z" fill="url(#previewGradient)"/>
-                    <path d="M4 90 C40 91 52 70 79 75 S111 52 145 56 S175 81 211 53 S242 65 269 43 S309 53 356 13" fill="none" stroke="#e8552e" stroke-width="3" stroke-linecap="round"/>
-                    <circle cx="356" cy="13" r="4" fill="#e8552e"/>
-                </svg>
+            <div class="preview-body">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><strong class="preview-title">Tableau de bord</strong><span class="status-pill num">CDF</span></div>
+                <dl class="preview-metrics">
+                    <div><dt>Ventes de la période</dt><dd class="num">244 000 CDF</dd></div>
+                    <div><dt>Déjà encaissé</dt><dd class="num">182 000 CDF</dd></div>
+                </dl>
+                <div class="preview-chart">
+                    <div class="d-flex justify-content-between gap-2"><strong>Évolution des ventes</strong><small>7 derniers jours</small></div>
+                    <div class="preview-bars" aria-hidden="true">
+                        <span style="--bar:31%"></span><span style="--bar:55%"></span><span style="--bar:43%"></span><span style="--bar:67%"></span><span style="--bar:49%"></span><span style="--bar:71%"></span><span style="--bar:91%"></span>
+                    </div>
+                    <div class="preview-days num" aria-hidden="true"><span>Lun.</span><span>Mar.</span><span>Mer.</span><span>Jeu.</span><span>Ven.</span><span>Sam.</span><span>Dim.</span></div>
+                </div>
+                <div class="preview-status">
+                    <div><span class="metric-icon orange">@LucideIcons.Svg("clock", 16)</span><span>Reste à encaisser</span><strong class="num">62 000 CDF</strong></div>
+                    <div><span class="metric-icon indigo">@LucideIcons.Svg("package", 16)</span><span>Produits au seuil</span><strong>2 articles</strong></div>
+                </div>
             </div>
-            <div class="preview-bottom"><span>@LucideIcons.Svg("package", 16) Suivi du stock</span><span class="status-pill warning">2 alertes</span></div>
+            <figcaption id="preview-caption">Aperçu illustratif · Données fictives</figcaption>
+        </figure>
+    </section>
+
+    <section id="fonctionnalites" class="marketing-section" aria-labelledby="features-title">
+        <div class="marketing-section-heading">
+            <p class="section-eyebrow">Fonctionnalités incluses</p>
+            <h2 id="features-title">Du comptoir au tableau de bord</h2>
+            <p>Gardez le fil de vos opérations sans ressaisir les mêmes informations dans plusieurs outils.</p>
+        </div>
+        <div class="marketing-features">
+            <article class="panel-card marketing-feature">
+                <span class="metric-icon orange">@LucideIcons.Svg("receipt", 22)</span>
+                <h3>Ventes, reçus et factures</h3>
+                <p>Regroupez plusieurs articles sur une vente et indiquez si elle est réglée, partiellement réglée ou à crédit. La sortie de stock est enregistrée automatiquement.</p>
+                <p class="feature-detail">Imprimez ou téléchargez un document commercial en PDF, avec le logo et les coordonnées de votre boutique.</p>
+            </article>
+            <article class="panel-card marketing-feature">
+                <span class="metric-icon indigo">@LucideIcons.Svg("package", 22)</span>
+                <h3>Catalogue et stock</h3>
+                <p>Organisez vos produits par référence, avec leurs prix et quantités. Repérez les articles qui atteignent leur seuil d’alerte avant la rupture.</p>
+                <p class="feature-detail">Enregistrez une entrée ou un ajustement et retrouvez le motif dans l’historique des mouvements.</p>
+            </article>
+            <article class="panel-card marketing-feature">
+                <span class="metric-icon green">@LucideIcons.Svg("wallet", 22)</span>
+                <h3>Clients et encaissements</h3>
+                <p>Consultez l’historique d’un client, enregistrez ses versements à mesure qu’ils arrivent et voyez ce qu’il reste à encaisser.</p>
+                <p class="feature-detail">Distinguez les ventes réalisées, les sommes effectivement reçues et les recettes diverses.</p>
+            </article>
+            <article class="panel-card marketing-feature">
+                <span class="metric-icon amber">@LucideIcons.Svg("file-text", 22)</span>
+                <h3>Dépenses courantes</h3>
+                <p>Notez vos charges, comme le transport, le loyer ou les fournitures, avec leur date, leur devise et leur moyen de paiement.</p>
+                <p class="feature-detail">Retrouvez les dépenses par catégorie et consultez-les à côté de vos recettes dans les rapports.</p>
+            </article>
+            <article class="panel-card marketing-feature">
+                <span class="metric-icon indigo">@LucideIcons.Svg("bar-chart-3", 22)</span>
+                <h3>Rapports et exports</h3>
+                <p>Suivez le chiffre d’affaires, les encaissements, les créances à la clôture et les produits les plus vendus, par période et par devise.</p>
+                <p class="feature-detail">Exportez en PDF, Excel ou CSV pour partager vos chiffres ou les rapprocher de votre comptabilité.</p>
+            </article>
+            <article class="panel-card marketing-feature">
+                <span class="metric-icon orange">@LucideIcons.Svg("users", 22)</span>
+                <h3>Équipe et accès distincts</h3>
+                <p>Attribuez un compte à chaque collaborateur. Les employés peuvent assurer les opérations courantes sans accéder aux paramètres ni aux rapports d’administration.</p>
+                <p class="feature-detail">L’administrateur gère les comptes et dispose d’un journal d’activité pour les opérations importantes.</p>
+            </article>
         </div>
     </section>
-    <section class="welcome-features" aria-label="Fonctionnalités principales">
-        <article class="panel-card"><span class="metric-icon orange">@LucideIcons.Svg("shopping-bag", 21)</span><h2>Vendez au quotidien</h2><p>Enregistrez une vente à plusieurs articles et imprimez sa facture commerciale.</p></article>
-        <article class="panel-card"><span class="metric-icon indigo">@LucideIcons.Svg("package", 21)</span><h2>Gardez le stock à jour</h2><p>Suivez les quantités, les livraisons fournisseurs et les articles à réapprovisionner.</p></article>
-        <article class="panel-card"><span class="metric-icon green">@LucideIcons.Svg("wallet", 21)</span><h2>Sachez ce qui est payé</h2><p>Retrouvez les règlements partiels, les créances et les dettes, sans mélanger les devises.</p></article>
+
+    <section class="marketing-offer" aria-labelledby="offer-title">
+        <div><p class="section-eyebrow">Pensé pour les commerces en RDC</p><h2 id="offer-title">Travaillez en francs congolais ou en dollars.</h2>
+            <p>Choisissez la devise habituelle de votre catalogue. Indiquez votre taux manuel pour utiliser le CDF et l’USD sans additionner des montants de devises différentes. Les taux enregistrés sur les anciennes opérations ne changent pas.</p></div>
+        <div class="marketing-currency" aria-label="Devises prises en charge">
+            <div><strong class="num">CDF</strong><span>Franc congolais</span></div>
+            <div><strong class="num">USD</strong><span>Dollar américain</span></div>
+        </div>
     </section>
-    <p class="text-slate small mb-0 mt-4">Les factures émises sont des documents commerciaux ordinaires, non normalisés par la DGI.</p>
+
+    <section id="demarrage" class="marketing-section" aria-labelledby="getting-started-title">
+        <div class="marketing-section-heading">
+            <p class="section-eyebrow">Premiers pas</p>
+            <h2 id="getting-started-title">Ouvrez votre espace en trois étapes</h2>
+            <p>Pas d’abonnement à souscrire ni de paiement à effectuer pour utiliser cette version.</p>
+        </div>
+        <ol class="marketing-steps list-unstyled">
+            <li class="panel-card"><span class="marketing-step-index num" aria-hidden="true">01</span><h3>Créez votre compte</h3><p>Renseignez le nom de votre boutique et vos identifiants. Le compte administrateur est créé avec votre espace.</p></li>
+            <li class="panel-card"><span class="marketing-step-index num" aria-hidden="true">02</span><h3>Lisez et acceptez les conditions</h3><p>Prenez connaissance des <a asp-controller="Infos" asp-action="CGU">conditions d’utilisation</a> et confirmez que vous les acceptez pour accéder au service.</p></li>
+            <li class="panel-card"><span class="marketing-step-index num" aria-hidden="true">03</span><h3>Personnalisez votre boutique</h3><p>Ajoutez votre logo, vos coordonnées et vos préférences, ou passez cette étape et ajoutez votre premier produit.</p></li>
+        </ol>
+    </section>
+
+    <section id="faq" class="marketing-faq marketing-section" aria-labelledby="faq-title">
+        <div class="marketing-section-heading"><p class="section-eyebrow">Questions fréquentes</p><h2 id="faq-title">Ce qu’il faut savoir avant de commencer</h2></div>
+        <div class="marketing-faq-list">
+            <details class="panel-card"><summary>Que comprend la version gratuite&nbsp;?</summary><p>Toutes les fonctionnalités présentées sur cette page sont comprises dans la V1. L’inscription ne demande ni carte bancaire ni abonnement. Il vous faut une connexion Internet et un navigateur.</p></details>
+            <details class="panel-card"><summary>AD Gestion Hub reçoit-il l’argent de mes clients&nbsp;?</summary><p>Non. Vous recevez les paiements par vos moyens habituels, puis vous les enregistrez dans votre espace : espèces, Mobile Money, virement ou autre moyen configuré. Le service ne déclenche pas de transaction.</p></details>
+            <details class="panel-card"><summary>Les documents sont-ils des factures normalisées&nbsp;?</summary><p>Non. Les reçus et factures de la V1 sont des documents commerciaux ordinaires, non normalisés DGI. Ils ne se substituent pas aux pièces fiscales exigées pour votre activité.</p></details>
+            <details class="panel-card"><summary>Puis-je configurer mon espace plus tard&nbsp;?</summary><p>Oui. Seule l’acceptation des conditions est obligatoire. Le formulaire de configuration peut être ignoré et reste accessible à l’administrateur depuis les paramètres.</p></details>
+        </div>
+    </section>
+
+    <section class="marketing-final" aria-labelledby="final-title">
+        <div><p class="section-eyebrow">Prêt à démarrer&nbsp;?</p><h2 id="final-title">Enregistrez votre première vente.</h2><p>Créez votre compte gratuit, ajoutez un produit et commencez à suivre votre activité.</p></div>
+        <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent">Créer mon compte gratuit @LucideIcons.Svg("arrow-right", 18)</a>
+    </section>
 </div>

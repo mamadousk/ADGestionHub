@@ -14,7 +14,7 @@ public sealed class CommerceWriter(ApplicationDbContext db, IHttpContextAccessor
         try
         {
             // Lock the tenant row before reading amounts or stock. Payment, cancellation,
-            // reception and configuration share the same lock, including across app instances.
+            // configuration and onboarding share the same lock, including across app instances.
             var locked = await db.Boutiques.Where(b => b.Id == shop && b.IsActive)
                 .ExecuteUpdateAsync(update => update.SetProperty(b => b.IsActive, b => b.IsActive));
             if (locked != 1) throw new CommerceNotFoundException();

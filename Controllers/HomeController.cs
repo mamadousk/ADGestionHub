@@ -30,7 +30,7 @@ public sealed class HomeController(IBoutiqueService boutiques, ITenantContextSer
     }
 
     [AllowAnonymous]
-    public IActionResult Privacy() => View();
+    public IActionResult Privacy() => RedirectToAction("Confidentialite", "Infos");
 
     [AllowAnonymous]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

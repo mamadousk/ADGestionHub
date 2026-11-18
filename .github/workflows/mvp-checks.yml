@@ -32,7 +32,7 @@ jobs:
         run: |
           google-chrome --version
           python3 -m venv .venv
-          .venv/bin/python -m pip install playwright==1.65.2
+          .venv/bin/python -m pip install playwright==1.65.2 pypdf==6.4.1
           ADGH_SMOKE_BROWSER=1 ADGH_SMOKE_BROWSER_CHANNEL=chrome .venv/bin/python tests/http_smoke.py
 
   sql-server:

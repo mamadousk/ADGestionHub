@@ -1,31 +1,60 @@
 @{
-    ViewData["Title"] = L.T("Conditions Générales d'Utilisation", "Terms of Service");
+    ViewData["Title"] = "Conditions générales d’utilisation";
+    ViewData["LegalSummary"] = "Les règles qui encadrent l’accès à AD Gestion Hub et son utilisation à titre professionnel.";
+    ViewData["LegalVersion"] = LegalPublication.TermsVersion;
+    ViewData["PublicShell"] = true;
 }
-
-<div class="container py-5" style="max-width: 820px;">
-    <div class="panel-card p-4 p-lg-5">
-        <h1 class="h3 fw-bold mb-1">@ViewData["Title"]</h1>
-        <p class="text-slate small mb-4 num">@L.T("Mise à jour :", "Updated:") @DateTime.UtcNow.ToString("dd/MM/yyyy")</p>
-
-        <h2 class="h6 fw-semibold mt-4">1. @L.T("Objet du service", "Scope of Service")</h2>
-        <p class="text-slate small">
-            @L.T(
-                "AdGestionHub est une plateforme SaaS de gestion commerciale, de caisse multi-devises, de stock et de documents commerciaux. Les factures de cette version ne sont pas normalisées DGI.",
-                "AdGestionHub is a SaaS platform for commercial operations, multi-currency POS, inventory management, and localized invoicing.")
-        </p>
-
-        <h2 class="h6 fw-semibold mt-4">2. @L.T("Cloisonnement et propriété des données", "Tenant Isolation & Data Ownership")</h2>
-        <p class="text-slate small">
-            @L.T(
-                "Chaque établissement dispose d'un espace strictement cloisonné. Les écritures comptables et pièces émises conservent intégralement les devises, taux et paramètres fiscaux en vigueur au moment de leur création.",
-                "Each business operates in an isolated workspace. Accounting entries and issued documents permanently retain the currencies, rates, and tax parameters active at creation time.")
-        </p>
-
-        <h2 class="h6 fw-semibold mt-4">3. @L.T("Sécurité & Responsabilités", "Security & Responsibilities")</h2>
-        <p class="text-slate small mb-0">
-            @L.T(
-                "L'utilisateur demeure responsable de l'exactitude des identifiants légaux et taux de taxe renseignés dans son espace Paramètres.",
-                "Users remain responsible for the accuracy of legal identifiers and tax rates configured in their Settings.")
-        </p>
+<article class="legal-shell">
+    <partial name="_LegalHeader" />
+    <div class="legal-copy panel-card">
+        <section>
+            <h2>1. Éditeur et objet des conditions</h2>
+            <p>AD Gestion Hub est un service en ligne édité par <strong>@LegalPublication.Publisher</strong>, établi à @LegalPublication.Address et joignable à l’adresse <a href="mailto:@LegalPublication.Email">@LegalPublication.Email</a>. Les présentes conditions s’appliquent au compte administrateur de l’entreprise et aux utilisateurs qu’elle autorise. La personne qui crée un espace au nom d’une entreprise déclare être habilitée à le faire et à organiser les accès de ses collaborateurs.</p>
+            <p>Le service est destiné au suivi opérationnel des ventes, des clients et de leurs règlements, des produits et de leur stock, ainsi que des dépenses. Il propose également des documents commerciaux, des rapports et des exports. Le détail des fonctionnalités accessibles dépend du rôle de l’utilisateur.</p>
+        </section>
+        <section>
+            <h2>2. Inscription et acceptation électronique</h2>
+            <p>L’inscription crée un compte administrateur et un espace au nom indiqué. Avant l’envoi du formulaire, vous pouvez relire et corriger les informations saisies. Une fois le compte créé, vous pouvez lire ces conditions, les imprimer ou en conserver une copie. Vous devez ensuite cocher la case prévue à cet effet et valider votre choix. Créer un compte, consulter le site ou ignorer la configuration de la boutique ne vaut pas acceptation.</p>
+            <p>L’accès aux fonctionnalités s’ouvre après validation. À titre de preuve, l’éditeur conserve l’identifiant du compte, la version acceptée et la date et l’heure de la validation. Une copie des conditions applicables au compte peut être demandée par e-mail. Si vous ne souhaitez pas accepter, vous pouvez vous déconnecter ; aucun usage de l’espace de gestion n’est alors possible.</p>
+        </section>
+        <section>
+            <h2>3. Gratuité de la V1</h2>
+            <p>L’inscription et l’utilisation des fonctions de cette version sont gratuites : aucun abonnement, engagement tarifaire ou moyen de paiement n’est demandé. Les coûts de connexion à Internet ou d’équipement restent à la charge de l’utilisateur. Si une offre payante distincte est proposée ultérieurement, son prix, sa durée et ses conditions seront indiqués avant toute souscription. Aucun débit ni passage à une offre payante ne résultera de la seule création du compte ou de l’acceptation des présentes conditions.</p>
+        </section>
+        <section>
+            <h2>4. Compte, accès et utilisation autorisée</h2>
+            <p>Les identifiants sont personnels. L’utilisateur doit maintenir ses coordonnées à jour, choisir un mot de passe robuste et préserver sa confidentialité. L’administrateur est chargé d’attribuer les accès selon les besoins de chaque collaborateur et de les retirer dès qu’ils ne sont plus justifiés. Toute suspicion de compromission doit être signalée rapidement à l’éditeur.</p>
+            <p>Il est interdit d’utiliser le service pour porter atteinte aux droits de tiers, traiter des données sans droit, introduire des fichiers nuisibles, usurper une identité, accéder à un espace sans autorisation ou perturber la disponibilité du service. Les contenus partagés, notamment les logos, données de clients et commentaires, doivent être licites. N’utilisez pas les champs libres pour stocker des secrets, des moyens d’authentification ou des données sensibles sans nécessité.</p>
+        </section>
+        <section>
+            <h2>5. Enregistrements, taux et documents commerciaux</h2>
+            <p>L’entreprise vérifie les prix, quantités, clients, taux de change et versements saisis. Un encaissement est l’enregistrement d’une somme reçue en dehors du service : AD Gestion Hub ne transfère ni ne détient de fonds et ne vérifie pas les transactions effectuées auprès d’une banque ou d’un opérateur de paiement. Le taux est renseigné par l’entreprise ; ce n’est pas un cours officiel fourni ou garanti par l’éditeur.</p>
+            <p>Les reçus et factures générés sont des documents commerciaux ordinaires, <strong>non normalisés DGI</strong>. Le service ne remplace ni une comptabilité réglementaire, ni les déclarations, livres et justificatifs exigés pour votre activité. Les montants et taux enregistrés ne sont pas recalculés à la suite d’un changement de configuration. Les coordonnées et le logo affichés lors d’une réimpression sont ceux actuellement configurés : conservez une copie du document remis au client si vous devez en garder l’apparence exacte.</p>
+        </section>
+        <section>
+            <h2>6. Données et propriété intellectuelle</h2>
+            <p>L’entreprise conserve ses droits sur ses données, fichiers et signes distinctifs. Elle autorise l’éditeur à les stocker, les traiter et les restituer dans la mesure nécessaire au fonctionnement, à la sécurité et à l’assistance du service. Elle doit disposer des droits nécessaires sur les informations et logos déposés et ne pas retirer ou altérer la mention d’origine d’un document dans le but d’en tromper le destinataire.</p>
+            <p>L’accès au service confère un droit d’utilisation non exclusif pour les besoins de l’entreprise et de ses utilisateurs autorisés. Il n’emporte aucun transfert de droits sur le logiciel, la marque ou les éléments graphiques de l’éditeur. Les composants tiers restent soumis à leurs licences respectives. Les rôles de chacun pour les données personnelles sont décrits dans la <a asp-action="Confidentialite">politique de confidentialité</a>.</p>
+        </section>
+        <section>
+            <h2>7. Disponibilité, assistance et sauvegarde</h2>
+            <p>L’éditeur prend des mesures raisonnables pour exploiter et maintenir le service. Des interruptions peuvent être nécessaires pour corriger un incident, effectuer une maintenance ou protéger les données. Lorsque cela est raisonnablement possible, l’éditeur informe les utilisateurs concernés d’une interruption planifiée. La V1 gratuite ne comprend pas d’engagement contractuel de disponibilité continue, de délai d’intervention ou de rétablissement.</p>
+            <p>Pour signaler une difficulté, indiquez par e-mail le nom de votre boutique, la date du problème et le parcours concerné, sans transmettre de mot de passe. Il est recommandé d’exporter régulièrement les rapports utiles et d’archiver hors du service les pièces dont vous dépendez pour vos obligations ou la continuité de votre activité.</p>
+        </section>
+        <section>
+            <h2>8. Suspension, fermeture et restitution</h2>
+            <p>L’éditeur peut restreindre un compte ou un espace lorsqu’il existe un risque sérieux pour la sécurité, une utilisation illicite, un manquement substantiel aux présentes conditions ou une obligation légale. Il privilégie une mesure proportionnée et informe l’entreprise de son motif et des suites possibles lorsque la sécurité et les obligations légales le permettent. L’administrateur peut demander le réexamen d’une suspension par e-mail.</p>
+            <p>L’entreprise peut cesser d’utiliser le service et demander la fermeture de son espace. Elle est invitée à effectuer ses exports avant cette fermeture. Lorsque l’accès a été coupé, une demande de restitution peut être examinée après vérification du demandeur, dans la limite des données encore conservées et sous réserve des restrictions légales ou de sécurité. La fermeture ne fait pas obstacle à la conservation strictement nécessaire au respect d’une obligation ou à la défense de droits.</p>
+        </section>
+        <section>
+            <h2>9. Responsabilité</h2>
+            <p>Chaque partie répond des manquements qui lui sont imputables. Dans les limites permises par le droit applicable, l’éditeur ne répond pas des conséquences d’une erreur de saisie, d’un taux renseigné par l’entreprise, d’un accès partagé à son initiative ou d’une transaction réalisée hors du service, lorsque le dommage est exclusivement imputable à ces faits. Aucun résultat commercial ou financier particulier n’est garanti.</p>
+            <p>Sous réserve des règles impératives, seuls les dommages directs, personnels et établis résultant d’un manquement imputable à l’éditeur peuvent être mis à sa charge ; sont notamment exclus les gains espérés et les préjudices indirects. Cette clause ne couvre ni la fraude, ni la faute intentionnelle ou lourde, ni tout autre cas dans lequel la responsabilité ne peut être limitée. Les effets d’un cas de force majeure sont appréciés selon le droit applicable.</p>
+        </section>
+        <section>
+            <h2>10. Évolutions des conditions et différends</h2>
+            <p>L’éditeur peut faire évoluer le service pour des raisons techniques, de sécurité ou d’organisation. En cas de modification substantielle des conditions, la nouvelle version est présentée avant la poursuite de l’utilisation et fait l’objet d’une nouvelle acceptation. Elle ne modifie pas rétroactivement les conditions déjà acceptées. L’utilisateur qui refuse une nouvelle version peut contacter l’éditeur au sujet de la fermeture de son compte et de ses données.</p>
+            <p>Les conditions sont rédigées en français et soumises au droit applicable en République démocratique du Congo. En cas de désaccord, les parties sont invitées à rechercher une solution amiable par écrit, sans que cette démarche ne prive quiconque de son droit de saisir l’autorité ou la juridiction compétente. Si une disposition est inapplicable, les autres clauses restent en vigueur dans la mesure permise par le droit applicable.</p>
+        </section>
     </div>
-</div>
+</article>

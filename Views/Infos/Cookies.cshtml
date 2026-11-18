@@ -1,36 +1,40 @@
 @{
-    ViewData["Title"] = L.T("Politique de Cookies", "Cookie Policy");
+    ViewData["Title"] = "Politique relative aux cookies";
+    ViewData["LegalSummary"] = "Une information sur les cookies techniques de connexion et de sécurité utilisés par la V1.";
+    ViewData["PublicShell"] = true;
 }
-
-<div class="container py-5" style="max-width: 820px;">
-    <div class="panel-card p-4 p-lg-5">
-        <h1 class="h3 fw-bold mb-1">@ViewData["Title"]</h1>
-        <p class="text-slate small mb-4">
-            @L.T("AdGestionHub utilise exclusivement des cookies techniques strictement nécessaires.", "AdGestionHub uses strictly necessary technical cookies only.")
-        </p>
-
-        <div class="table-responsive">
-            <table class="table table-ledger">
-                <thead>
-                    <tr>
-                        <th>Cookie</th>
-                        <th>@L.T("Finalité", "Purpose")</th>
-                        <th>@L.T("Durée", "Duration")</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="fw-medium">.AspNetCore.Identity /Antiforgery</td>
-                        <td class="text-slate small">@L.T("Authentification sécurisée et protection CSRF", "Secure authentication and CSRF protection")</td>
-                        <td class="text-slate small">Session</td>
-                    </tr>
-                    <tr>
-                        <td class="fw-medium">.AspNetCore.Culture</td>
-                        <td class="text-slate small">@L.T("Mémorisation de la langue d'interface (FR / EN)", "Interface language preference (FR / EN)")</td>
-                        <td class="text-slate small num">12 @L.T("mois", "months")</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+<article class="legal-shell">
+    <partial name="_LegalHeader" />
+    <div class="legal-copy panel-card">
+        <section>
+            <h2>1. À quoi sert un cookie ?</h2>
+            <p>Un cookie est une petite donnée conservée par votre navigateur pour un site et renvoyée avec certaines requêtes. AD Gestion Hub, édité par <strong>@LegalPublication.Publisher</strong>, utilise des cookies pour assurer la continuité d’une session, protéger les formulaires et afficher certaines confirmations. Ils ne servent pas à enregistrer vos ventes dans le navigateur ni à constituer un profil publicitaire.</p>
+        </section>
+        <section>
+            <h2>2. Cookies susceptibles d’être déposés</h2>
+            <div class="table-responsive" role="region" aria-label="Détail des cookies techniques" tabindex="0">
+                <table class="table table-bordered align-middle mb-2">
+                    <caption>Cookies de la plateforme selon les fonctions utilisées</caption>
+                    <thead><tr><th scope="col">Cookie ou catégorie</th><th scope="col">Utilité</th><th scope="col">Durée indicative</th></tr></thead>
+                    <tbody>
+                        <tr><th scope="row">AdGestionHub.Auth</th><td>Maintenir la connexion et appliquer le rôle du compte.</td><td>Cookie de session sauf choix « Se souvenir de moi ». Le ticket a une validité de 12 heures, renouvelable lors d’une utilisation active.</td></tr>
+                        <tr><th scope="row">Protection des formulaires <span class="fw-normal">(préfixe .AspNetCore.Antiforgery.)</span></th><td>Associer le formulaire au navigateur qui l’a ouvert pour éviter des actions initiées à votre insu.</td><td>Cookie de session, utilisé lors des formulaires protégés.</td></tr>
+                        <tr><th scope="row">Messages temporaires <span class="fw-normal">(.AspNetCore.Mvc.CookieTempDataProvider)</span></th><td>Afficher une confirmation ou une erreur après une redirection.</td><td>Temporaire, en principe retiré après lecture du message.</td></tr>
+                        <tr><th scope="row">Cookies liés à la double authentification</th><td>Conserver provisoirement une vérification en cours ou reconnaître un appareil si vous le demandez, lorsque la double authentification est utilisée.</td><td>Temporaire pour la vérification ; persistant si vous choisissez de mémoriser l’appareil, jusqu’à expiration ou suppression.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>L’utilisation réelle de ces cookies dépend des pages ouvertes et des options de connexion choisies. La fermeture du navigateur et la suppression des cookies de session peuvent varier selon ses réglages, notamment s’il restaure les onglets ou les sessions.</p>
+        </section>
+        <section>
+            <h2>3. Pas de traceur publicitaire ou d’audience en V1</h2>
+            <p>Cette version ne dépose pas de cookie publicitaire, de reciblage ou de mesure d’audience. Elle ne charge pas de régie publicitaire ni de service tiers de suivi des visites. Les cookies nécessaires aux actions que vous demandez n’appellent pas un choix dans un bandeau publicitaire. L’acceptation des conditions d’utilisation est une démarche distincte et ne constitue pas un accord pour des traceurs facultatifs.</p>
+            <p>Si la plateforme introduit par la suite des traceurs non nécessaires, leur usage sera expliqué avant leur activation. Un choix distinct vous sera proposé lorsque le consentement est requis, avec la possibilité de revenir sur ce choix.</p>
+        </section>
+        <section>
+            <h2>4. Gérer ces données sur votre appareil</h2>
+            <p>Vous pouvez consulter, bloquer ou supprimer les cookies de ce site depuis les réglages de confidentialité du navigateur. Supprimer le cookie d’authentification met fin à la session sur cet appareil. Bloquer tous les cookies peut empêcher de se connecter ou d’envoyer un formulaire, y compris l’inscription. Sur un appareil partagé, déconnectez-vous et évitez de sélectionner les options de mémorisation.</p>
+            <p>Vous pouvez consulter la <a asp-action="Confidentialite">politique de confidentialité</a> pour les informations enregistrées côté service, ou contacter @LegalPublication.Publisher, @LegalPublication.Address, à <a href="mailto:@LegalPublication.Email">@LegalPublication.Email</a>.</p>
+        </section>
     </div>
-</div>
+</article>

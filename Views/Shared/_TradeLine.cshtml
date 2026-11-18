@@ -18,18 +18,11 @@
                 </option>
             }
         </select>
-        @if (!Model.IsPurchase) { <small class="form-text num" data-read-price></small> }
+        <small class="form-text num" data-read-price></small>
     </div>
     <div>
         <label class="form-label" for="@($"{htmlId}-quantity")" data-label="quantity">Quantité</label>
         <input id="@($"{htmlId}-quantity")" name="@($"{prefix}.Quantity")" class="form-control num" type="number" inputmode="numeric" min="1" max="100000" value="@Model.Line.Quantity" data-field="Quantity" data-role="quantity" required />
     </div>
-    @if (Model.IsPurchase)
-    {
-        <div class="trade-price">
-            <label class="form-label" for="@($"{htmlId}-price")" data-label="price">Prix unitaire</label>
-            <input id="@($"{htmlId}-price")" name="@($"{prefix}.UnitPrice")" value="@Money.Input(Model.Line.UnitPrice)" class="form-control num" inputmode="decimal" data-field="UnitPrice" data-role="price" required />
-        </div>
-    }
     <button type="button" class="btn btn-secondary-outline trade-remove" data-remove-line aria-label="Retirer cette ligne" title="Retirer cette ligne">@LucideIcons.Svg("x", 17)</button>
 </div>

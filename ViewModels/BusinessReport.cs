@@ -38,6 +38,7 @@ public sealed record BusinessReport(ReportPeriod Period, string Currency, StoreS
     public decimal SalesReceipts => Payments.Where(p => p.SaleId != null).Sum(p => p.Amount);
     public decimal SupplierPayments => Payments.Where(p => p.PurchaseId != null).Sum(p => p.Amount);
     public decimal Receivables => Outstanding.Where(b => b.Kind != "Purchase").Sum(b => b.Balance);
+    public bool HasSupplierHistory => Purchases.Count > 0 || Payments.Any(p => p.PurchaseId.HasValue) || Outstanding.Any(b => b.Kind == "Purchase");
     public decimal Payables => Outstanding.Where(b => b.Kind == "Purchase").Sum(b => b.Balance);
     public long StockUnits => Stock.Sum(p => (long)p.Quantity);
     public decimal StockValue => Stock.Sum(p => p.Value);

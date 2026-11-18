@@ -1,7 +1,0 @@
-@model IReadOnlyList<Supplier>
-@{
-    ViewData["Title"] = "Fournisseurs";
-    var rows = Model.Select(c => new ContactRow(c.Id, c.Name, c.Phone, c.Email, c.Address)).ToList();
-}
-<div class="page-heading"><div><p class="section-eyebrow">Répertoire</p><h1>Fournisseurs</h1><p>Retrouvez les coordonnées, les achats et le montant restant à payer par fournisseur.</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouveau fournisseur</a></div>
-<partial name="_ContactDirectory" model="rows" />

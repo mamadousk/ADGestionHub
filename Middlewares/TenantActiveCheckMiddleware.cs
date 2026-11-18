@@ -1,54 +1,64 @@
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using System;
-using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
-namespace AdGestionHub.Middlewares
+namespace AdGestionHub.Middlewares;
+
+public sealed class TenantActiveCheckMiddleware(RequestDelegate next)
 {
-    /// <summary>
-    /// Vérifie qu'un compte authentifié non-SuperAdmin appartient bien à une boutique active.
-    /// Si le SuperAdmin suspend une boutique, les sessions existantes sont immédiatement coupées.
-    /// </summary>
-    public class TenantActiveCheckMiddleware
+    public async Task InvokeAsync(HttpContext context, IBoutiqueService boutiques,
+        SignInManager<ApplicationUser> signIn, ApplicationDbContext db)
     {
-        private readonly RequestDelegate _next;
-
-        public TenantActiveCheckMiddleware(RequestDelegate next)
+        if (context.User.Identity?.IsAuthenticated != true)
         {
-            _next = next;
+            await next(context);
+            return;
         }
 
-        public async Task InvokeAsync(
-            HttpContext context,
-            IBoutiqueService boutiqueService,
-            SignInManager<ApplicationUser> signInManager)
+        context.Response.Headers.CacheControl = "no-store";
+        var route = context.Request.RouteValues;
+        bool Matches(string key, string value) => string.Equals(route[key]?.ToString(), value, StringComparison.OrdinalIgnoreCase);
+        void GoTo(string path) => context.Response.Redirect($"{context.Request.PathBase}{path}");
+
+        // These endpoints must remain available during onboarding and after a suspension.
+        if (context.User.IsInRole("SuperAdmin") || context.GetEndpoint() == null || context.Request.Path == "/health"
+            || Matches("controller", "Infos") || Matches("page", "/Account/Logout") || Matches("page", "/Account/Login")
+            || Matches("page", "/Account/AccessDenied") || (Matches("controller", "Home") && Matches("action", "Error")))
         {
-            if (context.User.Identity?.IsAuthenticated == true)
-                context.Response.Headers["Cache-Control"] = "no-store";
+            await next(context);
+            return;
+        }
 
-            if (context.User.Identity?.IsAuthenticated == true && !context.User.IsInRole("SuperAdmin"))
+        var boutique = await boutiques.GetCurrentBoutiqueAsync();
+        if (boutique?.IsActive != true)
+        {
+            await signIn.SignOutAsync();
+            GoTo("/Identity/Account/Login?suspended=1");
+            return;
+        }
+
+        // Check the stored acceptance, not a cookie or a URL parameter. Direct requests to
+        // feature endpoints cannot bypass the mandatory step (including state-changing requests).
+        var isTerms = Matches("controller", "Onboarding") && Matches("action", "Terms");
+        if (!isTerms)
+        {
+            var userId = signIn.UserManager.GetUserId(context.User);
+            if (!await db.TermsAcceptances.AnyAsync(a => a.UserId == userId && a.Version == LegalPublication.TermsVersion, context.RequestAborted))
             {
-                var path = context.Request.Path.Value ?? string.Empty;
-                var isExempt = path.StartsWith("/Identity/Account/Logout", StringComparison.OrdinalIgnoreCase)
-                            || path.StartsWith("/Identity/Account/Login", StringComparison.OrdinalIgnoreCase)
-                            || path.StartsWith("/Infos", StringComparison.OrdinalIgnoreCase)
-                            || path.StartsWith("/health", StringComparison.OrdinalIgnoreCase);
-
-                if (!isExempt)
-                {
-                    var boutique = await boutiqueService.GetCurrentBoutiqueAsync();
-                    if (boutique == null || !boutique.IsActive)
-                    {
-                        await signInManager.SignOutAsync();
-                        context.Response.Redirect("/Identity/Account/Login?suspended=1");
-                        return;
-                    }
-                }
+                GoTo("/Onboarding/Terms");
+                return;
             }
 
-            await _next(context);
+            var isSetup = Matches("controller", "Settings") && (Matches("action", "Setup") || Matches("action", "SkipSetup"));
+            if (boutique.SetupPending && context.User.IsInRole("Admin") && !isSetup)
+            {
+                GoTo("/Settings/Setup");
+                return;
+            }
         }
+
+        await next(context);
     }
 }

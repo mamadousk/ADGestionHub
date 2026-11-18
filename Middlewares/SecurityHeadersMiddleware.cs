@@ -36,8 +36,8 @@ namespace AdGestionHub.Middlewares
                 context.Response.Headers["Content-Security-Policy"] =
                     "default-src 'self'; " +
                     "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://code.jquery.com https://cdn.jsdelivr.net; " +
-                    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://code.jquery.com https://cdn.jsdelivr.net; " +
-                    "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
+                    "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://code.jquery.com https://cdn.jsdelivr.net; " +
+                    "font-src 'self' data: https://cdnjs.cloudflare.com; " +
                     "img-src 'self' data: https:; " +
                     "media-src 'self'; " +
                     "connect-src 'self'; " +

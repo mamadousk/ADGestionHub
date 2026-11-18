@@ -105,12 +105,6 @@ public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService
             {
                 var product = await Products(shop).SingleOrDefaultAsync(p => p.Id == id) ?? throw new CommerceNotFoundException();
                 if (product.StockQuantity != 0) throw new CommerceRuleException("Ramenez le stock à zéro avant d'archiver cet article.");
-                var incoming = from item in db.PurchaseItems
-                               join purchase in db.Purchases on item.PurchaseId equals purchase.Id
-                               where purchase.BoutiqueId == shop && purchase.ReceivedAt == null && item.ProductId == id
-                               select item.Id;
-                if (await incoming.AnyAsync())
-                    throw new CommerceRuleException("Un achat est en attente de réception pour ce produit.");
                 product.IsArchived = true;
                 writer.Audit(shop, $"Archivage du produit #{id}", product.Name);
                 return true;

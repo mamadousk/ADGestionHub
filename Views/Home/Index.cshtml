@@ -13,9 +13,7 @@
     {
         stats.Add(("Recettes encaissées", Format(Model.Received), "wallet", $"Dont ventes : {Format(Model.SalesReceipts)}", "green"));
         stats.Add(("Créances clients", Format(Model.Receivables), "clock", "Reste à recevoir à la fin de période", "amber"));
-        stats.Add(("Total des achats", Format(Model.Purchased), "shopping-bag", $"{Model.Purchases.Count} achat(s) sur la période", "indigo"));
-        stats.Add(("Dépenses", Format(Model.Expensed), "wallet", "Hors règlements fournisseurs", "orange"));
-        stats.Add(("Dettes fournisseurs", Format(Model.Payables), "clock", "Reste à payer à la fin de période", "amber"));
+        stats.Add(("Dépenses", Format(Model.Expensed), "wallet", "Charges courantes sur la période", "orange"));
         stats.Add(("Valeur du stock", Money.Display(Model.StockValue, Model.Settings.PrimaryCurrencyCode), "package", $"{Model.StockUnits} unité(s) · coût catalogue actuel", "green"));
     }
     else { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green")); }

@@ -36,6 +36,7 @@ namespace AdGestionHub.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public bool IsActive { get; set; } = true;
+        public bool SetupPending { get; set; }
 
         // --- RELATIONS ---
         public ICollection<ApplicationUser> Users { get; set; } = new List<ApplicationUser>();

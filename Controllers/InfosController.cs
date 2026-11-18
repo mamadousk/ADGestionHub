@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
-namespace AdGestionHub.Controllers
+namespace AdGestionHub.Controllers;
+
+[AllowAnonymous]
+public sealed class InfosController : Controller
 {
-    public class InfosController : Controller
-    {
-        public IActionResult MentionsLegales() => View();
-        public IActionResult CGU() => View();
-        public IActionResult Confidentialite() => View();
-        public IActionResult Cookies() => View();
-    }
+    public IActionResult MentionsLegales() => View();
+    public IActionResult CGU() => View();
+    public IActionResult Confidentialite() => View();
+    public IActionResult Cookies() => View();
 }

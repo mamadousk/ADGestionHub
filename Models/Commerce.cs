@@ -72,21 +72,3 @@ public sealed class StockMovement
     public int QuantityAfter { get; set; }
     public DateTime RecordedAt { get; set; }
 }
-
-public static class QuoteStatus
-{
-    public const string Draft = "Draft";
-    public const string Pending = "Pending";
-    public const string Accepted = "Accepted";
-    public const string Converted = "Converted";
-
-    public static string Label(string status) => status switch
-    {
-        Draft => "Brouillon",
-        Pending => "Émis",
-        Accepted => "Accepté",
-        Converted => "Converti en vente",
-        "Expired" => "Expiré",
-        _ => status
-    };
-}

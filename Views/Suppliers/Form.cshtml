@@ -1,7 +1,0 @@
-@model ContactInput
-@{
-    ViewData["Title"] = ViewData["ContactId"] == null ? "Nouveau fournisseur" : "Modifier le fournisseur";
-    ViewData["SupplierForm"] = true;
-}
-<div class="page-heading"><div><p class="section-eyebrow"><a asp-action="Index">Fournisseurs</a></p><h1>@ViewData["Title"]</h1><p>Renseignez ses coordonnées pour suivre ses achats et ses règlements.</p></div></div>
-<partial name="_ContactForm" model="Model" />

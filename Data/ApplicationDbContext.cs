@@ -20,6 +20,8 @@ namespace AdGestionHub.Data
         public DbSet<Quote> Quotes { get; set; }
         public DbSet<QuoteItem> QuoteItems { get; set; }
         public DbSet<StoreSettings> StoreSettings { get; set; }
+        public DbSet<StoreLogo> StoreLogos { get; set; }
+        public DbSet<TermsAcceptance> TermsAcceptances { get; set; }
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<Debt> Debts { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
@@ -50,6 +52,16 @@ namespace AdGestionHub.Data
                 .WithMany(b => b.Users)
                 .HasForeignKey(u => u.BoutiqueId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TermsAcceptance>()
+                .HasIndex(a => new { a.UserId, a.Version }).IsUnique();
+            modelBuilder.Entity<TermsAcceptance>()
+                .HasOne<ApplicationUser>().WithMany().HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StoreLogo>()
+                .HasOne<Boutique>().WithOne().HasForeignKey<StoreLogo>(l => l.BoutiqueId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Relations des journaux (BoutiqueId nullable pour les erreurs anonymes / SuperAdmin)
             modelBuilder.Entity<ErrorLog>()

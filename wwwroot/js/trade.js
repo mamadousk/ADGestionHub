@@ -38,8 +38,7 @@
                 const product = line.querySelector('[data-role="product"]');
                 const selected = product.selectedOptions[0];
                 const quantity = line.querySelector('[data-role="quantity"]').value;
-                const input = line.querySelector('[data-role="price"]');
-                const price = cents(input ? input.value : selected?.getAttribute(`data-price-${code.toLowerCase()}`));
+                const price = cents(selected?.getAttribute(`data-price-${code.toLowerCase()}`));
                 const read = line.querySelector('[data-read-price]');
                 if (read) read.textContent = price == null ? '' : `${display(price, code)} / unité`;
                 if (!product.value || !/^\d{1,6}$/.test(quantity) || BigInt(quantity) < 1n || price == null) valid = false;

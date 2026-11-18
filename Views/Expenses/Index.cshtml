@@ -1,6 +1,6 @@
 @model IReadOnlyList<Expense>
 @{ ViewData["Title"] = "Dépenses"; }
-<div class="page-heading"><div><p class="section-eyebrow">Trésorerie</p><h1>Dépenses</h1><p>Les charges courantes de l’entreprise, distinctes des paiements fournisseurs.</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle dépense</a></div>
+<div class="page-heading"><div><p class="section-eyebrow">Trésorerie</p><h1>Dépenses</h1><p>Retrouvez vos charges courantes par date et par devise.</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle dépense</a></div>
 @if (Model.Count == 0)
 {
     <div class="panel-card empty-panel"><h2 class="h5">Aucune dépense enregistrée</h2></div>

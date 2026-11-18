@@ -1,0 +1,16 @@
+<header class="legal-heading">
+    <p class="section-eyebrow">Informations légales · AD Gestion Hub</p>
+    <h1>@ViewData["Title"]</h1>
+    <p class="text-slate">@ViewData["LegalSummary"]</p>
+    <p class="small text-slate mb-0">
+        @if (ViewData["LegalVersion"] is string version) { <span>Version @version · </span> }
+        Publié le <time datetime="@LegalPublication.PublishedOn">@LegalPublication.DisplayDate</time>
+    </p>
+</header>
+<nav class="legal-nav" aria-label="Documents légaux">
+    @{ var current = ViewContext.RouteData.Values["action"]?.ToString(); }
+    <a asp-controller="Infos" asp-action="CGU" aria-current="@(current == "CGU" ? "page" : null)">Conditions d’utilisation</a>
+    <a asp-controller="Infos" asp-action="MentionsLegales" aria-current="@(current == "MentionsLegales" ? "page" : null)">Mentions légales</a>
+    <a asp-controller="Infos" asp-action="Confidentialite" aria-current="@(current == "Confidentialite" ? "page" : null)">Confidentialité</a>
+    <a asp-controller="Infos" asp-action="Cookies" aria-current="@(current == "Cookies" ? "page" : null)">Cookies</a>
+</nav>

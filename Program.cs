@@ -200,8 +200,17 @@ await using (var scope = app.Services.CreateAsyncScope())
     if (useSqlite)
     {
         await db.Database.EnsureCreatedAsync();
-        // EnsureCreated ne met pas à jour un ancien fichier de développement.
-        await db.Payments.AnyAsync();
+        // EnsureCreated ne met pas à jour l'ancien fichier de développement.
+        try
+        {
+            await db.TermsAcceptances.AnyAsync();
+            await db.StoreLogos.AnyAsync();
+            await db.Boutiques.AnyAsync(b => b.SetupPending);
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException ex)
+        {
+            throw new InvalidOperationException("Schéma SQLite de développement incompatible. Configurez un nouveau fichier SQLite pour la V1 ; ne supprimez pas une base contenant des données utiles.", ex);
+        }
     }
     else if (app.Configuration.GetValue("Database:ApplyMigrations", true))
         await db.Database.MigrateAsync();

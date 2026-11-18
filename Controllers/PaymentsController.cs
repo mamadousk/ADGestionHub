@@ -43,7 +43,7 @@ public sealed class PaymentsController(ApplicationDbContext db, IBoutiqueService
     [HttpPost]
     public async Task<IActionResult> Settle(string target, int id, PaymentInput model)
     {
-        if (target is not ("Sale" or "Purchase" or "Debt")) return NotFound();
+        if (target is not ("Sale" or "Debt")) return NotFound();
         if (target != "Sale" && !User.IsInRole("Admin")) return Forbid();
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
         if (ModelState.IsValid)
@@ -58,6 +58,6 @@ public sealed class PaymentsController(ApplicationDbContext db, IBoutiqueService
         }
         else
             TempData["ErrorMessage"] = "Vérifiez le montant, la devise et le moyen de paiement.";
-        return RedirectToAction("Details", target switch { "Sale" => "Sales", "Purchase" => "Purchases", _ => "Debts" }, new { id });
+        return RedirectToAction("Details", target == "Sale" ? "Sales" : "Debts", new { id });
     }
 }
