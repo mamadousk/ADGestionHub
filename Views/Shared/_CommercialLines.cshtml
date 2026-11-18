@@ -1,0 +1,12 @@
+@model CommercialTable
+<div class="table-responsive">
+    <table class="table table-ledger">
+        <thead><tr><th scope="col">Produit</th><th scope="col" class="text-end">Quantité</th><th scope="col" class="text-end">Prix unitaire</th><th scope="col" class="text-end">Total ligne</th></tr></thead>
+        <tbody>
+        @foreach (var line in Model.Lines)
+        {
+            <tr><td>@line.Name</td><td class="text-end">@line.Quantity</td><td class="text-end text-nowrap">@Money.Display(line.Price, Model.Currency)</td><td class="text-end text-nowrap">@Money.Display(line.Total, Model.Currency)</td></tr>
+        }
+        </tbody>
+    </table>
+</div>

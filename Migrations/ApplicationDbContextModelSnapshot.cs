@@ -246,6 +246,8 @@ namespace AdGestionHub.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("Id", "BoutiqueId");
+
                     b.HasIndex("BoutiqueId", "IsArchived", "IsPaid");
 
                     b.ToTable("Debts");
@@ -367,6 +369,14 @@ namespace AdGestionHub.Migrations
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("CdfPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("PaymentMethod")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -505,6 +515,10 @@ namespace AdGestionHub.Migrations
 
                     b.Property<DateTime?>("ValidUntil")
                         .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("CdfPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
 
                     b.HasKey("Id");
 
@@ -675,7 +689,17 @@ namespace AdGestionHub.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal?>("CdfPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.HasKey("Id");
+
+                    b.HasAlternateKey("Id", "BoutiqueId");
 
                     b.HasIndex("ClientId");
 
@@ -844,6 +868,14 @@ namespace AdGestionHub.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal?>("CdfPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<string>("CustomPaymentMethods")
+                        .HasMaxLength(600)
+                        .HasColumnType("nvarchar(600)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BoutiqueId");
@@ -984,11 +1016,264 @@ namespace AdGestionHub.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("bit");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BoutiqueId");
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Supplier", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("Id", "BoutiqueId");
+
+                    b.HasIndex("BoutiqueId", "Name");
+
+                    b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Purchase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("SupplierReference")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal?>("CdfPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("Id", "BoutiqueId");
+
+                    b.HasIndex("BoutiqueId", "RecordedAt");
+
+                    b.HasIndex("SupplierId", "BoutiqueId");
+
+                    b.ToTable("Purchases");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.PurchaseItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("PurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.ToTable("PurchaseItems");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SaleId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("PurchaseId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DebtId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("AppliedCurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AppliedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("CdfPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("decimal(18,6)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoutiqueId", "RecordedAt");
+
+                    b.HasIndex("SaleId", "BoutiqueId");
+
+                    b.HasIndex("PurchaseId", "BoutiqueId");
+
+                    b.HasIndex("DebtId", "BoutiqueId");
+
+                    b.ToTable("Payments", t =>
+                        {
+                            t.HasCheckConstraint("CK_Payments_OneDocument", """
+                                (CASE WHEN SaleId IS NULL THEN 0 ELSE 1 END + CASE WHEN PurchaseId IS NULL THEN 0 ELSE 1 END +
+                                 CASE WHEN DebtId IS NULL THEN 0 ELSE 1 END) <= 1
+                                """);
+                        });
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.StockMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Delta")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantityAfter")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoutiqueId", "ProductId", "RecordedAt");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("StockMovements", t =>
+                        {
+                            t.HasCheckConstraint("CK_StockMovements_Quantity", "Delta <> 0 AND QuantityAfter >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -1257,6 +1542,82 @@ namespace AdGestionHub.Migrations
                         .HasForeignKey("BoutiqueId");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.Supplier", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany()
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Purchase", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId", "BoutiqueId")
+                        .HasPrincipalKey("Id", "BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.PurchaseItem", b =>
+                {
+                    b.HasOne("AdGestionHub.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AdGestionHub.Models.Purchase", null)
+                        .WithMany("Items")
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Payment", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany()
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AdGestionHub.Models.Sale", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("SaleId", "BoutiqueId")
+                        .HasPrincipalKey("Id", "BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("AdGestionHub.Models.Purchase", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("PurchaseId", "BoutiqueId")
+                        .HasPrincipalKey("Id", "BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("AdGestionHub.Models.Debt", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("DebtId", "BoutiqueId")
+                        .HasPrincipalKey("Id", "BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.StockMovement", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithMany()
+                        .HasForeignKey("BoutiqueId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AdGestionHub.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1339,6 +1700,19 @@ namespace AdGestionHub.Migrations
             modelBuilder.Entity("AdGestionHub.Models.Sale", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("Payments");
+                });
+            modelBuilder.Entity("AdGestionHub.Models.Debt", b =>
+                {
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.Purchase", b =>
+                {
+                    b.Navigation("Items");
+
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

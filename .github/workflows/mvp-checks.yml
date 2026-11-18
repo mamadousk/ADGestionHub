@@ -1,0 +1,71 @@
+name: Vérifications du MVP
+"on": [push, pull_request]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TZ: Africa/Kinshasa
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+      - run: dotnet build AdGestionHub.slnx
+      - run: node --test tests/trade.test.cjs
+      - run: dotnet run --project tests/CommerceSmoke --no-build
+      - name: Parcours HTTP
+        run: python3 tests/http_smoke.py
+      - name: Recette responsive et impression
+        run: |
+          google-chrome --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install playwright==1.65.2
+          ADGH_SMOKE_BROWSER=1 ADGH_SMOKE_BROWSER_CHANNEL=chrome .venv/bin/python tests/http_smoke.py
+
+  sql-server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TZ: Africa/Kinshasa
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Migration et scénarios sur un serveur SQL jetable
+        shell: bash
+        run: |
+          set -euo pipefail
+          export MSSQL_SA_PASSWORD="Ci7!$(openssl rand -hex 24)"
+          echo "::add-mask::$MSSQL_SA_PASSWORD"
+          docker run -d --name adgh-sql -p 127.0.0.1:1433:1433 -e ACCEPT_EULA=Y \
+            -e MSSQL_SA_PASSWORD -e MSSQL_PID=Developer mcr.microsoft.com/mssql/server:2022-latest
+          trap 'docker rm -f adgh-sql >/dev/null' EXIT
+          ready=false
+          for attempt in {1..60}; do
+            if docker exec adgh-sql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q 'SELECT 1' >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != true ]; then
+            docker logs adgh-sql
+            exit 1
+          fi
+          export ADGH_SMOKE_SQLSERVER="Server=127.0.0.1,1433;User ID=sa;Password=$MSSQL_SA_PASSWORD;Encrypt=True;TrustServerCertificate=True"
+          dotnet run --project tests/CommerceSmoke

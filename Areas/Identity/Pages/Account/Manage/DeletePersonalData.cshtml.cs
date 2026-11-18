@@ -1,4 +1,4 @@
-﻿// ==================== FILE: Areas/Identity/Pages/Account/Manage/DeletePersonalData.cshtml.cs ====================
+// ==================== FILE: Areas/Identity/Pages/Account/Manage/DeletePersonalData.cshtml.cs ====================
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
@@ -48,6 +48,11 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
+            if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+            {
+                TempData["ErrorMessage"] = "Contactez le support pour fermer un compte administrateur et organiser la conservation des données de votre entreprise.";
+                return RedirectToPage("./PersonalData");
+            }
             RequirePassword = await _userManager.HasPasswordAsync(user);
             return Page();
         }
@@ -60,6 +65,11 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
                 return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
+            if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+            {
+                TempData["ErrorMessage"] = "Contactez le support pour fermer un compte administrateur et organiser la conservation des données de votre entreprise.";
+                return RedirectToPage("./PersonalData");
+            }
             RequirePassword = await _userManager.HasPasswordAsync(user);
             if (RequirePassword)
             {

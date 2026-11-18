@@ -1,0 +1,16 @@
+@model PaymentInput
+@{
+    ViewData["Title"] = "Nouvel encaissement";
+    var settings = (await TenantCtx.GetContextAsync()).Settings;
+}
+<div class="page-heading"><div><p class="section-eyebrow"><a asp-action="Index">Mouvements financiers</a></p><h1>Nouvel encaissement</h1><p>Pour une recette hors vente. Enregistrez un règlement client depuis la fiche de la vente pour ne pas le compter deux fois.</p></div></div>
+<form asp-action="Create" method="post" class="panel-card p-3 p-md-4 compact-form">
+    <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
+    <div class="row g-3">
+        <div class="col-12"><label asp-for="Description" class="form-label">Motif de l’encaissement</label><input asp-for="Description" class="form-control" maxlength="250" required /></div>
+        <div class="col-sm-4"><label asp-for="Amount" class="form-label">Montant</label><input asp-for="Amount" class="form-control num" inputmode="decimal" required /></div>
+        <div class="col-sm-4"><label asp-for="CurrencyCode" class="form-label">Devise</label><select asp-for="CurrencyCode" class="form-select">@foreach (var code in Money.AvailableCurrencies(settings)) { <option value="@code">@code</option> }</select></div>
+        <div class="col-sm-4"><label asp-for="Method" class="form-label">Moyen</label><select asp-for="Method" class="form-select">@foreach (var method in PaymentMeans.All(settings)) { <option value="@method">@method</option> }</select></div>
+    </div>
+    <div class="form-actions"><a asp-action="Index" class="btn btn-secondary-outline">Annuler</a><button type="submit" class="btn btn-accent">Enregistrer l’encaissement</button></div>
+</form>

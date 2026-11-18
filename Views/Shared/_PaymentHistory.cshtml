@@ -1,0 +1,21 @@
+@model IEnumerable<Payment>
+@if (!Model.Any())
+{
+    <p class="text-slate mb-0">Aucun règlement enregistré.</p>
+}
+else
+{
+    <div class="table-responsive"><table class="table table-ledger">
+        <thead><tr><th scope="col">Date</th><th scope="col">Moyen</th><th scope="col" class="text-end">Montant réglé</th><th scope="col" class="text-end">Imputé au document</th></tr></thead>
+        <tbody>
+        @foreach (var payment in Model.OrderByDescending(p => p.RecordedAt))
+        {
+            <tr><td class="text-nowrap">@payment.RecordedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@PaymentMeans.Display(payment.Method)
+                    @if (payment.CdfPerUsd is decimal rate) { <div class="text-slate small">@Money.RateLabel(rate)</div> }
+                    @if (payment.Description != null) { <div class="text-slate small">@payment.Description</div> }
+                </td><td class="text-end text-nowrap">@Money.Display(payment.Amount, payment.CurrencyCode)</td><td class="text-end text-nowrap">@Money.Display(payment.AppliedAmount, payment.AppliedCurrencyCode)</td></tr>
+        }
+        </tbody>
+    </table></div>
+}

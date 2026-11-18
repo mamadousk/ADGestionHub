@@ -21,15 +21,18 @@ namespace AdGestionHub.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IBoutiqueService _boutiqueService;
+        private readonly CommerceWriter _writer;
 
         public UsersController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            IBoutiqueService boutiqueService)
+            IBoutiqueService boutiqueService,
+            CommerceWriter writer)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _boutiqueService = boutiqueService;
+            _writer = writer;
         }
 
         // GET: /Users/
@@ -133,22 +136,28 @@ namespace AdGestionHub.Controllers
                     BoutiqueId = currentBoutiqueId.Value
                 };
 
-                var result = await _userManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
+                try
                 {
-                    if (!await _roleManager.RoleExistsAsync(model.Role))
+                    var result = await _writer.ExecuteAsync(currentBoutiqueId.Value, async () =>
                     {
-                        await _roleManager.CreateAsync(new IdentityRole(model.Role));
+                        var created = await _userManager.CreateAsync(user, model.Password);
+                        if (!created.Succeeded) return created;
+                        if (!(await _userManager.AddToRoleAsync(user, model.Role)).Succeeded)
+                            throw new CommerceRuleException("Le compte n'a pas pu recevoir les permissions d'employé.");
+                        _writer.Audit(currentBoutiqueId.Value, $"Compte employé créé : {user.UserName}");
+                        return created;
+                    });
+                    if (result.Succeeded)
+                    {
+                        TempData["SuccessMessage"] = $"Le compte employé « {user.UserName} » a été créé avec succès.";
+                        return RedirectToAction(nameof(Index));
                     }
-
-                    await _userManager.AddToRoleAsync(user, model.Role);
-
-                    TempData["SuccessMessage"] = $"Le compte employé « {user.UserName} » a été créé avec succès.";
-                    return RedirectToAction(nameof(Index));
+                    foreach (var error in result.Errors)
+                        ModelState.AddModelError(string.Empty, error.Description);
                 }
-
-                foreach (var error in result.Errors)
-                    ModelState.AddModelError(string.Empty, error.Description);
+                catch (CommerceRuleException error) { ModelState.AddModelError(string.Empty, error.Message); }
+                catch (CommerceNotFoundException) { return Forbid(); }
+                catch (DbUpdateException) { ModelState.AddModelError(string.Empty, "Le compte n'a pas pu être créé. Vérifiez l'identifiant et l'adresse e-mail."); }
             }
 
             ViewBag.Roles = await GetAllowedRolesListAsync();
@@ -239,40 +248,35 @@ namespace AdGestionHub.Controllers
                     return View(model);
                 }
 
-                user.Email = cleanEmail;
-                user.UserName = cleanUserName;
-                user.FullName = string.IsNullOrWhiteSpace(model.FullName) ? null : model.FullName.Trim();
-
-                if (!currentRoles.Contains(model.Role))
+                try
                 {
-                    if (currentRoles.Any())
-                        await _userManager.RemoveFromRolesAsync(user, currentRoles);
-                    await _userManager.AddToRoleAsync(user, model.Role);
-                }
-
-                if (!string.IsNullOrWhiteSpace(model.NewPassword))
-                {
-                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-                    var resetResult = await _userManager.ResetPasswordAsync(user, token, model.NewPassword);
-                    if (!resetResult.Succeeded)
+                    await _writer.ExecuteAsync(currentBoutiqueId.Value, async () =>
                     {
-                        foreach (var error in resetResult.Errors)
-                            ModelState.AddModelError(string.Empty, error.Description);
-                        ViewBag.Roles = await GetAllowedRolesListAsync();
-                        return View(model);
-                    }
-                }
+                        user.Email = cleanEmail;
+                        user.UserName = cleanUserName;
+                        user.FullName = string.IsNullOrWhiteSpace(model.FullName) ? null : model.FullName.Trim();
+                        if (!currentRoles.Contains(model.Role))
+                        {
+                            if (currentRoles.Any()) RequireSuccess(await _userManager.RemoveFromRolesAsync(user, currentRoles));
+                            RequireSuccess(await _userManager.AddToRoleAsync(user, model.Role));
+                        }
 
-                var updateResult = await _userManager.UpdateAsync(user);
-                if (updateResult.Succeeded)
-                {
-                    await _userManager.UpdateSecurityStampAsync(user);
+                        if (!string.IsNullOrWhiteSpace(model.NewPassword))
+                        {
+                            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                            RequireSuccess(await _userManager.ResetPasswordAsync(user, token, model.NewPassword));
+                        }
+                        RequireSuccess(await _userManager.UpdateAsync(user));
+                        RequireSuccess(await _userManager.UpdateSecurityStampAsync(user));
+                        _writer.Audit(currentBoutiqueId.Value, $"Compte employé modifié : {user.UserName}");
+                        return true;
+                    });
                     TempData["SuccessMessage"] = $"L'employé « {user.UserName} » a été mis à jour.";
                     return RedirectToAction(nameof(Index));
                 }
-
-                foreach (var error in updateResult.Errors)
-                    ModelState.AddModelError(string.Empty, error.Description);
+                catch (CommerceRuleException error) { ModelState.AddModelError(string.Empty, error.Message); }
+                catch (CommerceNotFoundException) { return Forbid(); }
+                catch (DbUpdateException) { ModelState.AddModelError(string.Empty, "Ce compte n'a pas pu être mis à jour."); }
             }
 
             ViewBag.Roles = await GetAllowedRolesListAsync();
@@ -348,14 +352,26 @@ namespace AdGestionHub.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            await _userManager.UpdateSecurityStampAsync(user);
-            var result = await _userManager.DeleteAsync(user);
-            if (result.Succeeded)
+            try
+            {
+                await _writer.ExecuteAsync(currentBoutiqueId.Value, async () =>
+                {
+                    RequireSuccess(await _userManager.DeleteAsync(user));
+                    _writer.Audit(currentBoutiqueId.Value, $"Compte employé supprimé : {user.UserName}");
+                    return true;
+                });
                 TempData["SuccessMessage"] = $"L'employé « {user.UserName} » a été supprimé.";
-            else
-                TempData["ErrorMessage"] = "Erreur lors de la suppression du compte employé.";
+            }
+            catch (CommerceRuleException) { TempData["ErrorMessage"] = "Ce compte n'a pas pu être supprimé."; }
+            catch (CommerceNotFoundException) { return Forbid(); }
+            catch (DbUpdateException) { TempData["ErrorMessage"] = "Ce compte n'a pas pu être supprimé."; }
 
             return RedirectToAction(nameof(Index));
+        }
+
+        private static void RequireSuccess(IdentityResult result)
+        {
+            if (!result.Succeeded) throw new CommerceRuleException(string.Join(" ", result.Errors.Select(e => e.Description)));
         }
 
         private async Task<List<string>> GetAllowedRolesListAsync()

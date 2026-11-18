@@ -69,6 +69,10 @@ namespace AdGestionHub.Models
         [StringLength(20)]
         public string DateFormat { get; set; } = "dd/MM/yyyy";
 
+        // Convention V1 : toujours le nombre de francs congolais pour 1 USD.
+        public decimal? CdfPerUsd { get; set; }
+        [StringLength(600)] public string? CustomPaymentMethods { get; set; }
+
         // --- STATUT FISCAL & TVA ---
         public bool IsFormalized { get; set; } = false;
 

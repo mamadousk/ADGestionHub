@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using Microsoft.AspNetCore.Http;
 
 namespace AdGestionHub.Services
 {
@@ -15,39 +13,9 @@ namespace AdGestionHub.Services
 
     public sealed class AppLocalizer : IAppLocalizer
     {
-        public const string LanguageCookieName = "AdGestionHub.Lang";
-
-        private readonly IHttpContextAccessor _httpContextAccessor;
-
-        public AppLocalizer(IHttpContextAccessor httpContextAccessor)
-        {
-            _httpContextAccessor = httpContextAccessor;
-        }
-
-        public string CurrentLanguage
-        {
-            get
-            {
-                var ctx = _httpContextAccessor.HttpContext;
-                if (ctx != null && ctx.Items.TryGetValue("ResolvedLanguage", out var item) && item is string s && !string.IsNullOrEmpty(s))
-                    return s;
-
-                if (ctx != null && ctx.Request.Cookies.TryGetValue(LanguageCookieName, out var cookieLang))
-                {
-                    if (string.Equals(cookieLang, "en", StringComparison.OrdinalIgnoreCase))
-                        return "en";
-                    if (string.Equals(cookieLang, "fr", StringComparison.OrdinalIgnoreCase))
-                        return "fr";
-                }
-
-                var uiTwo = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-                return string.Equals(uiTwo, "en", StringComparison.OrdinalIgnoreCase) ? "en" : "fr";
-            }
-        }
-
-        public bool IsEnglish => string.Equals(CurrentLanguage, "en", StringComparison.OrdinalIgnoreCase);
-
-        public string T(string fr, string en) => IsEnglish ? en : fr;
+        public string CurrentLanguage => "fr";
+        public bool IsEnglish => false;
+        public string T(string fr, string en) => fr;
 
         public string this[string key]
         {

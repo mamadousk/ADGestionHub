@@ -1,193 +1,38 @@
-using System;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
-using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
-namespace AdGestionHub.Controllers
+namespace AdGestionHub.Controllers;
+
+[Authorize]
+public sealed class HomeController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports) : Controller
 {
-    [Authorize]
-    public class HomeController : Controller
+    [AllowAnonymous]
+    public IActionResult Welcome() => User.Identity?.IsAuthenticated == true ? RedirectToAction(nameof(Index)) : View();
+
+    [Authorize(Policy = "Dashboard")]
+    public async Task<IActionResult> Index(DateTime? startDate, DateTime? endDate, string? currency)
     {
-        private readonly ApplicationDbContext _context;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly ITenantContextService _tenantContext;
-        private readonly IStockService _stockService;
-        private readonly ICacheService _cacheService;
-
-        public HomeController(
-            ApplicationDbContext context,
-            UserManager<ApplicationUser> userManager,
-            ITenantContextService tenantContext,
-            IStockService stockService,
-            ICacheService cacheService)
+        if (User.IsInRole("SuperAdmin")) return RedirectToAction("Index", "SuperAdmin");
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var settings = (await tenant.GetContextAsync()).Settings;
+        ReportPeriod period;
+        try { period = ReportPeriod.Current(startDate, endDate); }
+        catch (CommerceRuleException error)
         {
-            _context = context;
-            _userManager = userManager;
-            _tenantContext = tenantContext;
-            _stockService = stockService;
-            _cacheService = cacheService;
+            ModelState.AddModelError("", error.Message);
+            period = ReportPeriod.Current(null, null);
         }
-
-        [AllowAnonymous]
-        public IActionResult Welcome()
-        {
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                return RedirectToAction(nameof(Index));
-            }
-            return View();
-        }
-
-        public async Task<IActionResult> Index()
-        {
-            if (User.IsInRole("SuperAdmin"))
-            {
-                return RedirectToAction("Index", "SuperAdmin");
-            }
-
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null || user.BoutiqueId == null)
-                return Challenge();
-
-            var boutiqueId = user.BoutiqueId.Value;
-            var ctx = await _tenantContext.GetContextAsync();
-            var primaryCode = ctx.PrimaryCurrency.Code;
-            var cacheKey = $"Dashboard_{boutiqueId}";
-
-            var model = await _cacheService.GetOrSetAsync(cacheKey, async () =>
-            {
-                var today = DateTime.Today;
-                var tomorrow = today.AddDays(1);
-                var currentMonthStart = new DateTime(today.Year, today.Month, 1);
-                var prevMonthStart = currentMonthStart.AddMonths(-1);
-
-                var activeSalesQuery = _context.Sales
-                    .AsNoTracking()
-                    .Where(s => s.BoutiqueId == boutiqueId && !s.IsCancelled && s.CurrencyCode == primaryCode);
-
-                var totalSales = await activeSalesQuery.SumAsync(s => s.FinalPrice);
-                var totalTax = await activeSalesQuery.SumAsync(s => s.TaxAmount);
-                var totalSubtotal = await activeSalesQuery.SumAsync(s =>
-                    s.SubtotalNet == 0m && s.TaxAmount == 0m ? s.FinalPrice : s.SubtotalNet);
-
-                var totalTransactions = await _context.Sales
-                    .AsNoTracking()
-                    .CountAsync(s => s.BoutiqueId == boutiqueId && !s.IsCancelled);
-
-                var todaySales = await activeSalesQuery
-                    .Where(s => s.SaleDate >= today && s.SaleDate < tomorrow)
-                    .SumAsync(s => s.FinalPrice);
-
-                var todayTransactions = await _context.Sales
-                    .AsNoTracking()
-                    .CountAsync(s => s.BoutiqueId == boutiqueId && !s.IsCancelled && s.SaleDate >= today && s.SaleDate < tomorrow);
-
-                var currentMonthSales = await activeSalesQuery
-                    .Where(s => s.SaleDate >= currentMonthStart)
-                    .SumAsync(s => s.FinalPrice);
-
-                var prevMonthSales = await activeSalesQuery
-                    .Where(s => s.SaleDate >= prevMonthStart && s.SaleDate < currentMonthStart)
-                    .SumAsync(s => s.FinalPrice);
-
-                decimal? monthlyGrowth = prevMonthSales > 0m
-                    ? Math.Round((currentMonthSales - prevMonthSales) / prevMonthSales * 100m, 1)
-                    : null;
-
-                var totalExpenses = await _context.Expenses
-                    .AsNoTracking()
-                    .Where(e => e.BoutiqueId == boutiqueId && e.CurrencyCode == primaryCode)
-                    .SumAsync(e => e.Amount);
-
-                var totalDebts = await _context.Debts
-                    .AsNoTracking()
-                    .Where(d => d.BoutiqueId == boutiqueId && !d.IsArchived && !d.IsPaid && d.CurrencyCode == primaryCode)
-                    .SumAsync(d => d.Amount);
-
-                var grossProfit = await (
-                    from si in _context.SaleItems.AsNoTracking()
-                    join s in _context.Sales.AsNoTracking() on si.SaleId equals s.Id
-                    where s.BoutiqueId == boutiqueId && !s.IsCancelled && s.CurrencyCode == primaryCode
-                    select (si.UnitPrice - si.UnitCost) * si.Quantity
-                ).SumAsync();
-
-                var netProfit = grossProfit - totalExpenses;
-                var lowStockCount = await _stockService.GetLowStockCountAsync(boutiqueId);
-
-                var recentSales = await _context.Sales
-                    .AsNoTracking()
-                    .Include(s => s.Items)
-                    .Where(s => s.BoutiqueId == boutiqueId)
-                    .OrderByDescending(s => s.SaleDate)
-                    .Take(6)
-                    .ToListAsync();
-
-                var recentExpenses = await _context.Expenses
-                    .AsNoTracking()
-                    .Where(e => e.BoutiqueId == boutiqueId)
-                    .OrderByDescending(e => e.Date)
-                    .Take(5)
-                    .ToListAsync();
-
-                var lowStockProducts = await _context.Products
-                    .AsNoTracking()
-                    .Where(p => p.BoutiqueId == boutiqueId
-                             && p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold))
-                    .OrderBy(p => p.StockQuantity)
-                    .Take(5)
-                    .ToListAsync();
-
-                return new DashboardViewModel
-                {
-                    TotalSales = totalSales,
-                    TotalSubtotalNet = totalSubtotal,
-                    TotalTaxCollected = totalTax,
-                    TodaySales = todaySales,
-                    TodayTransactions = todayTransactions,
-                    TotalExpenses = totalExpenses,
-                    TotalProfit = netProfit,
-                    TotalDebts = totalDebts,
-                    MonthlyGrowthPercent = monthlyGrowth,
-                    TotalTransactions = totalTransactions,
-                    LowStockCount = lowStockCount,
-                    IsVatEnabled = ctx.IsVatEnabled,
-                    IsFormalized = ctx.IsFormalized,
-                    CurrencyCode = ctx.PrimaryCurrency.Code,
-                    CurrencySymbol = ctx.PrimaryCurrency.Symbol,
-                    CurrencyDecimals = ctx.PrimaryCurrency.Decimals,
-                    RecentSales = recentSales,
-                    RecentExpenses = recentExpenses,
-                    LowStockProducts = lowStockProducts
-                };
-            }, TimeSpan.FromMinutes(2));
-
-            model.IsVatEnabled = ctx.IsVatEnabled;
-            model.IsFormalized = ctx.IsFormalized;
-            model.CurrencyCode = ctx.PrimaryCurrency.Code;
-            model.CurrencySymbol = ctx.PrimaryCurrency.Symbol;
-            model.CurrencyDecimals = ctx.PrimaryCurrency.Decimals;
-
-            return View(model);
-        }
-
-        [AllowAnonymous]
-        public IActionResult Privacy()
-        {
-            return View();
-        }
-
-        [AllowAnonymous]
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
-        {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
-        }
+        return View(await reports.BuildAsync(shop, settings, period,
+            Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode, User.IsInRole("Admin")));
     }
+
+    [AllowAnonymous]
+    public IActionResult Privacy() => View();
+
+    [AllowAnonymous]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error() => View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
 }

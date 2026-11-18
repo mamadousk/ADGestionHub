@@ -1,146 +1,43 @@
-@model IEnumerable<Product>
+@model IReadOnlyList<Product>
 @{
-    var ctx = await TenantCtx.GetContextAsync();
-    ViewData["Title"] = L["Nav.Products"];
-    var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
-    var list = Model?.ToList() ?? new List<Product>();
-    var currentStatus = (ViewBag.CurrentStatus as string) ?? "";
+    ViewData["Title"] = "Produits et stocks";
+    var isAdmin = User.IsInRole("Admin");
+    var currency = (await TenantCtx.GetContextAsync()).PrimaryCurrency.Code;
+    var status = ViewData["Status"] as string;
 }
-
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <div>
-        <h1 class="h4 mb-1">@L["Nav.Products"]</h1>
-        <p class="text-slate small mb-0 num">@list.Count @L.T("référence(s) au catalogue", "item(s) in catalog") (@ctx.PrimaryCurrency.Code)</p>
-    </div>
-    @if (isAdmin)
-    {
-        <a asp-action="Create" class="btn btn-accent">
-            @LucideIcons.Svg("plus", 16, "me-1")
-            <span>@L.T("Nouveau produit", "New product")</span>
-        </a>
-    }
+<div class="page-heading">
+    <div><p class="section-eyebrow">Catalogue</p><h1>Produits et stocks</h1><p>Prix du catalogue en @currency. Les ventes et les réceptions actualisent les quantités.</p></div>
+    @if (isAdmin) { <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouveau produit</a> }
 </div>
-
-<div class="panel-card p-3 mb-3">
-    <form method="get" asp-action="Index" class="row g-2 align-items-center">
-        <div class="col-md-6">
-            <input type="text" name="search" value="@ViewBag.CurrentSearch" class="form-control" placeholder="@L.T("Rechercher par désignation, SKU ou variante...", "Search by name, SKU, or variant...")" />
-        </div>
-        <div class="col-md-3">
-            <select name="status" class="form-select">
-                <option value="" selected="@(string.IsNullOrEmpty(currentStatus))">@L.T("Tous les niveaux de stock", "All stock levels")</option>
-                <option value="ok" selected="@(currentStatus == "ok")">@L.T("En stock normal", "In stock")</option>
-                <option value="low" selected="@(currentStatus == "low")">@L.T("Sous le seuil d'alerte", "Low stock")</option>
-                <option value="out" selected="@(currentStatus == "out")">@L.T("Rupture de stock", "Out of stock")</option>
-            </select>
-        </div>
-        <div class="col-md-3 d-flex gap-2">
-            <button type="submit" class="btn btn-secondary-outline w-100">@L["Action.Filter"]</button>
-            <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Reset"]</a>
-        </div>
-    </form>
-</div>
-
-<div class="panel-card overflow-hidden">
-    <div class="table-responsive">
-        <table class="table table-ledger">
-            <thead>
-                <tr>
-                    <th>@L["Doc.Description"]</th>
-                    @if (isAdmin)
-                    {
-                        <th class="text-end">@L.T("Coût d'achat", "Unit Cost")</th>
-                    }
-                    <th class="text-end">@(ctx.IsVatEnabled ? L.T("Prix vente HT", "Sale Price Excl.") : L.T("Prix de vente", "Sale Price"))</th>
-                    @if (ctx.IsVatEnabled)
-                    {
-                        <th class="text-end">TVA</th>
-                    }
-                    @if (isAdmin)
-                    {
-                        <th class="text-end">@L.T("Marge unitaire", "Unit Margin")</th>
-                    }
-                    <th class="text-center">@L.T("Stock", "Stock")</th>
-                    <th>@L.T("État", "Status")</th>
-                    <th class="text-end">@L.T("Actions", "Actions")</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!list.Any())
-                {
-                    <tr>
-                        <td colspan="8" class="text-center text-slate py-5">
-                            @L.T("Aucun article trouvé.", "No products found.")
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var p in list)
-                    {
-                        var threshold = p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold;
-                        var margin = p.SalePrice - p.PurchasePrice;
-                        var effectiveVat = p.VatRate ?? ctx.DefaultVatRate;
-                        <tr>
-                            <td>
-                                <div class="fw-medium">@p.Name</div>
-                                @if (!string.IsNullOrWhiteSpace(p.Sku) || !string.IsNullOrWhiteSpace(p.Variations))
-                                {
-                                    <div class="text-slate num" style="font-size:0.75rem;">
-                                        @(string.IsNullOrWhiteSpace(p.Sku) ? "" : $"SKU: {p.Sku}")
-                                        @(!string.IsNullOrWhiteSpace(p.Sku) && !string.IsNullOrWhiteSpace(p.Variations) ? " · " : "")
-                                        @p.Variations
-                                    </div>
-                                }
-                            </td>
-                            @if (isAdmin)
-                            {
-                                <td class="text-end num text-slate">@ctx.FormatPrimary(p.PurchasePrice)</td>
-                            }
-                            <td class="text-end num fw-semibold">@ctx.FormatPrimary(p.SalePrice)</td>
-                            @if (ctx.IsVatEnabled)
-                            {
-                                <td class="text-end num text-slate">@effectiveVat.ToString("0.##")%</td>
-                            }
-                            @if (isAdmin)
-                            {
-                                <td class="text-end num @(margin >= 0 ? "text-forest" : "text-sober-red")">
-                                    @ctx.FormatPrimary(margin)
-                                </td>
-                            }
-                            <td class="text-center num fw-semibold">@p.StockQuantity</td>
-                            <td>
-                                @if (p.StockQuantity <= 0)
-                                {
-                                    <span class="status-pill danger">@L.T("Rupture", "Out of stock")</span>
-                                }
-                                else if (p.StockQuantity <= threshold)
-                                {
-                                    <span class="status-pill warning">@L.T("Stock bas", "Low stock")</span>
-                                }
-                                else
-                                {
-                                    <span class="status-pill success">@L.T("Disponible", "In stock")</span>
-                                }
-                            </td>
-                            <td class="text-end text-nowrap">
-                                <a asp-action="Details" asp-route-id="@p.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
-                                    @LucideIcons.Svg("eye", 15)
-                                </a>
-                                @if (isAdmin)
-                                {
-                                    <a asp-action="Edit" asp-route-id="@p.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
-                                        @LucideIcons.Svg("edit-3", 15)
-                                    </a>
-                                    <a asp-action="Delete" asp-route-id="@p.Id" class="btn btn-danger-outline btn-sm py-1 px-2">
-                                        @LucideIcons.Svg("trash-2", 15)
-                                    </a>
-                                }
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+<form method="get" asp-action="Index" class="panel-card filter-panel mb-3">
+    <div class="filter-grow"><label for="productSearch" class="form-label">Rechercher</label><input id="productSearch" name="search" value="@ViewData["Search"]" class="form-control" type="search" placeholder="Nom, référence ou catégorie" /></div>
+    <div><label for="stockState" class="form-label">État du stock</label><select id="stockState" name="status" class="form-select">
+        <option value="">Produits actifs</option><option value="low" selected="@(status == "low")">Sous le seuil</option><option value="out" selected="@(status == "out")">En rupture</option><option value="ok" selected="@(status == "ok")">Disponible</option><option value="archived" selected="@(status == "archived")">Archivés</option>
+    </select></div>
+    <button type="submit" class="btn btn-secondary-outline">Filtrer</button>
+</form>
+@if (Model.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Aucun produit dans cette liste</h2><p class="text-slate mb-0">Changez de filtre ou commencez à renseigner votre catalogue.</p></div>
+}
+else
+{
+    <div class="panel-card table-responsive"><table class="table table-ledger">
+        <thead><tr><th scope="col">Produit</th><th scope="col">Catégorie</th>
+            @if (isAdmin) { <th scope="col" class="text-end">Coût d’achat</th> }
+            <th scope="col" class="text-end">Prix de vente</th><th scope="col" class="text-end">Stock</th><th scope="col">État</th></tr></thead>
+        <tbody>
+        @foreach (var product in Model)
+        {
+            <tr><td><a asp-action="Details" asp-route-id="@product.Id" class="fw-semibold">@product.Name</a><div class="text-slate small">@product.Sku</div></td><td>@(product.Category ?? "—")</td>
+                @if (isAdmin) { <td class="text-end text-nowrap">@Money.Display(product.PurchasePrice, currency)</td> }
+                <td class="text-end text-nowrap">@Money.Display(product.SalePrice, currency)</td><td class="text-end">@product.StockQuantity</td><td>
+                    @if (product.IsArchived) { <span class="status-pill">Archivé</span> }
+                    else if (product.StockQuantity == 0) { <span class="status-pill danger">Rupture</span> }
+                    else if (product.StockQuantity <= product.StockAlertThreshold) { <span class="status-pill warning">Stock bas</span> }
+                    else { <span class="status-pill success">Disponible</span> }
+                </td></tr>
+        }
+        </tbody>
+    </table></div>
+}

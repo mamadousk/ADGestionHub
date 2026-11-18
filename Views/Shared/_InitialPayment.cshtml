@@ -1,0 +1,25 @@
+@model PayableInput
+@{
+    var settings = (StoreSettings)ViewData["TradeSettings"]!;
+}
+<div class="row g-3 mt-1">
+    <div class="col-md-4">
+        <label asp-for="PaymentMode" class="form-label">État du règlement</label>
+        <select asp-for="PaymentMode" class="form-select" data-payment-mode>
+            <option value="Full">Réglé intégralement</option>
+            <option value="Partial">Partiellement réglé</option>
+            <option value="Unpaid">Non réglé</option>
+        </select>
+    </div>
+    <div class="col-md-4" data-partial-payment>
+        <label asp-for="InitialPayment" class="form-label">Montant réglé</label>
+        <input asp-for="InitialPayment" class="form-control num" inputmode="decimal" placeholder="0,00" />
+        <div class="form-text">Seulement pour un règlement partiel.</div>
+    </div>
+    <div class="col-md-4" data-payment-method>
+        <label asp-for="PaymentMethod" class="form-label">Moyen de paiement</label>
+        <select asp-for="PaymentMethod" class="form-select">
+            @foreach (var method in PaymentMeans.All(settings)) { <option value="@method">@method</option> }
+        </select>
+    </div>
+</div>

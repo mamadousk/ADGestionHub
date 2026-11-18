@@ -1,0 +1,35 @@
+@model TradeLineRow
+@{
+    var products = (IEnumerable<CatalogPick>)ViewData["TradeProducts"]!;
+    var prefix = $"Items[{Model.Index}]";
+    var htmlId = $"line-{Model.Index}";
+}
+<div class="trade-line" data-trade-line>
+    <div class="trade-item">
+        <label class="form-label" for="@($"{htmlId}-product")" data-label="product">Produit</label>
+        <select id="@($"{htmlId}-product")" name="@($"{prefix}.ProductId")" class="form-select" data-field="ProductId" data-role="product" required>
+            <option value="">Sélectionner un produit</option>
+            @foreach (var product in products)
+            {
+                <option value="@product.Id" selected="@(product.Id == Model.Line.ProductId)"
+                        data-price-cdf="@(product.Prices.TryGetValue("CDF", out var cdf) ? Money.Input(cdf) : null)"
+                        data-price-usd="@(product.Prices.TryGetValue("USD", out var usd) ? Money.Input(usd) : null)">
+                    @product.Name @(string.IsNullOrWhiteSpace(product.Sku) ? "" : $"· {product.Sku}") · stock : @product.Stock
+                </option>
+            }
+        </select>
+        @if (!Model.IsPurchase) { <small class="form-text num" data-read-price></small> }
+    </div>
+    <div>
+        <label class="form-label" for="@($"{htmlId}-quantity")" data-label="quantity">Quantité</label>
+        <input id="@($"{htmlId}-quantity")" name="@($"{prefix}.Quantity")" class="form-control num" type="number" inputmode="numeric" min="1" max="100000" value="@Model.Line.Quantity" data-field="Quantity" data-role="quantity" required />
+    </div>
+    @if (Model.IsPurchase)
+    {
+        <div class="trade-price">
+            <label class="form-label" for="@($"{htmlId}-price")" data-label="price">Prix unitaire</label>
+            <input id="@($"{htmlId}-price")" name="@($"{prefix}.UnitPrice")" value="@Money.Input(Model.Line.UnitPrice)" class="form-control num" inputmode="decimal" data-field="UnitPrice" data-role="price" required />
+        </div>
+    }
+    <button type="button" class="btn btn-secondary-outline trade-remove" data-remove-line aria-label="Retirer cette ligne" title="Retirer cette ligne">@LucideIcons.Svg("x", 17)</button>
+</div>

@@ -1,0 +1,29 @@
+@model NewPaymentForm
+@{
+    var settings = (await TenantCtx.GetContextAsync()).Settings;
+    var alt = Money.IsMvpCurrency(Model.Currency) && settings.CdfPerUsd is > 0 ? (Model.Currency == "CDF" ? "USD" : "CDF") : null;
+}
+@if (!Money.IsMvpCurrency(Model.Currency))
+{
+    <div class="alert alert-info no-print">Cette devise historique est consultable, mais aucun nouveau règlement n’est possible dans cette version.</div>
+    return;
+}
+<section class="panel-card p-3 p-md-4 mb-3 no-print">
+    <h2 class="h6 mb-1">Enregistrer un règlement</h2>
+    <p class="text-slate small mb-3">Reste à régler : <strong class="num">@Money.Display(Model.Balance, Model.Currency)</strong>.</p>
+    <form asp-controller="Payments" asp-action="Settle" asp-route-id="@Model.Id" asp-route-target="@Model.Action" method="post" class="row g-3 align-items-end">
+        <div class="col-sm-4 col-lg"><label for="settleAmount" class="form-label">Montant</label><input id="settleAmount" name="Amount" value="@Money.Input(Model.Balance)" class="form-control num" inputmode="decimal" required /></div>
+        <div class="col-sm-3 col-lg"><label for="settleCurrency" class="form-label">Devise versée</label><select id="settleCurrency" name="CurrencyCode" class="form-select">
+            <option value="@Model.Currency">@Model.Currency</option>
+            @if (alt != null) { <option value="@alt">@alt</option> }
+        </select></div>
+        <div class="col-sm-5 col-lg"><label for="settleMethod" class="form-label">Moyen de paiement</label><select id="settleMethod" name="Method" class="form-select">
+            @foreach (var method in PaymentMeans.All(settings)) { <option value="@method">@method</option> }
+        </select></div>
+        <div class="col-12 col-lg-auto"><button type="submit" class="btn btn-accent">Enregistrer le règlement</button></div>
+    </form>
+    @if (alt != null && settings.CdfPerUsd is decimal rate)
+    {
+        <p class="form-text mb-0">Si vous changez la devise versée, saisissez le montant réellement reçu ou versé dans cette devise. Taux de règlement : @Money.RateLabel(rate).</p>
+    }
+</section>

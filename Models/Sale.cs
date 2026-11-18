@@ -27,7 +27,7 @@ namespace AdGestionHub.Models
         public string DocumentNumber { get; set; } = string.Empty;
 
         /// <summary>
-        /// "Receipt" (Non formalisé) ou "Invoice" (Formalisé), figé au moment de la vente.
+        /// "Invoice" (facture commerciale) ou "Receipt" pour un reçu historique.
         /// </summary>
         [StringLength(20)]
         public string DocumentType { get; set; } = "Receipt";
@@ -67,6 +67,15 @@ namespace AdGestionHub.Models
         public decimal SubtotalNet { get; set; }
         public decimal TaxAmount { get; set; }
         public decimal FinalPrice { get; set; }
+        public decimal Discount { get; set; }
+        public decimal? CdfPerUsd { get; set; }
+        public List<Payment> Payments { get; set; } = [];
+
+        [NotMapped] public string Number => string.IsNullOrWhiteSpace(DocumentNumber) ? $"#{Id}" : DocumentNumber;
+        [NotMapped] public int StockWarnings { get; set; }
+        [NotMapped] public decimal Paid => Payments.Sum(p => p.AppliedAmount);
+        [NotMapped] public decimal Balance => IsCancelled ? 0m : FinalPrice - Paid;
+        [NotMapped] public string PaymentStatus => IsCancelled ? "Annulée" : Balance == 0 ? "Réglée" : Paid == 0 ? "Impayée" : "Partiellement réglée";
 
         public bool IsCancelled { get; set; } = false;
         public DateTime? CancelledAt { get; set; }

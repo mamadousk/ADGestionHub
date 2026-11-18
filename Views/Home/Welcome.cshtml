@@ -1,158 +1,35 @@
-@{
-    ViewData["Title"] = L.T("Plateforme de gestion commerciale", "Retail & SMB Management Platform");
-    Layout = "_Layout";
-}
-
-<section class="py-5 hero-shell">
-    <div class="container position-relative">
-        <div class="row justify-content-center text-center mb-5">
-            <div class="col-lg-8">
-                <span class="status-pill info mb-3">AdGestionHub v2.0</span>
-                <h1 class="display-5 fw-bold mb-3 hero-gradient-text" style="letter-spacing:-0.03em; line-height:1.15;">
-                    @L.T(
-                        "Encaissement, stocks et gestion fiscale structurée pour votre commerce",
-                        "Structured point-of-sale, inventory, and fiscal compliance for your business")
-                </h1>
-                <p class="text-slate mb-4 mx-auto" style="max-width: 620px; font-size: 1rem;">
-                    @L.T(
-                        "Conçu pour s'adapter automatiquement à votre pays, votre devise (CDF, FCFA, KES, NGN, USD) et votre régime fiscal, sans complexité superflue.",
-                        "Automatically adapts to your country, local currency (CDF, XOF, XAF, KES, NGN, USD), and tax regime without unnecessary friction.")
-                </p>
-                <div class="d-flex justify-content-center flex-wrap gap-2">
-                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent px-4 py-2">
-                        @L.T("Créer un compte établissement", "Create business account")
-                    </a>
-                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-secondary-outline px-4 py-2">
-                        @L["Nav.Login"]
-                    </a>
-                </div>
-            </div>
+@{ ViewData["Title"] = "Gestion commerciale en RDC"; }
+<div class="container welcome-surface py-4 py-lg-5">
+    <section class="welcome-hero">
+        <div class="welcome-copy">
+            <span class="welcome-kicker"><span class="tiny-dot"></span> Gestion commerciale · RDC</span>
+            <h1>Pilotez votre activité.<br /><span>Maîtrisez vos chiffres.</span></h1>
+            <p>Ventes, stocks, achats et règlements : gérez votre commerce au même endroit et voyez ce qui reste à encaisser, en CDF ou en USD.</p>
+            <div class="d-flex flex-wrap gap-2"><a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent">Créer mon entreprise @LucideIcons.Svg("arrow-right", 17, "ms-2")</a><a asp-area="Identity" asp-page="/Account/Login" class="btn btn-secondary-outline">Se connecter</a></div>
+            <div class="welcome-footnote">@LucideIcons.Svg("check", 16, "me-1") Accessible sur téléphone et ordinateur</div>
         </div>
-
-        <!-- Offres -->
-        <div class="row justify-content-center g-4 mb-5">
-            <div class="col-md-6 col-lg-5">
-                <div class="panel-card p-4 h-100 d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-semibold">@L.T("Édition Standard", "Standard Edition")</span>
-                        <span class="status-pill success">@L.T("Accès immédiat", "Available now")</span>
-                    </div>
-                    <div class="h3 fw-semibold num my-2">@L.T("Gratuit", "Free")</div>
-                    <p class="text-slate small mb-3">
-                        @L.T("Pour boutiques indépendantes et PME en croissance.", "For independent retail stores and growing SMBs.")
-                    </p>
-                    <ul class="list-unstyled small text-slate mb-4 flex-grow-1 d-flex flex-column gap-2 border-top pt-3">
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Caisse rapide, reçus thermiques 58mm & factures A4", "Fast POS, 58mm thermal receipts & A4 invoices")</span></li>
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Multi-devises, bi-monétarisme & TVA paramétrable", "Multi-currency, dual-currency & configurable VAT")</span></li>
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Gestion des stocks atomique, dépenses & créances clients", "Atomic stock control, expenses & customer receivables")</span></li>
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("check", 15, "text-forest") <span>@L.T("Comptes vendeurs cloisonnés (marges confidentielles)", "Role-based staff accounts (protected cost margins)")</span></li>
-                    </ul>
-                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent w-100">
-                        @L.T("Démarrer gratuitement", "Start for free")
-                    </a>
-                </div>
+        <div class="welcome-preview" aria-label="Exemple de tableau de bord">
+            <div class="preview-top"><span class="brand-mark">A</span><div><strong>Tableau de bord</strong><small>Boutique exemple</small></div><span class="status-pill ms-auto">CDF</span></div>
+            <div class="preview-metrics">
+                <div><small>Ventes du mois</small><b class="num">1 245 000 CDF</b></div>
+                <div><small>Recettes encaissées</small><b class="num">970 000 CDF</b></div>
             </div>
-
-            <div class="col-md-6 col-lg-5">
-                <div class="panel-card p-4 h-100 d-flex flex-column" style="background: var(--bg-canvas) !important;">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-semibold">@L.T("Édition Multi-Sites", "Multi-Branch Edition")</span>
-                        <span class="status-pill warning">@L.T("Prochainement", "Coming soon")</span>
-                    </div>
-                    <div class="h3 fw-semibold my-2">Pro</div>
-                    <p class="text-slate small mb-3">
-                        @L.T("Consolidation multi-points de vente et intégrations comptables.", "Multi-store consolidation and accounting exports.")
-                    </p>
-                    <ul class="list-unstyled small text-slate mb-4 flex-grow-1 d-flex flex-column gap-2 border-top pt-3">
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("building-2", 15) <span>@L.T("Supervision centralisée de plusieurs établissements", "Centralized multi-branch supervision")</span></li>
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("file-text", 15) <span>@L["Status.EInvoicingTitle"]</span></li>
-                        <li class="d-flex align-items-center gap-2">@LucideIcons.Svg("bar-chart-3", 15) <span>@L.T("Exports comptables analytiques", "Analytical accounting exports")</span></li>
-                    </ul>
-
-                    <form id="waitingListForm" class="mt-auto" onsubmit="sendToWaitingList(event)">
-                        @Html.AntiForgeryToken()
-                        <div class="d-flex gap-2">
-                            <input type="email" id="waitingEmail" class="form-control" placeholder="contact@entreprise.com" required />
-                            <button type="submit" id="waitingSubmitBtn" class="btn btn-secondary-outline text-nowrap">
-                                @L.T("M'inscrire", "Notify me")
-                            </button>
-                        </div>
-                        <small id="waitingListFeedback" class="text-slate mt-2 d-block">
-                            @L.T("Recevoir une notification lors de l'ouverture du plan Pro.", "Get notified when Multi-Branch launches.")
-                        </small>
-                    </form>
-                </div>
+            <div class="preview-chart"><div class="d-flex justify-content-between gap-2"><strong>Évolution des ventes</strong><small>Exemple</small></div>
+                <svg viewBox="0 0 360 105" role="img" aria-label="Courbe illustrative des ventes">
+                    <defs><linearGradient id="previewGradient" x1="0" x2="0" y1="0" y2="1" gradientUnits="objectBoundingBox"><stop offset="0%" stop-color="#ff6539" stop-opacity=".25"/><stop offset="100%" stop-color="#ff6539" stop-opacity="0"/></linearGradient></defs>
+                    <path d="M4 93 H356 M4 60 H356 M4 27 H356" fill="none" stroke="#e8eaf2" stroke-dasharray="4 4" />
+                    <path d="M4 90 C40 91 52 70 79 75 S111 52 145 56 S175 81 211 53 S242 65 269 43 S309 53 356 13 V103 H4 Z" fill="url(#previewGradient)"/>
+                    <path d="M4 90 C40 91 52 70 79 75 S111 52 145 56 S175 81 211 53 S242 65 269 43 S309 53 356 13" fill="none" stroke="#e8552e" stroke-width="3" stroke-linecap="round"/>
+                    <circle cx="356" cy="13" r="4" fill="#e8552e"/>
+                </svg>
             </div>
+            <div class="preview-bottom"><span>@LucideIcons.Svg("package", 16) Suivi du stock</span><span class="status-pill warning">2 alertes</span></div>
         </div>
-
-        <!-- Piliers fonctionnels -->
-        <div class="row g-3">
-            <div class="col-md-4">
-                <div class="panel-card p-4 h-100">
-                    <div class="mb-2 text-slate">@LucideIcons.Svg("globe", 20)</div>
-                    <h2 class="h6 mb-1">@L.T("Localisation automatique", "Automatic Localization")</h2>
-                    <p class="text-slate small mb-0">
-                        @L.T("Devises sans centimes (XOF/XAF) ou décimales (CDF/USD/KES), indicatifs téléphoniques et identifiants légaux par pays.", "Zero-decimal (XOF/XAF) or two-decimal (CDF/USD/KES) formatting, dial codes, and country-specific legal IDs.")
-                    </p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="panel-card p-4 h-100">
-                    <div class="mb-2 text-slate">@LucideIcons.Svg("receipt", 20)</div>
-                    <h2 class="h6 mb-1">@L.T("Isolation historique stricte", "Strict Historical Isolation")</h2>
-                    <p class="text-slate small mb-0">
-                        @L.T("Tout changement de devise, de TVA ou de statut formalisé s'applique uniquement aux nouvelles opérations sans altérer vos archives.", "Currency, VAT, or formalization changes apply strictly to future operations without altering historical records.")
-                    </p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="panel-card p-4 h-100">
-                    <div class="icon-tile emerald mb-3">@LucideIcons.Svg("shield", 22)</div>
-                    <h2 class="h6 mb-1">@L.T("Contrôle interne & Audit", "Internal Control & Audit")</h2>
-                    <p class="text-slate small mb-0">
-                        @L.T("Numérotation séquentielle sans rupture, journal d'audit horodaté et séparation stricte propriétaire / vendeurs.", "Gap-free sequential numbering, timestamped audit logs, and strict owner vs. cashier role separation.")
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-@section Scripts {
-    <script>
-        function sendToWaitingList(e) {
-            e.preventDefault();
-            const form = document.getElementById('waitingListForm');
-            const emailInput = document.getElementById('waitingEmail');
-            const btn = document.getElementById('waitingSubmitBtn');
-            const feedback = document.getElementById('waitingListFeedback');
-            const tokenInput = form.querySelector('input[name="__RequestVerificationToken"]');
-            if (!emailInput.value || !tokenInput) return;
-
-            btn.disabled = true;
-            fetch('/Marketing/JoinWaitingList', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    email: emailInput.value.trim(),
-                    __RequestVerificationToken: tokenInput.value
-                })
-            })
-            .then(r => {
-                if (r.ok) {
-                    feedback.className = 'text-forest small mt-2 d-block';
-                    feedback.textContent = '@L.T("Inscription enregistrée.", "Request registered.")';
-                    emailInput.value = '';
-                } else {
-                    feedback.className = 'text-sober-red small mt-2 d-block';
-                    feedback.textContent = '@L.T("Adresse email invalide.", "Invalid email address.")';
-                }
-            })
-            .catch(() => {
-                feedback.className = 'text-sober-red small mt-2 d-block';
-                feedback.textContent = '@L.T("Erreur réseau.", "Network error.")';
-            })
-            .finally(() => { btn.disabled = false; });
-        }
-    </script>
-}
+    </section>
+    <section class="welcome-features" aria-label="Fonctionnalités principales">
+        <article class="panel-card"><span class="metric-icon orange">@LucideIcons.Svg("shopping-bag", 21)</span><h2>Vendez au quotidien</h2><p>Enregistrez une vente à plusieurs articles et imprimez sa facture commerciale.</p></article>
+        <article class="panel-card"><span class="metric-icon indigo">@LucideIcons.Svg("package", 21)</span><h2>Gardez le stock à jour</h2><p>Suivez les quantités, les livraisons fournisseurs et les articles à réapprovisionner.</p></article>
+        <article class="panel-card"><span class="metric-icon green">@LucideIcons.Svg("wallet", 21)</span><h2>Sachez ce qui est payé</h2><p>Retrouvez les règlements partiels, les créances et les dettes, sans mélanger les devises.</p></article>
+    </section>
+    <p class="text-slate small mb-0 mt-4">Les factures émises sont des documents commerciaux ordinaires, non normalisés par la DGI.</p>
+</div>

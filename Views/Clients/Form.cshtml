@@ -1,0 +1,4 @@
+@model ContactInput
+@{ ViewData["Title"] = ViewData["ContactId"] == null ? "Nouveau client" : "Modifier le client"; }
+<div class="page-heading"><div><p class="section-eyebrow"><a asp-action="Index">Clients</a></p><h1>@ViewData["Title"]</h1><p>Associez une fiche client à ses ventes pour retrouver son historique et son solde.</p></div></div>
+<partial name="_ContactForm" model="Model" />

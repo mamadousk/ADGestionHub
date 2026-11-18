@@ -1,42 +1,17 @@
-@model AdGestionHub.Models.Sale
-@{
-    var ctx = await TenantCtx.GetContextAsync();
-    var docRef = !string.IsNullOrWhiteSpace(Model.DocumentNumber) ? Model.DocumentNumber : $"#{Model.Id:D5}";
-    ViewData["Title"] = L.T("Annuler une opération", "Void Transaction");
-}
-
-<div class="row justify-content-center">
-    <div class="col-md-7 col-lg-6">
-        <div class="panel-card p-4">
-            <h1 class="h5 mb-2">@L.T("Confirmer l'annulation", "Confirm Void") — <span class="num">@docRef</span></h1>
-            <p class="text-slate small mb-3">
-                @L.T(
-                    "La numérotation séquentielle est conservée sans rupture, les quantités en stock seront restaurées et l'annulation sera inscrite dans l'audit.",
-                    "Sequential numbering is preserved without gaps, item stock quantities will be restored, and this action will be logged in audit history.")
-            </p>
-
-            <div class="p-3 rounded border mb-3 num" style="background: var(--bg-canvas);">
-                <div class="d-flex justify-content-between small mb-1">
-                    <span class="text-slate">@L["Doc.Date"]</span>
-                    <span>@ctx.FormatDate(Model.SaleDate, true)</span>
-                </div>
-                <div class="d-flex justify-content-between fw-semibold">
-                    <span>@L.T("Montant total", "Total amount")</span>
-                    <span>@ctx.FormatHistorical(Model.FinalPrice, Model.CurrencyCode, Model.CurrencyDecimals, Model.CurrencySymbol)</span>
-                </div>
-            </div>
-
-            <form asp-action="Delete" method="post">
-                <input type="hidden" asp-for="Id" />
-                <div class="mb-3">
-                    <label class="form-label">@L.T("Motif de l'annulation", "Reason for voiding")</label>
-                    <input type="text" name="reason" class="form-control" maxlength="300" placeholder="@L.T("Ex : Erreur de saisie ou retour marchandise", "e.g. Entry error or item return")" required />
-                </div>
-                <div class="d-flex justify-content-end gap-2">
-                    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
-                    <button type="submit" class="btn btn-danger-outline">@L.T("Confirmer l'annulation", "Void transaction")</button>
-                </div>
-            </form>
-        </div>
-    </div>
+@model Sale
+@{ ViewData["Title"] = "Annuler la vente"; }
+<div class="page-heading"><div><p class="section-eyebrow">Ventes</p><h1>Annuler la vente @Model.Number</h1><p>La vente sera conservée dans l’historique et ses produits seront remis en stock.</p></div></div>
+<div class="panel-card p-3 p-md-4 compact-form">
+    @if (Model.IsCancelled || Model.Payments.Count != 0)
+    {
+        <p class="mb-3">@(Model.IsCancelled ? "Cette vente est déjà annulée." : "Une vente avec règlement ne peut pas être annulée en V1.")</p>
+        <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Retour</a>
+    }
+    else
+    {
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+            <label for="voidReason" class="form-label">Motif de l’annulation</label><textarea id="voidReason" name="reason" class="form-control" maxlength="300" rows="3" required></textarea>
+            <div class="form-actions"><a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Retour</a><button type="submit" class="btn btn-danger-outline">Confirmer l’annulation</button></div>
+        </form>
+    }
 </div>

@@ -1,124 +1,16 @@
-@model IEnumerable<AdGestionHub.Models.Expense>
-@{
-    var ctx = await TenantCtx.GetContextAsync();
-    ViewData["Title"] = L["Nav.Expenses"];
-    var isAdmin = User.IsInRole("Admin");
-    var list = Model?.ToList() ?? new List<AdGestionHub.Models.Expense>();
-    var primaryCode = ctx.PrimaryCurrency.Code;
-    var primaryTotal = list
-        .Where(e => string.Equals(e.CurrencyCode ?? "USD", primaryCode, StringComparison.OrdinalIgnoreCase))
-        .Sum(e => e.Amount);
-    var otherCurrencyTotals = list
-        .Where(e => !string.Equals(e.CurrencyCode ?? "USD", primaryCode, StringComparison.OrdinalIgnoreCase))
-        .GroupBy(e => e.CurrencyCode ?? "USD")
-        .Select(g => new { Code = g.Key, First = g.First(), Total = g.Sum(x => x.Amount) })
-        .ToList();
-    var categories = list
-        .Where(e => string.Equals(e.CurrencyCode ?? "USD", primaryCode, StringComparison.OrdinalIgnoreCase))
-        .GroupBy(e => string.IsNullOrWhiteSpace(e.Category) ? L.T("Autre", "Other") : e.Category)
-        .Select(g => new { Name = g.Key, Total = g.Sum(e => e.Amount) })
-        .OrderByDescending(g => g.Total)
-        .ToList();
+@model IReadOnlyList<Expense>
+@{ ViewData["Title"] = "Dépenses"; }
+<div class="page-heading"><div><p class="section-eyebrow">Trésorerie</p><h1>Dépenses</h1><p>Les charges courantes de l’entreprise, distinctes des paiements fournisseurs.</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle dépense</a></div>
+@if (Model.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Aucune dépense enregistrée</h2></div>
 }
-
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <div>
-        <h1 class="h4 mb-1">@L["Nav.Expenses"]</h1>
-        <p class="text-slate small mb-0">@L.T("Journal des charges opérationnelles", "Operating expenses ledger")</p>
-    </div>
-    <a asp-action="Create" class="btn btn-accent">
-        @LucideIcons.Svg("plus", 16, "me-1")
-        <span>@L.T("Nouvelle dépense", "New expense")</span>
-    </a>
-</div>
-
-<div class="row g-3 mb-4">
-    <div class="col-md-4">
-        <div class="kpi-card">
-            <div class="kpi-label">@L.T("Total des dépenses", "Total expenses") (@primaryCode)</div>
-            <div class="kpi-value text-sober-red">@ctx.FormatPrimary(primaryTotal)</div>
-            @foreach (var oc in otherCurrencyTotals)
-            {
-                <div class="kpi-sub num">+ @ctx.FormatHistorical(oc.Total, oc.Code, oc.First.CurrencyDecimals, oc.First.CurrencySymbol) (@L.T("historique", "historical"))</div>
-            }
-        </div>
-    </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-lg-8">
-        <div class="panel-card overflow-hidden">
-            <div class="table-responsive">
-                <table class="table table-ledger">
-                    <thead>
-                        <tr>
-                            <th>@L["Doc.Date"]</th>
-                            <th>@L["Doc.Description"]</th>
-                            <th>@L.T("Catégorie", "Category")</th>
-                            <th class="text-end">@L.T("Montant", "Amount")</th>
-                            <th class="text-end">@L.T("Actions", "Actions")</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (!list.Any())
-                        {
-                            <tr>
-                                <td colspan="5" class="text-center text-slate py-5">@L.T("Aucune dépense enregistrée.", "No expenses recorded.")</td>
-                            </tr>
-                        }
-                        else
-                        {
-                            foreach (var item in list.OrderByDescending(e => e.Date))
-                            {
-                                <tr>
-                                    <td class="num text-slate text-nowrap">@ctx.FormatDate(item.Date)</td>
-                                    <td class="fw-medium">@item.Description</td>
-                                    <td><span class="status-pill">@item.Category</span></td>
-                                    <td class="text-end num fw-semibold text-sober-red">
-                                        -@ctx.FormatHistorical(item.Amount, item.CurrencyCode, item.CurrencyDecimals, item.CurrencySymbol)
-                                    </td>
-                                    <td class="text-end text-nowrap">
-                                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
-                                            @LucideIcons.Svg("eye", 15)
-                                        </a>
-                                        @if (isAdmin)
-                                        {
-                                            <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
-                                                @LucideIcons.Svg("edit-3", 15)
-                                            </a>
-                                            <form asp-action="Delete" asp-route-id="@item.Id" method="post" class="d-inline" onsubmit="return confirm('@L.T("Supprimer cette dépense ?", "Delete this expense?")');">
-                                                <button type="submit" class="btn btn-danger-outline btn-sm py-1 px-2">
-                                                    @LucideIcons.Svg("trash-2", 15)
-                                                </button>
-                                            </form>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <div class="panel-card p-4">
-            <h2 class="h6 mb-3">@L.T("Répartition par catégorie", "Breakdown by Category") (@primaryCode)</h2>
-            @if (!categories.Any())
-            {
-                <p class="text-slate small mb-0">@L.T("Aucune donnée disponible.", "No data available.")</p>
-            }
-            else
-            {
-                foreach (var cat in categories)
-                {
-                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                        <span class="small">@cat.Name</span>
-                        <span class="num fw-semibold text-sober-red">@ctx.FormatPrimary(cat.Total)</span>
-                    </div>
-                }
-            }
-        </div>
-    </div>
-</div>
+else
+{
+    <div class="panel-card table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Dépense</th><th scope="col">Catégorie</th><th scope="col">Moyen</th><th scope="col" class="text-end">Montant</th></tr></thead><tbody>
+        @foreach (var expense in Model)
+        {
+            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a><div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div></td><td>@expense.Category</td><td>@PaymentMeans.Display(expense.PaymentMethod)</td><td class="text-end text-nowrap">@Money.Display(expense.Amount, expense.CurrencyCode)</td></tr>
+        }
+    </tbody></table></div>
+}

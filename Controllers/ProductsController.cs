@@ -1,6 +1,4 @@
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models.ViewModels;
 using AdGestionHub.Services;
@@ -8,264 +6,183 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace AdGestionHub.Controllers
+namespace AdGestionHub.Controllers;
+
+[Authorize(Policy = "ShopMember")]
+public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
+    CommerceWriter writer, StockService stock) : Controller
 {
-    [Authorize]
-    public class ProductsController : Controller
+    public async Task<IActionResult> Index(string? search, string? status)
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IBoutiqueService _boutiqueService;
-        private readonly ITenantContextService _tenantContext;
-        private readonly ICacheService _cacheService;
-        private readonly IAppLocalizer _L;
-
-        public ProductsController(
-            ApplicationDbContext context,
-            IBoutiqueService boutiqueService,
-            ITenantContextService tenantContext,
-            ICacheService cacheService,
-            IAppLocalizer localizer)
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var query = Products(shop);
+        if (CommerceOperations.Clean(search) is string term)
+            query = query.Where(p => p.Name.Contains(term) || (p.Sku != null && p.Sku.Contains(term)) || (p.Category != null && p.Category.Contains(term)));
+        query = status switch
         {
-            _context = context;
-            _boutiqueService = boutiqueService;
-            _tenantContext = tenantContext;
-            _cacheService = cacheService;
-            _L = localizer;
-        }
-
-        public async Task<IActionResult> Index(string? search, string? status)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var query = _context.Products
-                .AsNoTracking()
-                .Where(p => p.BoutiqueId == boutiqueId.Value);
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                var term = search.Trim();
-                query = query.Where(p =>
-                    p.Name.Contains(term)
-                    || (p.Sku != null && p.Sku.Contains(term))
-                    || (p.Variations != null && p.Variations.Contains(term)));
-            }
-
-            if (!string.IsNullOrWhiteSpace(status))
-            {
-                switch (status.ToLowerInvariant())
-                {
-                    case "out":
-                        query = query.Where(p => p.StockQuantity <= 0);
-                        break;
-                    case "low":
-                        query = query.Where(p => p.StockQuantity > 0 && p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold));
-                        break;
-                    case "ok":
-                        query = query.Where(p => p.StockQuantity > (p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold));
-                        break;
-                }
-            }
-
-            ViewBag.CurrentSearch = search;
-            ViewBag.CurrentStatus = status;
-
-            var products = await query.OrderBy(p => p.Name).ToListAsync();
-            return View(products);
-        }
-
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.BoutiqueId == boutiqueId.Value && p.Id == id.Value);
-
-            if (product == null) return NotFound();
-            return View(product);
-        }
-
-        [Authorize(Policy = "AdminOrSuperAdmin")]
-        public async Task<IActionResult> Create()
-        {
-            var ctx = await _tenantContext.GetContextAsync();
-            return View(new Product
-            {
-                StockAlertThreshold = 5,
-                LowStockThreshold = 5,
-                VatRate = ctx.IsVatEnabled ? ctx.DefaultVatRate : null
-            });
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrSuperAdmin")]
-        public async Task<IActionResult> Create(ProductFormViewModel model)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var ctx = await _tenantContext.GetContextAsync();
-            var decimals = ctx.PrimaryCurrency.Decimals;
-
-            if (!ModelState.IsValid)
-                return View(MapToEntity(model, boutiqueId.Value));
-
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-            var product = new Product
-            {
-                Name = model.Name.Trim(),
-                Sku = string.IsNullOrWhiteSpace(model.Sku) ? null : model.Sku.Trim(),
-                PurchasePrice = decimal.Round(model.PurchasePrice, decimals),
-                SalePrice = decimal.Round(model.SalePrice, decimals),
-                VatRate = ctx.IsVatEnabled ? (model.VatRate ?? ctx.DefaultVatRate) : null,
-                StockQuantity = model.StockQuantity,
-                LowStockThreshold = model.StockAlertThreshold,
-                StockAlertThreshold = model.StockAlertThreshold,
-                Variations = string.IsNullOrWhiteSpace(model.Variations) ? null : model.Variations.Trim(),
-                BoutiqueId = boutiqueId.Value,
-                UserId = userId
-            };
-
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-            await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-
-            TempData["SuccessMessage"] = _L.T(
-                $"Produit « {product.Name} » ajouté au catalogue.",
-                $"Product « {product.Name} » added to catalog.");
-            return RedirectToAction(nameof(Index));
-        }
-
-        [Authorize(Policy = "AdminOrSuperAdmin")]
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.BoutiqueId == boutiqueId.Value && p.Id == id.Value);
-
-            if (product == null) return NotFound();
-
-            if (product.StockAlertThreshold <= 0 && product.LowStockThreshold > 0)
-                product.StockAlertThreshold = product.LowStockThreshold;
-
-            var ctx = await _tenantContext.GetContextAsync();
-            if (ctx.IsVatEnabled && !product.VatRate.HasValue)
-                product.VatRate = ctx.DefaultVatRate;
-
-            return View(product);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrSuperAdmin")]
-        public async Task<IActionResult> Edit(int id, ProductFormViewModel model)
-        {
-            if (id != model.Id) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var existing = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == id && p.BoutiqueId == boutiqueId.Value);
-
-            if (existing == null) return NotFound();
-
-            if (!ModelState.IsValid)
-                return View(MapToEntity(model, boutiqueId.Value));
-
-            var ctx = await _tenantContext.GetContextAsync();
-            var decimals = ctx.PrimaryCurrency.Decimals;
-
-            existing.Name = model.Name.Trim();
-            existing.Sku = string.IsNullOrWhiteSpace(model.Sku) ? null : model.Sku.Trim();
-            existing.PurchasePrice = decimal.Round(model.PurchasePrice, decimals);
-            existing.SalePrice = decimal.Round(model.SalePrice, decimals);
-            if (ctx.IsVatEnabled)
-                existing.VatRate = model.VatRate ?? ctx.DefaultVatRate;
-
-            existing.StockQuantity = model.StockQuantity;
-            existing.LowStockThreshold = model.StockAlertThreshold;
-            existing.StockAlertThreshold = model.StockAlertThreshold;
-            existing.Variations = string.IsNullOrWhiteSpace(model.Variations) ? null : model.Variations.Trim();
-
-            await _context.SaveChangesAsync();
-            await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-
-            TempData["SuccessMessage"] = _L.T(
-                $"Produit « {existing.Name} » mis à jour.",
-                $"Product « {existing.Name} » updated.");
-            return RedirectToAction(nameof(Index));
-        }
-
-        [Authorize(Policy = "AdminOrSuperAdmin")]
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.BoutiqueId == boutiqueId.Value && p.Id == id.Value);
-
-            if (product == null) return NotFound();
-            return View(product);
-        }
-
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrSuperAdmin")]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.BoutiqueId == boutiqueId.Value && p.Id == id);
-
-            if (product != null)
-            {
-                await _context.SaleItems
-                    .Where(si => si.BoutiqueId == boutiqueId.Value && si.ProductId == product.Id)
-                    .ExecuteUpdateAsync(s => s.SetProperty(si => si.ProductId, (int?)null));
-
-                await _context.QuoteItems
-                    .Where(qi => qi.BoutiqueId == boutiqueId.Value && qi.ProductId == product.Id)
-                    .ExecuteUpdateAsync(q => q.SetProperty(qi => qi.ProductId, (int?)null));
-
-                _context.Products.Remove(product);
-                await _context.SaveChangesAsync();
-                await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-                TempData["SuccessMessage"] = _L.T("Produit supprimé du catalogue.", "Product removed from catalog.");
-            }
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        private static Product MapToEntity(ProductFormViewModel model, int boutiqueId) => new()
-        {
-            Id = model.Id,
-            Name = model.Name,
-            Sku = model.Sku,
-            PurchasePrice = model.PurchasePrice,
-            SalePrice = model.SalePrice,
-            VatRate = model.VatRate,
-            StockQuantity = model.StockQuantity,
-            LowStockThreshold = model.StockAlertThreshold,
-            StockAlertThreshold = model.StockAlertThreshold,
-            Variations = model.Variations,
-            BoutiqueId = boutiqueId
+            "archived" => query.Where(p => p.IsArchived),
+            "out" => query.Where(p => !p.IsArchived && p.StockQuantity == 0),
+            "low" => query.Where(p => !p.IsArchived && p.StockQuantity <= p.StockAlertThreshold),
+            "ok" => query.Where(p => !p.IsArchived && p.StockQuantity > p.StockAlertThreshold),
+            _ => query.Where(p => !p.IsArchived)
         };
+        ViewData["Search"] = search;
+        ViewData["Status"] = status;
+        return View(await query.AsNoTracking().OrderBy(p => p.Name).ToListAsync());
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var product = await Products(shop).AsNoTracking().SingleOrDefaultAsync(p => p.Id == id);
+        if (product == null) return NotFound();
+        ViewData["StockMovements"] = await db.StockMovements.AsNoTracking().Where(m => m.BoutiqueId == shop && m.ProductId == id)
+            .OrderByDescending(m => m.RecordedAt).ThenByDescending(m => m.Id).ToListAsync();
+        return View(product);
+    }
+
+    [HttpGet, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Create() => View("Form", new ProductFormViewModel
+    {
+        CatalogCurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code
+    });
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public Task<IActionResult> Create(ProductFormViewModel model) => SaveAsync(null, model);
+
+    [HttpGet, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Edit(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var product = await Products(shop).AsNoTracking().SingleOrDefaultAsync(p => p.Id == id && !p.IsArchived);
+        if (product == null) return NotFound();
+        ViewData["ProductId"] = id;
+        return View("Form", new ProductFormViewModel
+        {
+            Name = product.Name, Sku = product.Sku, Category = product.Category, Description = product.Description,
+            PurchasePrice = product.PurchasePrice, SalePrice = product.SalePrice, StockAlertThreshold = product.StockAlertThreshold,
+            CatalogCurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code
+        });
+    }
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public Task<IActionResult> Edit(int id, ProductFormViewModel model) => SaveAsync(id, model);
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Adjust(int id, StockAdjustmentInput model)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        if (!ModelState.IsValid)
+        {
+            TempData["ErrorMessage"] = "Saisissez une quantité entre 1 et 100 000 et un motif (250 caractères maximum).";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        try
+        {
+            await writer.ExecuteAsync(shop, async () =>
+            {
+                var product = await Products(shop).AsNoTracking().SingleOrDefaultAsync(p => p.Id == id && !p.IsArchived)
+                    ?? throw new CommerceNotFoundException();
+                var delta = model.IsEntry ? model.Quantity : -model.Quantity;
+                await stock.ApplyAsync(shop, product, delta, "Ajustement manuel", model.Reason.Trim(), DateTime.Now);
+                writer.Audit(shop, $"Ajustement stock du produit #{id} : {delta:+0;-0}", model.Reason.Trim());
+                return true;
+            });
+            TempData["SuccessMessage"] = "Mouvement de stock enregistré.";
+        }
+        catch (CommerceRuleException error) { TempData["ErrorMessage"] = error.Message; }
+        catch (CommerceNotFoundException) { return NotFound(); }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        try
+        {
+            await writer.ExecuteAsync(shop, async () =>
+            {
+                var product = await Products(shop).SingleOrDefaultAsync(p => p.Id == id) ?? throw new CommerceNotFoundException();
+                if (product.StockQuantity != 0) throw new CommerceRuleException("Ramenez le stock à zéro avant d'archiver cet article.");
+                var incoming = from item in db.PurchaseItems
+                               join purchase in db.Purchases on item.PurchaseId equals purchase.Id
+                               where purchase.BoutiqueId == shop && purchase.ReceivedAt == null && item.ProductId == id
+                               select item.Id;
+                if (await incoming.AnyAsync())
+                    throw new CommerceRuleException("Un achat est en attente de réception pour ce produit.");
+                product.IsArchived = true;
+                writer.Audit(shop, $"Archivage du produit #{id}", product.Name);
+                return true;
+            });
+            TempData["SuccessMessage"] = "Produit retiré du catalogue. Son historique reste consultable.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (CommerceRuleException error) { TempData["ErrorMessage"] = error.Message; }
+        catch (CommerceNotFoundException) { return NotFound(); }
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Restore(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        try
+        {
+            await writer.ExecuteAsync(shop, async () =>
+            {
+                var product = await Products(shop).SingleOrDefaultAsync(p => p.Id == id) ?? throw new CommerceNotFoundException();
+                product.IsArchived = false;
+                writer.Audit(shop, $"Réactivation du produit #{id}", product.Name);
+                return true;
+            });
+            TempData["SuccessMessage"] = "Produit réactivé.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
+        catch (CommerceNotFoundException) { return NotFound(); }
+    }
+
+    private IQueryable<Product> Products(int shop) => db.Products.Where(p => p.BoutiqueId == shop);
+
+    private async Task<IActionResult> SaveAsync(int? id, ProductFormViewModel model)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                var productId = await writer.ExecuteAsync(shop, async () =>
+                {
+                    var settings = await writer.SettingsAsync(shop);
+                    var code = settings.PrimaryCurrencyCode;
+                    if (code != model.CatalogCurrencyCode)
+                        throw new CommerceRuleException("La devise du catalogue a changé. Vérifiez les prix avant de réessayer.");
+                    if (!Money.IsMvpCurrency(code)) throw new CommerceRuleException("Le catalogue V1 est disponible en CDF et en USD.");
+                    var product = !id.HasValue ? new Product { BoutiqueId = shop, UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "" }
+                        : await Products(shop).SingleOrDefaultAsync(p => p.Id == id && !p.IsArchived) ?? throw new CommerceNotFoundException();
+                    product.Name = model.Name.Trim();
+                    product.Sku = CommerceOperations.Clean(model.Sku);
+                    product.Category = CommerceOperations.Clean(model.Category);
+                    product.Description = CommerceOperations.Clean(model.Description);
+                    product.PurchasePrice = Money.Amount(model.PurchasePrice, code, allowZero: true);
+                    product.SalePrice = Money.Amount(model.SalePrice, code, allowZero: true);
+                    product.StockAlertThreshold = product.LowStockThreshold = model.StockAlertThreshold;
+                    if (!id.HasValue) db.Products.Add(product);
+                    await db.SaveChangesAsync();
+                    if (!id.HasValue && model.StockQuantity > 0)
+                        await stock.ApplyAsync(shop, product, model.StockQuantity, "Stock initial", null, DateTime.Now);
+                    writer.Audit(shop, $"Catalogue : produit #{product.Id} {(id.HasValue ? "modifié" : "ajouté")}", product.Name);
+                    return product.Id;
+                });
+                TempData["SuccessMessage"] = id.HasValue ? "Produit mis à jour." : "Produit ajouté. Vous pouvez maintenant enregistrer une vente.";
+                return RedirectToAction(nameof(Details), new { id = productId });
+            }
+            catch (CommerceRuleException error) { ModelState.AddModelError("", error.Message); }
+            catch (CommerceNotFoundException) { return NotFound(); }
+        }
+        ViewData["ProductId"] = id;
+        ModelState.Remove(nameof(model.CatalogCurrencyCode));
+        model.CatalogCurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code;
+        return View("Form", model);
     }
 }

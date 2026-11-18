@@ -1,11 +1,10 @@
 using AdGestionHub.Models;
 
-namespace AdGestionHub.Services
+namespace AdGestionHub.Services;
+
+public interface IPdfReportService
 {
-    public interface IPdfReportService
-    {
-        byte[] GenerateSaleReceiptPdf(Sale sale, StoreSettings? settings, int invoiceSequenceNumber, string language = "fr");
-        byte[] GenerateQuotePdf(Quote quote, StoreSettings? settings, string language = "fr");
-        byte[] GeneratePeriodReportPdf(ReportViewModel report, string language = "fr");
-    }
+    byte[] SalePdf(Sale sale, StoreSettings settings);
+    byte[] QuotePdf(Quote quote, StoreSettings settings);
+    byte[] ReportPdf(BusinessReport report);
 }
