@@ -15,7 +15,7 @@ public sealed class QuotesController(ApplicationDbContext db, IBoutiqueService b
     public async Task<IActionResult> Index()
     {
         if (await ShopAsync() is not int shop) return Forbid();
-        return View(await db.Quotes.AsNoTracking().Where(q => q.BoutiqueId == shop)
+        return View(await Db.Quotes.AsNoTracking().Where(q => q.BoutiqueId == shop)
             .OrderByDescending(q => q.CreatedAt).ThenByDescending(q => q.Id).ToListAsync());
     }
 
@@ -24,7 +24,7 @@ public sealed class QuotesController(ApplicationDbContext db, IBoutiqueService b
     {
         if (await ShopAsync() is not int shop) return Forbid();
         await PrepareAsync(shop, quote: true);
-        return View(new QuoteInput { CurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code });
+        return View(new QuoteInput { CurrencyCode = (await Tenant.GetContextAsync()).PrimaryCurrency.Code });
     }
 
     [HttpPost]
@@ -62,7 +62,7 @@ public sealed class QuotesController(ApplicationDbContext db, IBoutiqueService b
         if (await ShopAsync() is not int shop) return Forbid();
         var quote = await FindAsync(shop, id);
         if (quote == null) return NotFound();
-        return File(pdf.QuotePdf(quote, (await tenant.GetContextAsync()).Settings), "application/pdf", $"devis-{quote.Id}.pdf");
+        return File(pdf.QuotePdf(quote, (await Tenant.GetContextAsync()).Settings), "application/pdf", $"devis-{quote.Id}.pdf");
     }
 
     [HttpPost]
@@ -94,7 +94,7 @@ public sealed class QuotesController(ApplicationDbContext db, IBoutiqueService b
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    private Task<Quote?> FindAsync(int shop, int id) => db.Quotes.AsNoTracking().Include(q => q.Items.Where(i => i.BoutiqueId == shop))
+    private Task<Quote?> FindAsync(int shop, int id) => Db.Quotes.AsNoTracking().Include(q => q.Items.Where(i => i.BoutiqueId == shop))
         .SingleOrDefaultAsync(q => q.Id == id && q.BoutiqueId == shop);
 
     private async Task<IActionResult> SaveAsync(int? id, QuoteInput model)

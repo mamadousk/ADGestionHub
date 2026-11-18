@@ -14,7 +14,7 @@ public sealed class PurchasesController(ApplicationDbContext db, IBoutiqueServic
     public async Task<IActionResult> Index()
     {
         if (await ShopAsync() is not int shop) return Forbid();
-        return View(await db.Purchases.AsNoTracking().Where(p => p.BoutiqueId == shop).Include(p => p.Payments)
+        return View(await Db.Purchases.AsNoTracking().Where(p => p.BoutiqueId == shop).Include(p => p.Payments)
             .OrderByDescending(p => p.RecordedAt).ThenByDescending(p => p.Id).ToListAsync());
     }
 
@@ -23,7 +23,7 @@ public sealed class PurchasesController(ApplicationDbContext db, IBoutiqueServic
     {
         if (await ShopAsync() is not int shop) return Forbid();
         await PrepareAsync(shop, purchase: true);
-        return View(new PurchaseInput { SupplierId = supplierId ?? 0, CurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code });
+        return View(new PurchaseInput { SupplierId = supplierId ?? 0, CurrencyCode = (await Tenant.GetContextAsync()).PrimaryCurrency.Code });
     }
 
     [HttpPost]
@@ -48,7 +48,7 @@ public sealed class PurchasesController(ApplicationDbContext db, IBoutiqueServic
     public async Task<IActionResult> Details(int id)
     {
         if (await ShopAsync() is not int shop) return Forbid();
-        var purchase = await db.Purchases.AsNoTracking().Include(p => p.Items).Include(p => p.Payments)
+        var purchase = await Db.Purchases.AsNoTracking().Include(p => p.Items).Include(p => p.Payments)
             .SingleOrDefaultAsync(p => p.BoutiqueId == shop && p.Id == id);
         return purchase == null ? NotFound() : View(purchase);
     }

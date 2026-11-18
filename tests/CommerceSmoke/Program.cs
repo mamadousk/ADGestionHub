@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-CD");
 QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
@@ -38,6 +39,7 @@ try
         .Contains("CK_Payments_OneDocument", StringComparison.Ordinal), "script SQL Server généré depuis les migrations versionnées");
     if (sqlServer != null)
     {
+        CheckSnapshot(server);
         try
         {
             await server.GetService<IMigrator>().MigrateAsync("20261116180000_LocalizationFiscalQuotesAndClients");
@@ -56,6 +58,22 @@ try
     }
 }
 finally { directory.Delete(recursive: true); }
+
+static void CheckSnapshot(ApplicationDbContext db)
+{
+    if (!db.Database.HasPendingModelChanges()) return;
+    var previous = db.GetService<IMigrationsAssembly>().ModelSnapshot?.Model;
+    var source = previous == null ? null : db.GetService<IModelRuntimeInitializer>().Initialize(previous).GetRelationalModel();
+    var target = db.GetService<IDesignTimeModel>().Model.GetRelationalModel();
+    var changes = db.GetService<IMigrationsModelDiffer>().GetDifferences(source, target).Select(operation =>
+    {
+        var type = operation.GetType();
+        return $"{type.Name} {type.GetProperty("Table")?.GetValue(operation)}.{type.GetProperty("Name")?.GetValue(operation)}";
+    });
+    var summary = string.Join("; ", changes);
+    Console.Error.WriteLine($"::error title=Le modèle EF diverge du dernier snapshot::{summary}");
+    throw new InvalidOperationException(summary);
+}
 
 static async Task SeedLegacyAsync(ApplicationDbContext db)
 {

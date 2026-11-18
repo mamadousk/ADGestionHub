@@ -11,6 +11,7 @@ import socket
 import subprocess
 import tempfile
 import time
+import traceback
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
@@ -190,9 +191,13 @@ def main():
                 else:
                     raise RuntimeError('Le démarrage a dépassé le délai du test.')
                 run(host)
-            except Exception:
+            except Exception as error:
                 log.seek(0)
                 print(log.read()[-15000:])
+                if os.environ.get('GITHUB_ACTIONS') == 'true':
+                    detail = ''.join(traceback.format_exception(error))[-3300:]
+                    encoded = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                    print(f'::error title=Recette HTTP ou navigateur::{encoded}', flush=True)
                 raise
             finally:
                 server.terminate()

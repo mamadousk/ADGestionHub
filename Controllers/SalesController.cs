@@ -15,7 +15,7 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
     public async Task<IActionResult> Index()
     {
         if (await ShopAsync() is not int shop) return Forbid();
-        return View(await db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop).Include(s => s.Payments)
+        return View(await Db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop).Include(s => s.Payments)
             .OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync());
     }
 
@@ -26,7 +26,7 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         await PrepareAsync(shop);
         return View(new SaleInput
         {
-            CurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code,
+            CurrencyCode = (await Tenant.GetContextAsync()).PrimaryCurrency.Code,
             Items = [new TradeLineInput { ProductId = productId ?? 0 }]
         });
     }
@@ -64,7 +64,7 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         if (await ShopAsync() is not int shop) return Forbid();
         var sale = await FindAsync(shop, id);
         if (sale == null) return NotFound();
-        var settings = (await tenant.GetContextAsync()).Settings;
+        var settings = (await Tenant.GetContextAsync()).Settings;
         if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
             return File(pdf.SalePdf(sale, settings), "application/pdf", $"vente-{sale.Id}.pdf");
         ViewData["StoreSettings"] = settings;
@@ -93,6 +93,6 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    private Task<Sale?> FindAsync(int shop, int id) => db.Sales.AsNoTracking().Include(s => s.Items.Where(i => i.BoutiqueId == shop))
+    private Task<Sale?> FindAsync(int shop, int id) => Db.Sales.AsNoTracking().Include(s => s.Items.Where(i => i.BoutiqueId == shop))
         .Include(s => s.Payments).SingleOrDefaultAsync(s => s.BoutiqueId == shop && s.Id == id);
 }
