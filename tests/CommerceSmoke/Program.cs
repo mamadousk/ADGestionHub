@@ -266,7 +266,7 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     Equal(2, await Quantity(rice), "stock décrémenté lors de la vente");
     Check(await operations.CancelSaleAsync(a.Id, second.Id, "Erreur documentée"), "annulation d'une vente non réglée");
     Equal(3, await Quantity(rice), "stock restauré à l'annulation");
-    Check(await db.SystemLogs.CountAsync(l => l.BoutiqueId == a.Id) >= 7, "journalisation des opérations");
+    Equal(6, await db.SystemLogs.CountAsync(l => l.BoutiqueId == a.Id), "audit des opérations validées, sans doublon ni écriture pour les actions refusées");
 
     var pdf = new PdfReportService();
     var png = await VerifyLogoAsync();
