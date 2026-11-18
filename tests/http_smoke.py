@@ -68,7 +68,7 @@ def checkout(browser, password, name):
         'Input.StoreName': name, 'Input.Email': f'{uuid4().hex}@example.test',
         'Input.PrimaryCurrencyCode': 'CDF', 'Input.Password': password, 'Input.ConfirmPassword': password,
     })
-    assert path == '/Home/Index', path
+    assert path in ('/Home', '/Home/Index'), path
     path, _, _ = browser.post('/Settings/Edit', {
         'StoreName': name, 'PrimaryCurrencyCode': 'CDF', 'CdfPerUsd': '2800,125678',
         'CustomPaymentMethods': 'Bon test',

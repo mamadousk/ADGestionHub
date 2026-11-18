@@ -1,4 +1,5 @@
 using AdGestionHub.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,6 +37,12 @@ namespace AdGestionHub.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Keep the Identity keys identical when EF tools or tests build the context without AddDefaultIdentity.
+            modelBuilder.Entity<IdentityUserLogin<string>>().Property(l => l.LoginProvider).HasMaxLength(128);
+            modelBuilder.Entity<IdentityUserLogin<string>>().Property(l => l.ProviderKey).HasMaxLength(128);
+            modelBuilder.Entity<IdentityUserToken<string>>().Property(t => t.LoginProvider).HasMaxLength(128);
+            modelBuilder.Entity<IdentityUserToken<string>>().Property(t => t.Name).HasMaxLength(128);
 
             // Relation entre ApplicationUser et Boutique
             modelBuilder.Entity<ApplicationUser>()

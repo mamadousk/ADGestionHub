@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using QuestPDF.Infrastructure;
 using System.Globalization;
@@ -28,8 +27,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
     if (useSqlite) options.UseSqlite(connectionString);
     else options.UseSqlServer(connectionString);
-    // Le schéma SQL Server hérite de migrations historiques rédigées à la main.
-    options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
 // --- SERVICES MÉTIER & LOCALISATION ---
@@ -249,9 +246,8 @@ app.UseMiddleware<TenantActiveCheckMiddleware>();
 app.UseAuthorization();
 
 // --- ROUTES ---
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Welcome}/{id?}");
+app.MapControllerRoute(name: "welcome", pattern: "", defaults: new { controller = "Home", action = "Welcome" });
+app.MapControllerRoute(name: "default", pattern: "{controller}/{action=Index}/{id?}");
 app.MapRazorPages();
 app.MapHealthChecks("/health");
 

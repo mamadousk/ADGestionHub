@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO.Compression;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using AdGestionHub;
 using AdGestionHub.Data;
@@ -10,7 +11,6 @@ using AdGestionHub.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -32,8 +32,7 @@ try
     {
         InitialCatalog = "AdghSmoke_" + Guid.NewGuid().ToString("N")
     };
-    var sqlOptions = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(target.ConnectionString)
-        .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)).Options;
+    var sqlOptions = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlServer(target.ConnectionString).Options;
     await using var server = new ApplicationDbContext(sqlOptions);
     Check(server.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent)
         .Contains("CK_Payments_OneDocument", StringComparison.Ordinal), "script SQL Server généré depuis les migrations versionnées");
@@ -42,8 +41,13 @@ try
         CheckSnapshot(server);
         try
         {
-            await server.GetService<IMigrator>().MigrateAsync("20261116180000_LocalizationFiscalQuotesAndClients");
+            const string legacy = "20261116180000_LocalizationFiscalQuotesAndClients";
+            var migrator = server.GetService<IMigrator>();
+            await migrator.MigrateAsync(legacy);
             await SeedLegacyAsync(server);
+            var upgrade = migrator.GenerateScript(fromMigration: legacy, options: MigrationsSqlGenerationOptions.Idempotent);
+            await ApplyScriptAsync(server, upgrade);
+            await ApplyScriptAsync(server, upgrade); // Must not duplicate imported payments or stock.
             await server.Database.MigrateAsync();
             var imported = await server.Payments.AsNoTracking().SingleAsync();
             Check(imported.Amount == 150m && imported.AppliedAmount == 150m && imported.CurrencyCode == "USD", "reprise du règlement historique");
@@ -73,6 +77,17 @@ static void CheckSnapshot(ApplicationDbContext db)
     var summary = string.Join("; ", changes);
     Console.Error.WriteLine($"::error title=Le modèle EF diverge du dernier snapshot::{summary}");
     throw new InvalidOperationException(summary);
+}
+
+static async Task ApplyScriptAsync(ApplicationDbContext db, string script)
+{
+    await db.Database.OpenConnectionAsync();
+    try
+    {
+        foreach (var batch in Regex.Split(script, @"(?im)^GO[ \t]*\r?$"))
+            if (!string.IsNullOrWhiteSpace(batch)) await db.Database.ExecuteSqlRawAsync(batch);
+    }
+    finally { await db.Database.CloseConnectionAsync(); }
 }
 
 static async Task SeedLegacyAsync(ApplicationDbContext db)
