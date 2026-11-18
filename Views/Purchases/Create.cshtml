@@ -1,0 +1,42 @@
+@model PurchaseInput
+@{
+    ViewData["Title"] = "Nouvel achat";
+    var contacts = (IReadOnlyList<ContactPick>)ViewData["TradeContacts"]!;
+    var products = (IReadOnlyList<CatalogPick>)ViewData["TradeProducts"]!;
+}
+<div class="page-heading">
+    <div><p class="section-eyebrow">Achats / Saisie</p><h1>Nouvel achat</h1><p>Enregistrez la livraison et les règlements sans ressaisir le stock.</p></div>
+    <a asp-action="Index" class="btn btn-secondary-outline">Historique des achats</a>
+</div>
+@if (contacts.Count == 0 || products.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Préparez votre premier achat</h2><p class="text-slate">Ajoutez au moins un fournisseur et un produit au catalogue.</p>
+        @if (contacts.Count == 0) { <a asp-controller="Suppliers" asp-action="Create" class="btn btn-accent">Ajouter un fournisseur</a> }
+        @if (products.Count == 0) { <a asp-controller="Products" asp-action="Create" class="btn btn-secondary-outline">Ajouter un produit</a> }
+    </div>
+}
+else
+{
+    <form asp-action="Create" method="post" data-trade>
+        <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
+        <section class="panel-card p-3 p-md-4 mb-3">
+            <h2 class="h6 mb-3">Fournisseur et devise</h2>
+            <div class="row g-3">
+                <div class="col-md-4"><label asp-for="SupplierId" class="form-label">Fournisseur</label><select asp-for="SupplierId" class="form-select" required>
+                    <option value="">Choisir un fournisseur</option>
+                    @foreach (var contact in contacts) { <option value="@contact.Id">@contact.Name</option> }
+                </select></div>
+                <div class="col-md-4"><label asp-for="SupplierReference" class="form-label">Référence fournisseur</label><input asp-for="SupplierReference" class="form-control" placeholder="Facultatif" /></div>
+                <div class="col-md-4"><partial name="_TradeCurrency" model="Model" /></div>
+            </div>
+        </section>
+        <partial name="_TradeLines" model="Model" />
+        <section class="panel-card p-3 p-md-4">
+            <h2 class="h6">Réception et règlement</h2>
+            <div class="form-check mb-2"><input asp-for="ReceiveNow" class="form-check-input" /><label asp-for="ReceiveNow" class="form-check-label">Marchandises déjà reçues (ajouter au stock maintenant)</label></div>
+            <partial name="_InitialPayment" model="Model" />
+            <div class="trade-totals"><div><span>Total de l’achat</span><strong class="num" data-trade-total aria-live="polite">—</strong></div><button type="submit" class="btn btn-accent">Enregistrer l’achat</button></div>
+        </section>
+    </form>
+}
+@section Scripts { <script src="~/js/trade.js" asp-append-version="true"></script> }

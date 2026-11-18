@@ -21,6 +21,11 @@ namespace AdGestionHub.Data
         public DbSet<StoreSettings> StoreSettings { get; set; }
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<Debt> Debts { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<Purchase> Purchases { get; set; }
+        public DbSet<PurchaseItem> PurchaseItems { get; set; }
+        public DbSet<Payment> Payments { get; set; }
+        public DbSet<StockMovement> StockMovements { get; set; }
         public DbSet<EInvoicingOptIn> EInvoicingOptIns { get; set; }
         public DbSet<WaitingListPro> WaitingListPros { get; set; }
         public DbSet<UserFeedback> UserFeedbacks { get; set; }
@@ -134,6 +139,57 @@ namespace AdGestionHub.Data
             modelBuilder.Entity<SystemLog>().HasIndex(sl => sl.BoutiqueId);
             modelBuilder.Entity<ErrorLog>().HasIndex(el => el.BoutiqueId);
             modelBuilder.Entity<WaitingListPro>().HasIndex(w => w.Email).IsUnique();
+            ConfigureCommerce(modelBuilder);
+        }
+
+        private static void ConfigureCommerce(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Supplier>().HasOne<Boutique>().WithMany()
+                .HasForeignKey(s => s.BoutiqueId).OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Supplier>().HasIndex(s => new { s.BoutiqueId, s.Name });
+
+            modelBuilder.Entity<Purchase>().HasOne<Supplier>().WithMany()
+                .HasForeignKey(p => new { p.SupplierId, p.BoutiqueId }).HasPrincipalKey(s => new { s.Id, s.BoutiqueId })
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<Purchase>().HasIndex(p => new { p.BoutiqueId, p.RecordedAt });
+            modelBuilder.Entity<PurchaseItem>().HasOne<Product>().WithMany()
+                .HasForeignKey(i => i.ProductId).OnDelete(DeleteBehavior.NoAction);
+
+            var payments = modelBuilder.Entity<Payment>();
+            payments.HasOne<Boutique>().WithMany().HasForeignKey(p => p.BoutiqueId).OnDelete(DeleteBehavior.NoAction);
+            payments.HasOne<Sale>().WithMany(s => s.Payments)
+                .HasForeignKey(p => new { p.SaleId, p.BoutiqueId }).HasPrincipalKey(s => new { s.Id, s.BoutiqueId })
+                .OnDelete(DeleteBehavior.NoAction);
+            payments.HasOne<Purchase>().WithMany(s => s.Payments)
+                .HasForeignKey(p => new { p.PurchaseId, p.BoutiqueId }).HasPrincipalKey(s => new { s.Id, s.BoutiqueId })
+                .OnDelete(DeleteBehavior.NoAction);
+            payments.HasOne<Debt>().WithMany(s => s.Payments)
+                .HasForeignKey(p => new { p.DebtId, p.BoutiqueId }).HasPrincipalKey(s => new { s.Id, s.BoutiqueId })
+                .OnDelete(DeleteBehavior.NoAction);
+            payments.HasIndex(p => new { p.BoutiqueId, p.RecordedAt });
+            payments.ToTable("Payments", t => t.HasCheckConstraint("CK_Payments_OneDocument", """
+                (CASE WHEN SaleId IS NULL THEN 0 ELSE 1 END + CASE WHEN PurchaseId IS NULL THEN 0 ELSE 1 END +
+                 CASE WHEN DebtId IS NULL THEN 0 ELSE 1 END) <= 1
+                """));
+
+            var movements = modelBuilder.Entity<StockMovement>();
+            movements.HasOne<Boutique>().WithMany().HasForeignKey(m => m.BoutiqueId).OnDelete(DeleteBehavior.NoAction);
+            movements.HasOne<Product>().WithMany().HasForeignKey(m => m.ProductId).OnDelete(DeleteBehavior.NoAction);
+            movements.HasIndex(m => new { m.BoutiqueId, m.ProductId, m.RecordedAt });
+            movements.ToTable("StockMovements", t => t.HasCheckConstraint("CK_StockMovements_Quantity", "Delta <> 0 AND QuantityAfter >= 0"));
+
+            modelBuilder.Entity<Sale>().Property(s => s.Discount).HasPrecision(18, 2);
+            modelBuilder.Entity<Purchase>().Property(s => s.Total).HasPrecision(18, 2);
+            modelBuilder.Entity<PurchaseItem>().Property(s => s.UnitPrice).HasPrecision(18, 2);
+            payments.Property(s => s.Amount).HasPrecision(18, 2);
+            payments.Property(s => s.AppliedAmount).HasPrecision(18, 2);
+
+            modelBuilder.Entity<StoreSettings>().Property(s => s.CdfPerUsd).HasPrecision(18, 6);
+            modelBuilder.Entity<Sale>().Property(s => s.CdfPerUsd).HasPrecision(18, 6);
+            modelBuilder.Entity<Quote>().Property(s => s.CdfPerUsd).HasPrecision(18, 6);
+            modelBuilder.Entity<Purchase>().Property(s => s.CdfPerUsd).HasPrecision(18, 6);
+            modelBuilder.Entity<Expense>().Property(s => s.CdfPerUsd).HasPrecision(18, 6);
+            payments.Property(p => p.CdfPerUsd).HasPrecision(18, 6);
         }
     }
 }

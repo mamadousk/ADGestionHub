@@ -3,22 +3,7 @@
     "use strict";
 
     document.addEventListener("DOMContentLoaded", function () {
-        // 1. Accepter la virgule ET le point décimal dans jQuery Validation (culture fr-FR)
-        if (window.jQuery && window.jQuery.validator) {
-            window.jQuery.validator.methods.number = function (value, element) {
-                if (this.optional(element)) return true;
-                var normalized = String(value).trim().replace(/\s/g, "").replace(",", ".");
-                return /^-?\d+(\.\d+)?$/.test(normalized);
-            };
-
-            window.jQuery.validator.methods.range = function (value, element, param) {
-                if (this.optional(element)) return true;
-                var normalized = parseFloat(String(value).trim().replace(/\s/g, "").replace(",", "."));
-                return !isNaN(normalized) && normalized >= param[0] && normalized <= param[1];
-            };
-        }
-
-        // 2. Ombre de la topbar au défilement (effet glass premium)
+        // 1. Ombre de la topbar au défilement (effet glass premium)
         var topbar = document.querySelector(".app-topbar");
         if (topbar) {
             var onScroll = function () {
@@ -28,13 +13,13 @@
             onScroll();
         }
 
-        // 3. Lien actif de la sidebar toujours visible dans la navigation
+        // 2. Lien actif de la sidebar toujours visible dans la navigation
         var activeLink = document.querySelector(".sidebar-link.active");
         if (activeLink && typeof activeLink.scrollIntoView === "function") {
             activeLink.scrollIntoView({ block: "nearest" });
         }
 
-        // 4. Apparition en cascade des cartes KPI / panneaux (stagger léger)
+        // 3. Apparition en cascade des cartes KPI / panneaux (stagger léger)
         var cards = document.querySelectorAll(".card-dashboard, .kpi-card");
         if (cards.length && "IntersectionObserver" in window) {
             cards.forEach(function (card, i) {
@@ -55,7 +40,7 @@
             cards.forEach(function (card) { observer.observe(card); });
         }
 
-        // 5. Soumission AJAX fluide du formulaire de Feedback global
+        // 4. Soumission AJAX fluide du formulaire de Feedback global
         var feedbackForm = document.getElementById("globalFeedbackForm");
         if (feedbackForm) {
             feedbackForm.addEventListener("submit", function (e) {

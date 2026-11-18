@@ -1,203 +1,86 @@
-@model AdGestionHub.Models.DashboardViewModel
-
+@model BusinessReport
 @{
-    ViewData["Title"] = L["Nav.Dashboard"];
-    var isAdmin = User.IsInRole("Admin");
-    var ctx = await TenantCtx.GetContextAsync();
-}
-
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <div>
-        <h1 class="h4 mb-1">@L["Nav.Dashboard"]</h1>
-        <p class="text-slate small mb-0">
-            @L.T("Synthèse opérationnelle en devise principale", "Operational summary in primary currency") (@Model.CurrencyCode)
-        </p>
-    </div>
-    <div class="d-flex flex-wrap gap-2">
-        <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">
-            @LucideIcons.Svg("plus", 16, "me-1")
-            <span>@L["Nav.NewSale"]</span>
-        </a>
-        @if (Model.IsFormalized)
-        {
-            <a asp-controller="Quotes" asp-action="Create" class="btn btn-secondary-outline">
-                @LucideIcons.Svg("file-text", 16, "me-1")
-                <span>@L.T("Nouveau devis", "New quote")</span>
-            </a>
-        }
-        <a asp-controller="Expenses" asp-action="Create" class="btn btn-secondary-outline">
-            @LucideIcons.Svg("plus", 16, "me-1")
-            <span>@L.T("Dépense", "Expense")</span>
-        </a>
-    </div>
-</div>
-
-<!-- Indicateurs financiers (tabular-nums) -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6 col-xl-3">
-        <div class="card-dashboard">
-            <div class="stat-label">
-                @(Model.IsVatEnabled ? L.T("Chiffre d'affaires TTC", "Revenue (Incl. Tax)") : L.T("Chiffre d'affaires net", "Net Revenue"))
-            </div>
-            <div class="stat-number num">@ctx.FormatPrimary(Model.TotalSales)</div>
-            @if (Model.IsVatEnabled && isAdmin)
-            {
-                <div class="kpi-meta num">
-                    @L["Doc.SubtotalExclTax"] : @ctx.FormatPrimary(Model.TotalSubtotalNet) · @L.T("TVA", "VAT") : @ctx.FormatPrimary(Model.TotalTaxCollected)
-                </div>
-            }
-            else if (Model.MonthlyGrowthPercent.HasValue)
-            {
-                var pos = Model.MonthlyGrowthPercent.Value >= 0;
-                <div class="kpi-meta num @(pos ? "text-forest" : "text-sober-red")">
-                    @(pos ? "+" : "")@Model.MonthlyGrowthPercent.Value.ToString("F1")% @L.T("vs mois précédent", "vs prior month")
-                </div>
-            }
-            else
-            {
-                <div class="kpi-meta num">
-                    @L.T("Aujourd'hui :", "Today:") <strong>@ctx.FormatPrimary(Model.TodaySales)</strong> (@Model.TodayTransactions)
-                </div>
-            }
-        </div>
-    </div>
-
-    @if (isAdmin)
+    ViewData["Title"] = "Tableau de bord";
+    var admin = User.IsInRole("Admin");
+    var low = Model.Stock.Where(p => p.IsLow).OrderBy(p => p.Quantity).ToList();
+    string Format(decimal amount) => Money.Display(amount, Model.Currency);
+    var stats = new List<(string Label, string Value, string Icon, string Info, string Tone)>
     {
-        <div class="col-md-6 col-xl-3">
-            <div class="card-dashboard">
-                <div class="stat-label">@L.T("Résultat net estimé", "Estimated Net Profit")</div>
-                <div class="stat-number num @(Model.TotalProfit < 0 ? "text-sober-red" : "text-forest")">
-                    @ctx.FormatPrimary(Model.TotalProfit)
-                </div>
-                <div class="kpi-meta num">
-                    @L.T("Dépenses cumulées :", "Total expenses:") @ctx.FormatPrimary(Model.TotalExpenses)
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6 col-xl-3">
-            <div class="card-dashboard">
-                <div class="stat-label">@L.T("Créances clients en cours", "Open Receivables")</div>
-                <div class="stat-number num @(Model.TotalDebts > 0 ? "text-sober-red" : "")">
-                    @ctx.FormatPrimary(Model.TotalDebts)
-                </div>
-                <div class="kpi-meta">
-                    <a asp-controller="Debts" asp-action="Index" class="text-slate text-decoration-none">
-                        @L.T("Consulter l'échéancier", "View receivables") →
-                    </a>
-                </div>
-            </div>
-        </div>
+        ("Chiffre d’affaires", Format(Model.Revenue), "bar-chart-3", "Ventes hors taxes historiques", "indigo"),
+        ("Total des ventes", Format(Model.Invoiced), "receipt", $"{Model.Sales.Count} vente(s) sur la période", "orange")
+    };
+    if (admin)
+    {
+        stats.Add(("Recettes encaissées", Format(Model.Received), "wallet", $"Dont ventes : {Format(Model.SalesReceipts)}", "green"));
+        stats.Add(("Créances clients", Format(Model.Receivables), "clock", "Reste à recevoir à la fin de période", "amber"));
+        stats.Add(("Total des achats", Format(Model.Purchased), "shopping-bag", $"{Model.Purchases.Count} achat(s) sur la période", "indigo"));
+        stats.Add(("Dépenses", Format(Model.Expensed), "wallet", "Hors règlements fournisseurs", "orange"));
+        stats.Add(("Dettes fournisseurs", Format(Model.Payables), "clock", "Reste à payer à la fin de période", "amber"));
+        stats.Add(("Valeur du stock", Money.Display(Model.StockValue, Model.Settings.PrimaryCurrencyCode), "package", $"{Model.StockUnits} unité(s) · coût catalogue actuel", "green"));
     }
+    else { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green")); }
+    var trend = Model.Trend();
+    var peak = trend.Max(p => p.Total);
+}
+<div class="page-heading dash-heading">
+    <div><p class="section-eyebrow"><span class="tiny-dot"></span> Vue d’ensemble</p><h1>Tableau de bord</h1><p>Voici l’activité de <strong>@Model.Settings.StoreName</strong> sur la période sélectionnée.</p></div>
+    <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+</div>
+@if (admin && (Model.Stock.Count == 0 || Model.Settings.CdfPerUsd == null))
+{
+    <div class="dashboard-guide mb-3">
+        <div class="guide-icon">@LucideIcons.Svg(Model.Stock.Count == 0 ? "package" : "settings", 21)</div>
+        <div><strong>@(Model.Stock.Count == 0 ? "Commencez par votre premier produit" : "Activez les opérations dans les deux devises")</strong><div class="small">@(Model.Stock.Count == 0 ? "Renseignez un prix et un stock initial, puis enregistrez votre première vente." : "Saisissez votre taux manuel dans les paramètres. Les opérations passées garderont leur taux.")</div></div>
+        @if (Model.Stock.Count == 0) { <a asp-controller="Products" asp-action="Create" class="btn btn-secondary-outline">Ajouter un produit</a> }
+        else { <a asp-controller="Settings" asp-action="Index" class="btn btn-secondary-outline">Configurer le taux</a> }
+    </div>
+}
+<partial name="_PeriodFilter" model="Model" />
+<div class="metric-grid mb-4">
+    @foreach (var item in stats)
+    {
+        <article class="panel-card metric-tile">
+            <div class="metric-title"><span class="metric-icon @item.Tone">@LucideIcons.Svg(item.Icon, 17)</span><h2>@item.Label</h2></div>
+            <strong class="metric-value num">@item.Value</strong><small>@item.Info</small>
+        </article>
+    }
+</div>
+<div class="dashboard-columns mb-4">
+    <section class="panel-card p-3 p-md-4">
+        <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start"><div><h2 class="h6 mb-1">Évolution des ventes</h2><p class="text-slate small">Montants des ventes par intervalle · @Model.Currency</p></div><span class="status-pill">@Model.Period.Start.ToString("dd/MM") – @Model.Period.End.ToString("dd/MM")</span></div>
+        @if (peak <= 0)
+        {
+            <div class="chart-empty"><div class="metric-icon indigo">@LucideIcons.Svg("bar-chart-3", 23)</div><strong>Aucun montant vendu sur cette période</strong><small>Le graphique se met à jour après vos ventes.</small></div>
+        }
+        else
+        {
+            <div class="trend-chart" style="--columns:@trend.Count" aria-label="Évolution des ventes">
+                @foreach (var point in trend)
+                {
+                    var height = (100m * point.Total / peak).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+                    <div class="trend-slot" title="@point.Label : @Format(point.Total)"><div class="trend-track"><div class="trend-fill" style="height:@(height)%"></div></div><small>@point.Label</small><span class="visually-hidden">@Format(point.Total)</span></div>
+                }
+            </div>
+        }
+    </section>
+    <section class="panel-card p-3 p-md-4">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2"><div><h2 class="h6 mb-1">Alertes stock</h2><p class="text-slate small">Quantités actuelles, hors filtre de période</p></div><span class="status-pill @(low.Count > 0 ? "warning" : "success")">@low.Count</span></div>
+        @if (low.Count == 0) { <p class="text-slate small mb-3">Aucun article sous son seuil d’alerte.</p> }
+        @foreach (var product in low.Take(5))
+        {
+            <div class="quick-line"><a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">@product.Name</a><span class="status-pill @(product.Quantity == 0 ? "danger" : "warning") num">@product.Quantity en stock</span></div>
+        }
+        <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-secondary-outline btn-sm mt-3">Voir le stock</a>
+    </section>
+</div>
+<section class="panel-card mb-2">
+    <div class="p-3 p-md-4 d-flex flex-wrap justify-content-between gap-2 align-items-center"><div><h2 class="h6 mb-1">Dernières ventes de la période</h2><p class="text-slate small mb-0">Ventes enregistrées en @Model.Currency</p></div><a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">Toutes les ventes</a></div>
+    @if (Model.Sales.Count == 0) { <p class="text-slate px-3 px-md-4 pb-4 mb-0">Aucune vente à afficher.</p> }
     else
     {
-        <div class="col-md-6 col-xl-3">
-            <div class="card-dashboard">
-                <div class="stat-label">@L.T("Encaissements du jour", "Today's Sales")</div>
-                <div class="stat-number num text-forest">@ctx.FormatPrimary(Model.TodaySales)</div>
-                <div class="kpi-meta num">@Model.TodayTransactions @L.T("opération(s)", "transaction(s)")</div>
-            </div>
-        </div>
-
-        <div class="col-md-6 col-xl-3">
-            <div class="card-dashboard">
-                <div class="stat-label">@L.T("Opérations validées", "Completed Sales")</div>
-                <div class="stat-number num">@Model.TotalTransactions</div>
-                <div class="kpi-meta">@L.T("Total historique actif", "Active store total")</div>
-            </div>
-        </div>
+        <div class="table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th></tr></thead><tbody>
+            @foreach (var sale in Model.Sales.Take(5))
+            { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Format(sale.FinalPrice)</td></tr> }
+        </tbody></table></div>
     }
-
-    <div class="col-md-6 col-xl-3">
-        <div class="card-dashboard">
-            <div class="stat-label">@L.T("Alertes de réapprovisionnement", "Low Stock Alerts")</div>
-            <div class="stat-number num @(Model.LowStockCount > 0 ? "text-amber" : "text-forest")">@Model.LowStockCount</div>
-            <div class="kpi-meta">
-                @(Model.LowStockCount > 0
-                    ? L.T($"{Model.LowStockCount} référence(s) sous le seuil", $"{Model.LowStockCount} item(s) below threshold")
-                    : L.T("Niveaux de stock conformes", "All stock levels healthy"))
-            </div>
-        </div>
-    </div>
-</div>
-
-@if (Model.LowStockProducts.Any())
-{
-    <div class="panel-card p-3 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-2" style="background: var(--amber-bg) !important; border-color: var(--amber-border) !important;">
-        <div class="d-flex flex-wrap align-items-center gap-2 small">
-            <strong class="text-amber">@L.T("Réapprovisionnement requis :", "Restock needed:")</strong>
-            @foreach (var p in Model.LowStockProducts)
-            {
-                <span class="status-pill @(p.StockQuantity <= 0 ? "danger" : "warning") num">
-                    @p.Name (@p.StockQuantity)
-                </span>
-            }
-        </div>
-        <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-secondary-outline btn-sm">
-            @L.T("Ouvrir l'inventaire", "View inventory")
-        </a>
-    </div>
-}
-
-<!-- Dernières opérations -->
-<div class="panel-card overflow-hidden">
-    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">@L.T("Dernières ventes enregistrées", "Recent Sales")</h2>
-        <a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">@L.T("Tout voir", "View all")</a>
-    </div>
-    <div class="table-responsive">
-        <table class="table table-ledger">
-            <thead>
-                <tr>
-                    <th>@L["Doc.Number"]</th>
-                    <th>@L["Doc.Date"]</th>
-                    <th>@L.T("Articles", "Items")</th>
-                    <th>@L["Doc.PaymentMethod"]</th>
-                    <th class="text-end">@L.T("Montant", "Amount")</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!Model.RecentSales.Any())
-                {
-                    <tr>
-                        <td colspan="5" class="text-center text-slate py-4">
-                            @L.T("Aucune opération enregistrée.", "No transactions recorded yet.")
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var item in Model.RecentSales)
-                    {
-                        var docRef = !string.IsNullOrWhiteSpace(item.DocumentNumber) ? item.DocumentNumber : $"#{item.Id:D5}";
-                        <tr>
-                            <td class="num fw-medium">
-                                <a asp-controller="Sales" asp-action="Receipt" asp-route-id="@item.Id" class="text-decoration-none text-dark">@docRef</a>
-                                @if (item.IsCancelled)
-                                {
-                                    <span class="status-pill danger ms-1">@L["Doc.Cancelled"]</span>
-                                }
-                            </td>
-                            <td class="num text-slate">@ctx.FormatDate(item.SaleDate, true)</td>
-                            <td>
-                                @if (item.Items != null && item.Items.Any())
-                                {
-                                    @string.Join(", ", item.Items.Select(i => $"{i.ProductName} (x{i.Quantity})"))
-                                }
-                                else
-                                {
-                                    <span class="text-slate">—</span>
-                                }
-                            </td>
-                            <td><span class="status-pill">@(item.PaymentMethod ?? "Cash")</span></td>
-                            <td class="text-end num fw-semibold @(item.IsCancelled ? "text-decoration-line-through text-slate" : "text-forest")">
-                                @ctx.FormatHistorical(item.FinalPrice, item.CurrencyCode, item.CurrencyDecimals, item.CurrencySymbol)
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+</section>

@@ -1,0 +1,25 @@
+@model ExpenseFormViewModel
+@{
+    var id = ViewData["ExpenseId"] as int?;
+    var settings = (await TenantCtx.GetContextAsync()).Settings;
+    ViewData["Title"] = id.HasValue ? "Corriger la dépense" : "Nouvelle dépense";
+}
+<div class="page-heading"><div><p class="section-eyebrow"><a asp-action="Index">Dépenses</a></p><h1>@ViewData["Title"]</h1><p>Enregistrez une sortie de caisse hors règlement fournisseur.</p></div></div>
+<form asp-action="@(id.HasValue ? "Edit" : "Create")" asp-route-id="@id" method="post" class="panel-card p-3 p-md-4 compact-form">
+    <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
+    <div class="row g-3">
+        <div class="col-12"><label asp-for="Description" class="form-label">Libellé de la dépense</label><input asp-for="Description" class="form-control" placeholder="Ex. transport, loyer" required /></div>
+        <div class="col-sm-6"><label asp-for="Category" class="form-label">Catégorie</label><input asp-for="Category" class="form-control" required /></div>
+        <div class="col-sm-6"><label asp-for="Date" class="form-label">Date de la dépense</label><input asp-for="Date" type="date" class="form-control" required /></div>
+        <div class="col-sm-4"><label asp-for="Amount" class="form-label">Montant</label><input asp-for="Amount" inputmode="decimal" class="form-control num" required /></div>
+        <div class="col-sm-4"><label asp-for="CurrencyCode" class="form-label">Devise</label>
+            @if (id.HasValue) { <input asp-for="CurrencyCode" class="form-control" readonly /> }
+            else { <select asp-for="CurrencyCode" class="form-select">@foreach (var code in Money.AvailableCurrencies(settings)) { <option value="@code">@code</option> }</select> }
+        </div>
+        <div class="col-sm-4"><label asp-for="PaymentMethod" class="form-label">Moyen de paiement</label><select asp-for="PaymentMethod" class="form-select">
+            @if (!PaymentMeans.All(settings).Contains(Model.PaymentMethod)) { <option value="@Model.PaymentMethod">@PaymentMeans.Display(Model.PaymentMethod)</option> }
+            @foreach (var method in PaymentMeans.All(settings)) { <option value="@method">@method</option> }
+        </select></div>
+    </div>
+    <div class="form-actions"><a asp-action="Index" class="btn btn-secondary-outline">Annuler</a><button type="submit" class="btn btn-accent">Enregistrer la dépense</button></div>
+</form>

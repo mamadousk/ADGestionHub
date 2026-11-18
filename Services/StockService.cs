@@ -1,91 +1,42 @@
 using AdGestionHub.Data;
+using AdGestionHub.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace AdGestionHub.Services
+namespace AdGestionHub.Services;
+
+public sealed class StockService(ApplicationDbContext db)
 {
-    public class StockService : IStockService
+    public const int MaximumStock = 10_000_000;
+
+    public async Task<int> ApplyAsync(int shop, Product product, int delta, string kind, string? reference, DateTime date,
+        bool restoreArchived = false)
     {
-        private readonly ApplicationDbContext _context;
+        if (db.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Un mouvement doit faire partie d'une transaction de stock.");
+        if (product.BoutiqueId != shop || delta == 0 || delta < -MaximumStock || delta > MaximumStock)
+            throw new CommerceRuleException("Mouvement de stock invalide.");
 
-        public StockService(ApplicationDbContext context)
+        var query = db.Products.Where(p => p.Id == product.Id && p.BoutiqueId == shop
+            && (restoreArchived || !p.IsArchived)
+            && p.StockQuantity >= -delta && p.StockQuantity <= MaximumStock - delta);
+        var affected = restoreArchived
+            ? await query.ExecuteUpdateAsync(setters => setters
+                .SetProperty(p => p.StockQuantity, p => p.StockQuantity + delta)
+                .SetProperty(p => p.IsArchived, false))
+            : await query.ExecuteUpdateAsync(setters => setters.SetProperty(p => p.StockQuantity, p => p.StockQuantity + delta));
+
+        if (affected != 1)
+            throw new CommerceRuleException(delta < 0
+                ? $"Stock insuffisant ou indisponible pour « {product.Name} »."
+                : $"Impossible d'ajouter au stock de « {product.Name} » (limite ou produit archivé).");
+
+        var after = await db.Products.Where(p => p.Id == product.Id && p.BoutiqueId == shop)
+            .Select(p => p.StockQuantity).SingleAsync();
+        db.StockMovements.Add(new StockMovement
         {
-            _context = context;
-        }
-
-        public async Task<bool> CheckStockAvailabilityAsync(int productId, int quantityRequested)
-        {
-            var product = await _context.Products
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == productId);
-
-            if (product == null)
-                return false;
-
-            return product.StockQuantity >= quantityRequested;
-        }
-
-        public async Task<bool> DeductStockAsync(int productId, int quantity)
-        {
-            if (quantity <= 0)
-                return false;
-
-            var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == productId);
-
-            if (product == null || product.StockQuantity < quantity)
-                return false;
-
-            product.StockQuantity -= quantity;
-            await _context.SaveChangesAsync();
-            return true;
-        }
-
-        public async Task<bool> TryDeductStockAsync(int productId, int boutiqueId, int quantity)
-        {
-            if (quantity <= 0)
-                return false;
-
-            var rows = await _context.Products
-                .Where(p => p.Id == productId
-                         && p.BoutiqueId == boutiqueId
-                         && p.StockQuantity >= quantity)
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity - quantity));
-
-            return rows == 1;
-        }
-
-        public async Task<bool> RestoreStockAsync(int productId, int quantity)
-        {
-            if (quantity <= 0)
-                return false;
-
-            var rows = await _context.Products
-                .Where(p => p.Id == productId)
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity));
-
-            return rows == 1;
-        }
-
-        public async Task<bool> RestoreStockAsync(int productId, int boutiqueId, int quantity)
-        {
-            if (quantity <= 0)
-                return false;
-
-            var rows = await _context.Products
-                .Where(p => p.Id == productId && p.BoutiqueId == boutiqueId)
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.StockQuantity, p => p.StockQuantity + quantity));
-
-            return rows == 1;
-        }
-
-        public async Task<int> GetLowStockCountAsync(int boutiqueId)
-        {
-            return await _context.Products
-                .AsNoTracking()
-                .CountAsync(p => p.BoutiqueId == boutiqueId
-                              && p.StockQuantity <= (p.LowStockThreshold > 0 ? p.LowStockThreshold : p.StockAlertThreshold));
-        }
+            BoutiqueId = shop, ProductId = product.Id, Delta = delta, QuantityAfter = after,
+            Kind = kind, Reference = reference, RecordedAt = date
+        });
+        return after;
     }
 }

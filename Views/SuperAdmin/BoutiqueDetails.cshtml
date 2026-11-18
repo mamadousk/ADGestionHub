@@ -1,7 +1,6 @@
 @model AdGestionHub.Models.Boutique
 @{
     ViewData["Title"] = Model.Nom;
-    var salesTotal = ViewBag.SalesTotal as decimal? ?? 0m;
 }
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
@@ -35,10 +34,6 @@
             <div class="d-flex justify-content-between py-2 border-bottom">
                 <span class="text-slate small">@L.T("Téléphone", "Phone")</span>
                 <span class="small num">@(string.IsNullOrWhiteSpace(Model.Telephone) ? "—" : Model.Telephone)</span>
-            </div>
-            <div class="d-flex justify-content-between py-2 border-bottom">
-                <span class="text-slate small">@L.T("Volume brut", "Gross Volume")</span>
-                <span class="small num fw-semibold">@salesTotal.ToString("N2")</span>
             </div>
             <div class="d-flex justify-content-between py-2">
                 <span class="text-slate small">@L.T("Créé le", "Created")</span>

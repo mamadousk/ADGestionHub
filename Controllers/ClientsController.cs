@@ -1,6 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Models.ViewModels;
@@ -9,225 +6,107 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace AdGestionHub.Controllers
+namespace AdGestionHub.Controllers;
+
+[Authorize(Policy = "ShopMember")]
+public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService boutiques, CommerceWriter writer) : Controller
 {
-    [Authorize]
-    public class ClientsController : Controller
+    public async Task<IActionResult> Index(string? search)
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IBoutiqueService _boutiqueService;
-        private readonly ITenantContextService _tenantContext;
-        private readonly IAppLocalizer _L;
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var query = db.Clients.AsNoTracking().Where(c => c.BoutiqueId == shop);
+        if (CommerceOperations.Clean(search) is string term)
+            query = query.Where(c => c.Name.Contains(term) || (c.Phone != null && c.Phone.Contains(term)));
+        ViewData["Search"] = search;
+        return View(await query.OrderBy(c => c.Name).ToListAsync());
+    }
 
-        public ClientsController(
-            ApplicationDbContext context,
-            IBoutiqueService boutiqueService,
-            ITenantContextService tenantContext,
-            IAppLocalizer localizer)
+    public async Task<IActionResult> Details(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var client = await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.BoutiqueId == shop && c.Id == id);
+        if (client == null) return NotFound();
+        var sales = await db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop && s.ClientId == id && !s.IsCancelled)
+            .Include(s => s.Payments).ToListAsync();
+        List<Debt> oldDebts = User.IsInRole("Admin")
+            ? await db.Debts.AsNoTracking().Where(d => d.BoutiqueId == shop && d.ClientId == id && !d.IsArchived).Include(d => d.Payments).ToListAsync()
+            : [];
+        var history = sales.Select(s => new DocumentBalance(s.Id, s.Number, s.SaleDate, client.Name, s.CurrencyCode, s.FinalPrice, s.Paid, "Sale"))
+            .Concat(oldDebts.Select(d => new DocumentBalance(d.Id, $"Créance #{d.Id}", d.DateCreated, client.Name, d.CurrencyCode, d.Amount, d.Paid, "Debt")))
+            .OrderByDescending(x => x.Date).ToList();
+        return View(new BusinessHistory<Client>(client, history));
+    }
+
+    [HttpGet]
+    public IActionResult Create() => View("Form", new ContactInput());
+
+    [HttpPost]
+    public Task<IActionResult> Create(ContactInput model) => SaveAsync(null, model);
+
+    [HttpGet]
+    public async Task<IActionResult> Edit(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var client = await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.BoutiqueId == shop && c.Id == id);
+        if (client == null) return NotFound();
+        ViewData["ContactId"] = id;
+        return View("Form", new ContactInput { Name = client.Name, Phone = client.Phone, Address = client.Address, Email = client.Email });
+    }
+
+    [HttpPost]
+    public Task<IActionResult> Edit(int id, ContactInput model) => SaveAsync(id, model);
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        try
         {
-            _context = context;
-            _boutiqueService = boutiqueService;
-            _tenantContext = tenantContext;
-            _L = localizer;
-        }
-
-        public async Task<IActionResult> Index(string? search)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var query = _context.Clients
-                .AsNoTracking()
-                .Where(c => c.BoutiqueId == boutiqueId.Value);
-
-            if (!string.IsNullOrWhiteSpace(search))
+            await writer.ExecuteAsync(shop, async () =>
             {
-                var term = search.Trim();
-                query = query.Where(c =>
-                    c.Name.Contains(term)
-                    || (c.Phone != null && c.Phone.Contains(term))
-                    || (c.TaxIdentificationNumber != null && c.TaxIdentificationNumber.Contains(term)));
-            }
-
-            ViewBag.CurrentSearch = search;
-            var clients = await query.OrderBy(c => c.Name).ToListAsync();
-            return View(clients);
-        }
-
-        public async Task<IActionResult> Create()
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var ctx = await _tenantContext.GetContextAsync();
-            return View(new ClientFormViewModel
-            {
-                Phone = ctx.Settings.PhoneDialCode + " "
+                var client = await db.Clients.SingleOrDefaultAsync(c => c.BoutiqueId == shop && c.Id == id) ?? throw new CommerceNotFoundException();
+                if (await db.Sales.AnyAsync(s => s.BoutiqueId == shop && s.ClientId == id) || await db.Quotes.AnyAsync(q => q.BoutiqueId == shop && q.ClientId == id)
+                    || await db.Debts.AnyAsync(d => d.BoutiqueId == shop && d.ClientId == id))
+                    throw new CommerceRuleException("Ce client a un historique et doit rester dans le répertoire.");
+                db.Clients.Remove(client);
+                writer.Audit(shop, $"Suppression de la fiche client #{id}");
+                return true;
             });
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(ClientFormViewModel model)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            if (!ModelState.IsValid)
-                return View(model);
-
-            var ctx = await _tenantContext.GetContextAsync();
-            var cleanPhone = model.Phone?.Trim();
-            if (string.Equals(cleanPhone, ctx.Settings.PhoneDialCode, StringComparison.OrdinalIgnoreCase))
-                cleanPhone = null;
-
-            var client = new Client
-            {
-                BoutiqueId = boutiqueId.Value,
-                Name = model.Name.Trim(),
-                Phone = string.IsNullOrWhiteSpace(cleanPhone) ? null : cleanPhone,
-                Email = string.IsNullOrWhiteSpace(model.Email) ? null : model.Email.Trim(),
-                Address = string.IsNullOrWhiteSpace(model.Address) ? null : model.Address.Trim(),
-                IsBusinessClient = model.IsBusinessClient,
-                TaxIdentificationNumber = ctx.IsFormalized && !string.IsNullOrWhiteSpace(model.TaxIdentificationNumber)
-                    ? model.TaxIdentificationNumber.Trim()
-                    : null,
-                Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim(),
-                CreatedAt = DateTime.Now
-            };
-
-            _context.Clients.Add(client);
-            await _context.SaveChangesAsync();
-
-            TempData["SuccessMessage"] = _L.T(
-                $"Fiche client « {client.Name} » enregistrée.",
-                $"Customer « {client.Name} » saved.");
+            TempData["SuccessMessage"] = "Client supprimé.";
             return RedirectToAction(nameof(Index));
         }
+        catch (CommerceRuleException error) { TempData["ErrorMessage"] = error.Message; }
+        catch (CommerceNotFoundException) { return NotFound(); }
+        catch (DbUpdateException) { TempData["ErrorMessage"] = "La fiche ne peut pas être supprimée car elle est liée à un document."; }
+        return RedirectToAction(nameof(Details), new { id });
+    }
 
-        public async Task<IActionResult> Edit(int? id)
+    private async Task<IActionResult> SaveAsync(int? id, ContactInput model)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        if (ModelState.IsValid)
         {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var client = await _context.Clients
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.Id == id.Value && c.BoutiqueId == boutiqueId.Value);
-
-            if (client == null) return NotFound();
-
-            return View(new ClientFormViewModel
+            try
             {
-                Id = client.Id,
-                Name = client.Name,
-                Phone = client.Phone,
-                Email = client.Email,
-                Address = client.Address,
-                IsBusinessClient = client.IsBusinessClient,
-                TaxIdentificationNumber = client.TaxIdentificationNumber,
-                Notes = client.Notes
-            });
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, ClientFormViewModel model)
-        {
-            if (id != model.Id) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(c => c.Id == id && c.BoutiqueId == boutiqueId.Value);
-
-            if (client == null) return NotFound();
-
-            if (!ModelState.IsValid)
-                return View(model);
-
-            var ctx = await _tenantContext.GetContextAsync();
-
-            client.Name = model.Name.Trim();
-            client.Phone = string.IsNullOrWhiteSpace(model.Phone) ? null : model.Phone.Trim();
-            client.Email = string.IsNullOrWhiteSpace(model.Email) ? null : model.Email.Trim();
-            client.Address = string.IsNullOrWhiteSpace(model.Address) ? null : model.Address.Trim();
-            client.IsBusinessClient = model.IsBusinessClient;
-            if (ctx.IsFormalized)
-            {
-                client.TaxIdentificationNumber = string.IsNullOrWhiteSpace(model.TaxIdentificationNumber)
-                    ? null
-                    : model.TaxIdentificationNumber.Trim();
-            }
-            client.Notes = string.IsNullOrWhiteSpace(model.Notes) ? null : model.Notes.Trim();
-
-            await _context.SaveChangesAsync();
-
-            TempData["SuccessMessage"] = _L.T("Fiche client mise à jour.", "Customer record updated.");
-            return RedirectToAction(nameof(Index));
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Challenge();
-
-            var client = await _context.Clients
-                .FirstOrDefaultAsync(c => c.Id == id && c.BoutiqueId == boutiqueId.Value);
-
-            if (client != null)
-            {
-                await _context.Sales
-                    .Where(s => s.BoutiqueId == boutiqueId.Value && s.ClientId == client.Id)
-                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.ClientId, (int?)null));
-
-                await _context.Quotes
-                    .Where(q => q.BoutiqueId == boutiqueId.Value && q.ClientId == client.Id)
-                    .ExecuteUpdateAsync(q => q.SetProperty(x => x.ClientId, (int?)null));
-
-                _context.Clients.Remove(client);
-                await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = _L.T("Client supprimé du répertoire.", "Customer removed.");
-            }
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> SearchJson(string? term)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null) return Json(Array.Empty<object>());
-
-            var query = _context.Clients
-                .AsNoTracking()
-                .Where(c => c.BoutiqueId == boutiqueId.Value);
-
-            if (!string.IsNullOrWhiteSpace(term))
-            {
-                var clean = term.Trim();
-                query = query.Where(c => c.Name.Contains(clean) || (c.Phone != null && c.Phone.Contains(clean)));
-            }
-
-            var list = await query
-                .OrderBy(c => c.Name)
-                .Take(10)
-                .Select(c => new
+                var client = await writer.ExecuteAsync(shop, async () =>
                 {
-                    id = c.Id,
-                    name = c.Name,
-                    phone = c.Phone ?? "",
-                    taxId = c.TaxIdentificationNumber ?? "",
-                    isB2B = c.IsBusinessClient
-                })
-                .ToListAsync();
-
-            return Json(list);
+                    var contact = id.HasValue
+                        ? await db.Clients.SingleOrDefaultAsync(c => c.BoutiqueId == shop && c.Id == id) ?? throw new CommerceNotFoundException()
+                        : new Client { BoutiqueId = shop, CreatedAt = DateTime.Now };
+                    contact.Name = model.Name.Trim();
+                    contact.Phone = CommerceOperations.Clean(model.Phone);
+                    contact.Address = CommerceOperations.Clean(model.Address);
+                    contact.Email = CommerceOperations.Clean(model.Email);
+                    if (!id.HasValue) db.Clients.Add(contact);
+                    writer.Audit(shop, id.HasValue ? $"Fiche client #{id} modifiée" : "Fiche client créée");
+                    return contact;
+                });
+                TempData["SuccessMessage"] = "Fiche client enregistrée.";
+                return RedirectToAction(nameof(Details), new { id = client.Id });
+            }
+            catch (CommerceNotFoundException) { return NotFound(); }
         }
+        ViewData["ContactId"] = id;
+        return View("Form", model);
     }
 }

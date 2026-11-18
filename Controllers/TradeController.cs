@@ -1,0 +1,30 @@
+using AdGestionHub.Data;
+using AdGestionHub.Models.ViewModels;
+using AdGestionHub.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace AdGestionHub.Controllers;
+
+public abstract class TradeController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant) : Controller
+{
+    protected Task<int?> ShopAsync() => boutiques.GetCurrentBoutiqueIdAsync();
+
+    protected async Task PrepareAsync(int shop, bool purchase = false, bool quote = false)
+    {
+        var settings = (await tenant.GetContextAsync()).Settings;
+        ViewData["TradeSettings"] = settings;
+        var products = await db.Products.AsNoTracking().Where(p => p.BoutiqueId == shop && !p.IsArchived
+            && (purchase || quote || p.StockQuantity > 0)).OrderBy(p => p.Name)
+            .Select(p => new { p.Id, p.Name, p.Sku, p.StockQuantity, p.SalePrice }).ToListAsync();
+        ViewData["TradeProducts"] = products.Select(p => new CatalogPick(p.Id, p.Name, p.Sku, p.StockQuantity,
+            purchase || !Money.IsMvpCurrency(settings.PrimaryCurrencyCode) ? new Dictionary<string, decimal>() :
+            Money.AvailableCurrencies(settings).ToDictionary(code => code,
+                code => Money.Convert(p.SalePrice, settings.PrimaryCurrencyCode, code, settings.CdfPerUsd)))).ToList();
+        ViewData["TradeContacts"] = purchase
+            ? await db.Suppliers.AsNoTracking().Where(c => c.BoutiqueId == shop).OrderBy(c => c.Name)
+                .Select(c => new ContactPick(c.Id, c.Name)).ToListAsync()
+            : await db.Clients.AsNoTracking().Where(c => c.BoutiqueId == shop).OrderBy(c => c.Name)
+                .Select(c => new ContactPick(c.Id, c.Name)).ToListAsync();
+    }
+}

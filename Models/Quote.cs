@@ -32,7 +32,7 @@ namespace AdGestionHub.Models
         public string? CustomerTaxId { get; set; }
 
         /// <summary>
-        /// "Pending", "Converted", "Expired"
+        /// "Draft", "Pending", "Accepted", "Converted" ("Expired" pour les documents historiques)
         /// </summary>
         [StringLength(20)]
         public string Status { get; set; } = "Pending";
@@ -54,6 +54,7 @@ namespace AdGestionHub.Models
         public string? SecondaryCurrencyCode { get; set; }
 
         public decimal? ExchangeRateToSecondary { get; set; }
+        public decimal? CdfPerUsd { get; set; }
 
         [StringLength(100)]
         public string? StoreLegalTaxIdSnapshot { get; set; }

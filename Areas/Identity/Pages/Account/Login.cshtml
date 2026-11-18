@@ -2,8 +2,6 @@
 @model LoginModel
 @{
     ViewData["Title"] = L["Nav.Login"];
-    var lang = L.CurrentLanguage;
-    var returnUrl = HttpContext.Request.Path + HttpContext.Request.QueryString;
 }
 
 <div class="container py-4 auth-shell">
@@ -16,10 +14,6 @@
                         <p class="text-slate small mb-0">
                             @L.T("Accédez à votre espace de gestion", "Sign in to your workspace")
                         </p>
-                    </div>
-                    <div class="lang-switch" role="group" aria-label="Language">
-                        <a href="@Url.Action("Set", "Localization", new { lang = "fr", returnUrl })" class="@(lang == "fr" ? "active" : "")">FR</a>
-                        <a href="@Url.Action("Set", "Localization", new { lang = "en", returnUrl })" class="@(lang == "en" ? "active" : "")">EN</a>
                     </div>
                 </div>
 

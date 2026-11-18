@@ -54,7 +54,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
 
         public void OnGet(string? returnUrl = null, int? suspended = null)
         {
-            ReturnUrl = returnUrl;
+            ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
             if (suspended == 1)
             {
                 ModelState.AddModelError(string.Empty, "L'accès à votre boutique est temporairement suspendu. Veuillez contacter l'administrateur de la plateforme.");
@@ -63,7 +63,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
         {
-            returnUrl ??= Url.Content("~/");
+            if (!Url.IsLocalUrl(returnUrl)) returnUrl = Url.Content("~/");
             ReturnUrl = returnUrl;
 
             if (!ModelState.IsValid)

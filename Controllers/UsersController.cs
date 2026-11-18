@@ -21,15 +21,18 @@ namespace AdGestionHub.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IBoutiqueService _boutiqueService;
+        private readonly CommerceWriter _writer;
 
         public UsersController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            IBoutiqueService boutiqueService)
+            IBoutiqueService boutiqueService,
+            CommerceWriter writer)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _boutiqueService = boutiqueService;
+            _writer = writer;
         }
 
         // GET: /Users/
@@ -133,22 +136,28 @@ namespace AdGestionHub.Controllers
                     BoutiqueId = currentBoutiqueId.Value
                 };
 
-                var result = await _userManager.CreateAsync(user, model.Password);
-                if (result.Succeeded)
+                try
                 {
-                    if (!await _roleManager.RoleExistsAsync(model.Role))
+                    var result = await _writer.ExecuteAsync(currentBoutiqueId.Value, async () =>
                     {
-                        await _roleManager.CreateAsync(new IdentityRole(model.Role));
+                        var created = await _userManager.CreateAsync(user, model.Password);
+                        if (!created.Succeeded) return created;
+                        if (!(await _userManager.AddToRoleAsync(user, model.Role)).Succeeded)
+                            throw new CommerceRuleException("Le compte n'a pas pu recevoir les permissions d'employé.");
+                        _writer.Audit(currentBoutiqueId.Value, $"Compte employé créé : {user.UserName}");
+                        return created;
+                    });
+                    if (result.Succeeded)
+                    {
+                        TempData["SuccessMessage"] = $"Le compte employé « {user.UserName} » a été créé avec succès.";
+                        return RedirectToAction(nameof(Index));
                     }
-
-                    await _userManager.AddToRoleAsync(user, model.Role);
-
-                    TempData["SuccessMessage"] = $"Le compte employé « {user.UserName} » a été créé avec succès.";
-                    return RedirectToAction(nameof(Index));
+                    foreach (var error in result.Errors)
+                        ModelState.AddModelError(string.Empty, error.Description);
                 }
-
-                foreach (var error in result.Errors)
-                    ModelState.AddModelError(string.Empty, error.Description);
+                catch (CommerceRuleException error) { ModelState.AddModelError(string.Empty, error.Message); }
+                catch (CommerceNotFoundException) { return Forbid(); }
+                catch (DbUpdateException) { ModelState.AddModelError(string.Empty, "Le compte n'a pas pu être créé. Vérifiez l'identifiant et l'adresse e-mail."); }
             }
 
             ViewBag.Roles = await GetAllowedRolesListAsync();

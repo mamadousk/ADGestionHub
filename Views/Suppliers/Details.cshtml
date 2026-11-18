@@ -1,0 +1,8 @@
+@model BusinessHistory<Supplier>
+@{ ViewData["Title"] = Model.Contact.Name; }
+<div class="page-heading">
+    <div><p class="section-eyebrow"><a asp-action="Index">Fournisseurs</a></p><h1>@Model.Contact.Name</h1><p>@(Model.Contact.Phone ?? "Sans téléphone") · @(Model.Contact.Email ?? "Sans e-mail")</p>
+        @if (Model.Contact.Address != null) { <p>@Model.Contact.Address</p> }</div>
+    <div class="d-flex flex-wrap gap-2"><a asp-action="Edit" asp-route-id="@Model.Contact.Id" class="btn btn-secondary-outline">Modifier la fiche</a><a asp-controller="Purchases" asp-action="Create" asp-route-supplierId="@Model.Contact.Id" class="btn btn-accent">Nouvel achat</a></div>
+</div>
+<partial name="_ContactBalances" model="Model.Documents" />

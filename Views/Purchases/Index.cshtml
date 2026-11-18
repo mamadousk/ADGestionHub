@@ -1,0 +1,24 @@
+@model IReadOnlyList<Purchase>
+@{ ViewData["Title"] = "Achats"; }
+<div class="page-heading">
+    <div><p class="section-eyebrow">Opérations</p><h1>Achats fournisseurs</h1><p>Retrouvez vos achats, vos réceptions et les sommes restant à régler.</p></div>
+    <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvel achat</a>
+</div>
+@if (Model.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Aucun achat enregistré</h2><p class="text-slate mb-0">Démarrez par un fournisseur et un article de votre catalogue.</p></div>
+}
+else
+{
+    <div class="panel-card table-responsive"><table class="table table-ledger">
+        <thead><tr><th scope="col">Achat</th><th scope="col">Fournisseur</th><th scope="col">Réception</th><th scope="col" class="text-end">Total</th><th scope="col" class="text-end">Reste à payer</th></tr></thead>
+        <tbody>
+        @foreach (var purchase in Model)
+        {
+            <tr><td><a asp-action="Details" asp-route-id="@purchase.Id" class="fw-semibold">@purchase.Number</a><div class="text-slate small">@purchase.RecordedAt.ToString("dd/MM/yyyy")</div></td>
+                <td>@purchase.SupplierName</td><td><span class="status-pill @(purchase.ReceivedAt.HasValue ? "success" : "warning")">@(purchase.ReceivedAt.HasValue ? "Reçu" : "En attente")</span></td>
+                <td class="text-end text-nowrap">@Money.Display(purchase.Total, purchase.CurrencyCode)</td><td class="text-end text-nowrap">@Money.Display(purchase.Balance, purchase.CurrencyCode)</td></tr>
+        }
+        </tbody>
+    </table></div>
+}

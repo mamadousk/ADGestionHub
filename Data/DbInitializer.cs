@@ -18,7 +18,9 @@ namespace AdGestionHub.Data
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
-                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                    var role = await roleManager.CreateAsync(new IdentityRole(roleName));
+                    if (!role.Succeeded && !await roleManager.RoleExistsAsync(roleName))
+                        throw new InvalidOperationException($"Le rôle {roleName} n'a pas pu être initialisé.");
                 }
             }
 
@@ -37,10 +39,8 @@ namespace AdGestionHub.Data
             var existing = await userManager.FindByEmailAsync(superAdminEmail);
             if (existing != null)
             {
-                if (!await userManager.IsInRoleAsync(existing, "SuperAdmin"))
-                {
-                    await userManager.AddToRoleAsync(existing, "SuperAdmin");
-                }
+                if (existing.BoutiqueId != null || !await userManager.IsInRoleAsync(existing, "SuperAdmin"))
+                    logger.LogError("Le compte configuré existe sans rôle SuperAdmin. Aucune promotion automatique n'a été effectuée.");
                 return;
             }
 
@@ -56,7 +56,8 @@ namespace AdGestionHub.Data
             var result = await userManager.CreateAsync(user, superAdminPassword);
             if (result.Succeeded)
             {
-                await userManager.AddToRoleAsync(user, "SuperAdmin");
+                if (!(await userManager.AddToRoleAsync(user, "SuperAdmin")).Succeeded)
+                    throw new InvalidOperationException("Le compte initial n'a pas reçu le rôle SuperAdmin.");
                 logger.LogInformation("Compte SuperAdmin initialisé avec succès.");
             }
             else

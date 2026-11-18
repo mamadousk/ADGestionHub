@@ -1,68 +1,51 @@
-# AdGestionHub — Plateforme SaaS de Gestion Commerciale (PME & Boutiques)
+# AD Gestion Hub — MVP V1
 
-Application web multi-boutiques (multi-tenant) développée avec **ASP.NET Core MVC / Razor Pages (.NET 10)**, **Entity Framework Core**, **ASP.NET Core Identity** et **QuestPDF**.
+**Pilotez votre activité. Maîtrisez vos chiffres.**
 
-## Fonctionnalités principales
+AD Gestion Hub est une application de gestion commerciale en français pour les commerçants et petites entreprises en RDC. Elle utilise **ASP.NET Core MVC / Razor (.NET 10 LTS)**, **ASP.NET Core Identity**, Entity Framework Core, SQL Server et QuestPDF.
 
-- **Multi-boutiques isolé** : chaque commerce dispose de son propre catalogue, historique de ventes, dépenses, dettes et équipe.
-- **Gestion des Stocks** : alertes automatiques de réapprovisionnement, recherche et filtrage par statut (disponible, stock bas, rupture), décrémentation SQL atomique anti-concurrence.
-- **Point de Vente & Reçus** : panier dynamique avec autocomplétion, moyens de paiement adaptés (Cash, M-Pesa, Airtel Money, Orange Money, Carte Bancaire), reçus imprimables et téléchargement PDF multiplateforme via **QuestPDF**.
-- **Suivi Financier & Rapports** : journal des dépenses par catégorie, calcul exact de la marge brute (coût d'achat figé `UnitCost` au moment de la vente) et du bénéfice net, export PDF par période.
-- **Cahier des Dettes Clients** : suivi des créances, échéances et relance en un clic via WhatsApp.
-- **Rôles & Permissions (RBAC)** :
-  - `SuperAdmin` : supervision des boutiques (activation/suspension), annonces globales, journal des erreurs, tableau de bord Marketing & export CSV des leads Pro.
-  - `Admin` (Propriétaire/Gérant) : accès complet à sa boutique, gestion des prix, marges, rapports, paramètres et comptes employés.
-  - `Employé` (Vendeur) : encaissement au prix catalogue, consultation du stock (sans accès aux prix d'achat ni aux bénéfices), saisie des dépenses courantes.
+## Démarrer en développement
 
----
-
-## Démarrage rapide (Développement)
-
-### 1. Configurer le compte `SuperAdmin` (sans secret dans le code)
-
-Les identifiants du `SuperAdmin` ne sont jamais stockés dans `appsettings.json` ni dans le code source. Utilisez **User Secrets** en développement :
+Prérequis : SDK .NET 10 et, pour les tests HTTP et du navigateur, Python 3.10+ et Node.js 22+. SQLite est configuré par défaut dans l’environnement `Development` ; le fichier `adgestionhub-v1-dev.db` est ignoré par Git.
 
 ```bash
-dotnet user-secrets init
-dotnet user-secrets set "SuperAdmin:Email" "votre-email@domaine.com"
-dotnet user-secrets set "SuperAdmin:Password" "UnMotDePasseFort2026!"
+dotnet build AdGestionHub.slnx
+dotnet run --project AdGestionHub.csproj --launch-profile http
 ```
 
-En production (Azure, Linux, Docker, IIS), définissez les variables d'environnement :
+Ouvrez `http://localhost:5216`, puis **Créer mon entreprise**. Créez un produit avec une quantité initiale, ajoutez un client si la vente est à crédit et faites une **Nouvelle vente**. Relisez le solde sur la fiche de la vente et les mouvements sur la fiche du produit.
+
+SQLite est réservé aux nouvelles bases locales et aux tests. Il n’applique pas les migrations SQL Server : utilisez un nouveau fichier pour un environnement jetable si le schéma change. Ne supprimez pas une base contenant des données à conserver.
+
+## Parcours couverts
+
+- **Catalogue et stock** : catégorie, référence, prix, stock initial, entrées et sorties avec motif, historique et alertes visibles dans l’application. L’archivage retire un produit à stock nul du catalogue sans supprimer son historique.
+- **Ventes et achats** : plusieurs lignes, remise sur vente réservée à l’administrateur, règlement intégral, partiel ou différé. La vente réduit le stock ; l’achat le réapprovisionne uniquement à la réception. Les paiements fournisseurs et les dépenses courantes sont distincts.
+- **Répertoires et trésorerie** : fiches clients et fournisseurs, historique et soldes par devise. Un règlement est lié à son document. Une recette diverse peut être enregistrée sans vente. Aucune connexion aux opérateurs Mobile Money ni aux banques : le moyen choisi décrit le versement réellement effectué.
+- **Documents** : brouillon de devis modifiable, émission, acceptation puis conversion en vente, sans double conversion. Une vente génère une facture commerciale imprimable et téléchargeable (PDF). **Les documents ne sont pas des factures normalisées DGI.**
+- **Pilotage** : tableau de bord et rapports par période, exports PDF, Excel (`.xlsx`) et CSV. Le solde de clôture tient compte des paiements effectués jusqu’à la date choisie ; l’état du stock est celui du jour, valorisé au coût du catalogue.
+- **Permissions** : les employés saisissent les ventes, règlements clients, fiches clients, devis et dépenses, et consultent le stock sans coût d’achat. L’administrateur de l’entreprise gère en plus le catalogue, les achats, les fournisseurs, l’équipe, la trésorerie et les rapports, et peut consulter le journal d’activité. Le compte de supervision de la plateforme est distinct des comptes des entreprises.
+
+### CDF, USD et exactitude des chiffres
+
+Le catalogue est en CDF ou en USD, selon le choix de l’entreprise. Cette devise est verrouillée après la première écriture pour ne pas relibeller des prix existants. Dans **Paramètres**, saisissez le taux réellement utilisé sous la forme **1 USD = X CDF** (jusqu’à six décimales). Tant qu’il n’est pas configuré, les nouvelles opérations sont limitées à la devise du catalogue et aucun taux n’est inventé.
+
+Les montants sont calculés en `decimal` et arrondis à deux décimales pour CDF et USD. Le prix unitaire converti est arrondi avant multiplication. Les opérations mémorisent leur devise et leur taux lorsqu’il est disponible. Un règlement ultérieur peut être saisi dans l’autre devise : le montant versé, son taux et le montant imputé au document sont enregistrés séparément. Si l’arrondi empêche de solder dans la seconde devise, enregistrez le reste dans la devise du document. Les totaux de trésorerie sont exprimés dans la devise réellement versée ; les créances et dettes restent dans la devise du document. Les rapports n’additionnent jamais CDF et USD.
+
+**Limites V1 :** aucun remboursement ni avoir. Seule une vente sans règlement peut être annulée depuis l’application. Les achats en attente sont réceptionnés en une seule fois. Les autres exclusions du MVP (fiscalité/DGI, comptabilité générale, paie, services bancaires intégrés) ne sont pas implémentées.
+
+## Vérifications
 
 ```bash
-SuperAdmin__Email="votre-email@domaine.com"
-SuperAdmin__Password="UnMotDePasseFort2026!"
-ConnectionStrings__DefaultConnection="Server=...;Database=AdGestionHub;..."
+node --test tests/trade.test.cjs
+dotnet run --project tests/CommerceSmoke
+python3 tests/http_smoke.py   # après dotnet build
 ```
 
-> **Important (Sécurité)** : Si un ancien mot de passe a figuré dans l'historique Git, changez-le immédiatement depuis `/Identity/Account/Manage/ChangePassword` après connexion.
+Le scénario métier utilise une vraie base SQLite. Il vérifie notamment les écritures atomiques, les règlements concurrents, la reprise d’un devis, le taux historique et les formats exportés. Le scénario HTTP teste l’inscription, la vente partielle, le stock, les téléchargements, les droits des employés et l’isolation entre deux entreprises. GitHub Actions lance ces vérifications à chaque push et pull request, y compris la migration sur un SQL Server jetable et la recette Chromium (téléphone, tablette, ordinateur, impression). Pour ajouter le test Chromium en local : installez `playwright` dans votre environnement Python, lancez `python -m playwright install chromium`, puis `ADGH_SMOKE_BROWSER=1 python tests/http_smoke.py`.
 
-### 2. Compiler et lancer l'application
+Pour exécuter aussi les scénarios de migration et de concurrence sur un **serveur SQL Server de test**, fournissez la chaîne de connexion via `ADGH_SMOKE_SQLSERVER`. Le test crée et supprime une base au nom aléatoire sur ce serveur : utilisez uniquement un environnement jetable où le compte est autorisé à le faire.
 
-Au démarrage, l'application applique automatiquement les migrations EF Core en attente (`Database.MigrateAsync()`) et initialise les rôles (`Admin`, `Employé`, `SuperAdmin`) :
+## Déploiement et pilote
 
-```bash
-dotnet restore
-dotnet build
-dotnet run
-```
-
-Vous pouvez également appliquer les migrations manuellement via CLI :
-
-```bash
-dotnet ef database update
-```
-
-### 3. Option SQLite (développement léger / multiplateforme)
-
-Par défaut, le projet utilise SQL Server (`DefaultConnection`). Pour utiliser SQLite localement, définissez dans vos User Secrets ou `appsettings.Development.json` :
-
-```json
-{
-  "DatabaseProvider": "Sqlite",
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=adgestionhub.db"
-  }
-}
-```
+Consultez le [guide de déploiement et de sauvegarde](docs/exploitation-mvp.md) avant toute migration des données. L’ouverture au public nécessite une restauration testée, la validation du déploiement SQL Server et un pilote avec 5 à 10 entreprises sur ordinateur et téléphone.

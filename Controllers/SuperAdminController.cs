@@ -1,5 +1,6 @@
 using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace AdGestionHub.Controllers
     public class SuperAdminController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly BusinessReportService _reports;
 
-        public SuperAdminController(ApplicationDbContext context)
+        public SuperAdminController(ApplicationDbContext context, BusinessReportService reports)
         {
             _context = context;
+            _reports = reports;
         }
 
         public async Task<IActionResult> Index()
@@ -28,7 +31,7 @@ namespace AdGestionHub.Controllers
 
             ViewBag.BoutiqueCount = boutiques.Count;
             ViewBag.ActiveBoutiqueCount = boutiques.Count(b => b.IsActive);
-            ViewBag.GlobalSales = await _context.Sales.AsNoTracking().SumAsync(s => s.FinalPrice);
+            ViewBag.SaleCount = await _context.Sales.AsNoTracking().CountAsync(s => !s.IsCancelled);
             ViewBag.TotalProducts = await _context.Products.AsNoTracking().CountAsync();
             ViewBag.TotalUsers = await _context.Users.AsNoTracking().CountAsync();
             ViewBag.WaitingListCount = await _context.WaitingListPros.AsNoTracking().CountAsync();
@@ -137,17 +140,14 @@ namespace AdGestionHub.Controllers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(s => s.BoutiqueId == boutique.Id);
 
-            var salesCount = await _context.Sales.AsNoTracking().CountAsync(s => s.BoutiqueId == boutique.Id);
-            var salesTotal = await _context.Sales.AsNoTracking().Where(s => s.BoutiqueId == boutique.Id).SumAsync(s => s.FinalPrice);
+            var salesCount = await _context.Sales.AsNoTracking().CountAsync(s => s.BoutiqueId == boutique.Id && !s.IsCancelled);
             var productCount = await _context.Products.AsNoTracking().CountAsync(p => p.BoutiqueId == boutique.Id);
             var employeeCount = await _context.Users.AsNoTracking().CountAsync(u => u.BoutiqueId == boutique.Id);
-            var debtCount = await _context.Debts.AsNoTracking().CountAsync(d => d.BoutiqueId == boutique.Id && !d.IsPaid && !d.IsArchived);
+            var debtCount = (await _reports.OutstandingAsync(boutique.Id, DateTime.Today.AddDays(1))).Count(b => b.Kind != "Purchase");
 
             ViewBag.Settings = settings;
             ViewBag.ProductCount = productCount;
             ViewBag.SaleCount = salesCount;
-            ViewBag.SalesCount = salesCount;
-            ViewBag.SalesTotal = salesTotal;
             ViewBag.EmployeeCount = employeeCount;
             ViewBag.DebtCount = debtCount;
 

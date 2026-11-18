@@ -47,5 +47,8 @@ namespace AdGestionHub.Models
 
         public int BoutiqueId { get; set; }
         public bool IsArchived { get; set; } = false;
+        public List<Payment> Payments { get; set; } = [];
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped] public decimal Paid => IsPaid ? Amount : Payments.Sum(p => p.AppliedAmount);
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped] public decimal Balance => Amount - Paid;
     }
 }

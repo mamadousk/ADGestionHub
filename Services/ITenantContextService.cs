@@ -29,22 +29,8 @@ namespace AdGestionHub.Services
 
         public string? FormatSecondaryEquivalent(decimal primaryAmount)
         {
-            if (!Settings.SecondaryCurrencyEnabled || SecondaryCurrency == null || Settings.SecondaryExchangeRate <= 0m)
-                return null;
-
-            var converted = CountryProfileCatalog.ConvertPrimaryToSecondary(
-                primaryAmount,
-                Settings.SecondaryExchangeRate,
-                SecondaryCurrency.Decimals);
-
-            if (!converted.HasValue) return null;
-
-            return CountryProfileCatalog.FormatAmount(
-                converted.Value,
-                SecondaryCurrency.Code,
-                SecondaryCurrency.Decimals,
-                SecondaryCurrency.Symbol,
-                Language);
+            if (SecondaryCurrency == null) return null;
+            return Money.Display(Money.Convert(primaryAmount, PrimaryCurrency.Code, SecondaryCurrency.Code, Settings.CdfPerUsd), SecondaryCurrency.Code);
         }
 
         public string FormatDate(DateTime date, bool includeTime = false)
@@ -59,7 +45,6 @@ namespace AdGestionHub.Services
     public interface ITenantContextService
     {
         Task<TenantFiscalContext> GetContextAsync();
-        Task<string> AllocateNextDocumentNumberAsync(int boutiqueId, string documentKind);
         Task LogAuditAsync(int? boutiqueId, string actionSummary, string? details = null);
     }
 }

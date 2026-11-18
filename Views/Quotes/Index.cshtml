@@ -1,85 +1,21 @@
-@model IEnumerable<AdGestionHub.Models.Quote>
-@{
-    var ctx = await TenantCtx.GetContextAsync();
-    ViewData["Title"] = L["Nav.Quotes"];
-    var list = Model?.ToList() ?? new List<AdGestionHub.Models.Quote>();
+@model IReadOnlyList<Quote>
+@{ ViewData["Title"] = "Devis"; }
+<div class="page-heading">
+    <div><p class="section-eyebrow">Documents commerciaux</p><h1>Devis</h1><p>Préparez un brouillon, émettez un devis et convertissez-le quand votre client accepte.</p></div>
+    <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouveau devis</a>
+</div>
+@if (Model.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Aucun devis enregistré</h2><p class="text-slate mb-0">Tous vos brouillons et devis émis apparaîtront ici.</p></div>
 }
-
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <div>
-        <h1 class="h4 mb-1">@L["Nav.Quotes"]</h1>
-        <p class="text-slate small mb-0">@L.T("Propositions commerciales et factures proformas B2B", "Commercial quotes and B2B proforma invoices")</p>
-    </div>
-    <a asp-action="Create" class="btn btn-accent">
-        @LucideIcons.Svg("plus", 16, "me-1")
-        <span>@L.T("Nouveau devis", "New quote")</span>
-    </a>
-</div>
-
-<div class="panel-card overflow-hidden">
-    <div class="table-responsive">
-        <table class="table table-ledger">
-            <thead>
-                <tr>
-                    <th>@L["Doc.Number"]</th>
-                    <th>@L["Doc.Date"]</th>
-                    <th>@L.T("Client", "Customer")</th>
-                    <th>@L["Doc.ValidUntil"]</th>
-                    <th>@L.T("Statut", "Status")</th>
-                    <th class="text-end">@L.T("Montant", "Total")</th>
-                    <th class="text-end">@L.T("Actions", "Actions")</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!list.Any())
-                {
-                    <tr>
-                        <td colspan="7" class="text-center text-slate py-5">
-                            @L.T("Aucun devis enregistré.", "No quotes created yet.")
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var q in list)
-                    {
-                        var isConv = q.Status == "Converted";
-                        <tr>
-                            <td class="num fw-medium">@q.DocumentNumber</td>
-                            <td class="num text-slate">@ctx.FormatDate(q.CreatedAt)</td>
-                            <td>
-                                <div class="fw-medium">@q.CustomerName</div>
-                                @if (!string.IsNullOrWhiteSpace(q.CustomerTaxId))
-                                {
-                                    <div class="text-slate num" style="font-size:0.75rem;">@q.CustomerTaxId</div>
-                                }
-                            </td>
-                            <td class="num text-slate">@(q.ValidUntil.HasValue ? ctx.FormatDate(q.ValidUntil.Value) : "—")</td>
-                            <td>
-                                @if (isConv)
-                                {
-                                    <span class="status-pill success">@L.T("Facturé", "Invoiced")</span>
-                                }
-                                else
-                                {
-                                    <span class="status-pill warning">@L.T("En cours", "Pending")</span>
-                                }
-                            </td>
-                            <td class="text-end num fw-semibold">
-                                @ctx.FormatHistorical(q.TotalAmount, q.CurrencyCode, q.CurrencyDecimals, q.CurrencySymbol)
-                            </td>
-                            <td class="text-end text-nowrap">
-                                <a asp-action="Details" asp-route-id="@q.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
-                                    @LucideIcons.Svg("eye", 15)
-                                </a>
-                                <a asp-action="DownloadPdf" asp-route-id="@q.Id" class="btn btn-secondary-outline btn-sm py-1 px-2">
-                                    @LucideIcons.Svg("download", 15)
-                                </a>
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+else
+{
+    <div class="panel-card table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Devis</th><th scope="col">Client</th><th scope="col">Validité</th><th scope="col" class="text-end">Total</th><th scope="col">État</th></tr></thead><tbody>
+        @foreach (var quote in Model)
+        {
+            var status = quote.Status == QuoteStatus.Pending && CommerceOperations.IsExpired(quote) ? "Expiré" : QuoteStatus.Label(quote.Status);
+            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@quote.Id">@quote.DocumentNumber</a><div class="text-slate small">@quote.CreatedAt.ToString("dd/MM/yyyy")</div></td>
+                <td>@quote.CustomerName</td><td>@(quote.ValidUntil?.ToString("dd/MM/yyyy") ?? "—")</td><td class="text-end text-nowrap">@Money.Display(quote.TotalAmount, quote.CurrencyCode)</td><td><span class="status-pill">@status</span></td></tr>
+        }
+    </tbody></table></div>
+}

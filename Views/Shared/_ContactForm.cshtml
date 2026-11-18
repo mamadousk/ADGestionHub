@@ -1,0 +1,15 @@
+@model ContactInput
+@{
+    var id = ViewData["ContactId"] as int?;
+    var supplier = ViewData["SupplierForm"] as bool? == true;
+}
+<form asp-action="@(id.HasValue ? "Edit" : "Create")" asp-route-id="@id" method="post" class="panel-card p-3 p-md-4 compact-form">
+    <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
+    <div class="row g-3">
+        <div class="col-12"><label asp-for="Name" class="form-label">Nom ou raison sociale</label><input asp-for="Name" class="form-control" required /></div>
+        <div class="col-sm-6"><label asp-for="Phone" class="form-label">Téléphone</label><input asp-for="Phone" type="tel" class="form-control" placeholder="+243" /></div>
+        <div class="col-sm-6"><label asp-for="Email" class="form-label">Adresse e-mail (facultatif)</label><input asp-for="Email" class="form-control" type="email" /></div>
+        <div class="col-12"><label asp-for="Address" class="form-label">Adresse</label><textarea asp-for="Address" class="form-control" rows="2"></textarea></div>
+    </div>
+    <div class="form-actions"><a asp-action="Index" class="btn btn-secondary-outline">Annuler</a><button type="submit" class="btn btn-accent">@(supplier ? "Enregistrer le fournisseur" : "Enregistrer le client")</button></div>
+</form>

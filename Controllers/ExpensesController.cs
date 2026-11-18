@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Models.ViewModels;
@@ -10,223 +7,121 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace AdGestionHub.Controllers
+namespace AdGestionHub.Controllers;
+
+[Authorize(Policy = "ShopMember")]
+public sealed class ExpensesController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
+    CommerceWriter writer) : Controller
 {
-    [Authorize]
-    public class ExpensesController : Controller
+    public async Task<IActionResult> Index()
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IBoutiqueService _boutiqueService;
-        private readonly ITenantContextService _tenantContext;
-        private readonly ICacheService _cacheService;
-        private readonly IAppLocalizer _L;
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        return View(await db.Expenses.AsNoTracking().Where(e => e.BoutiqueId == shop).OrderByDescending(e => e.Date).ToListAsync());
+    }
 
-        public ExpensesController(
-            ApplicationDbContext context,
-            IBoutiqueService boutiqueService,
-            ITenantContextService tenantContext,
-            ICacheService cacheService,
-            IAppLocalizer localizer)
+    public async Task<IActionResult> Details(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var expense = await FindAsync(shop, id);
+        return expense == null ? NotFound() : View(expense);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Create() => View("Form", new ExpenseFormViewModel
+    {
+        CurrencyCode = (await tenant.GetContextAsync()).PrimaryCurrency.Code
+    });
+
+    [HttpPost]
+    public Task<IActionResult> Create(ExpenseFormViewModel model) => SaveAsync(null, model);
+
+    [HttpGet, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Edit(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var expense = await FindAsync(shop, id);
+        if (expense == null) return NotFound();
+        ViewData["ExpenseId"] = id;
+        return View("Form", new ExpenseFormViewModel
         {
-            _context = context;
-            _boutiqueService = boutiqueService;
-            _tenantContext = tenantContext;
-            _cacheService = cacheService;
-            _L = localizer;
-        }
+            Category = expense.Category, Amount = expense.Amount, Date = expense.Date, Description = expense.Description,
+            PaymentMethod = expense.PaymentMethod ?? "Espèces", CurrencyCode = expense.CurrencyCode
+        });
+    }
 
-        public async Task<IActionResult> Index()
+    [HttpPost, Authorize(Roles = "Admin")]
+    public Task<IActionResult> Edit(int id, ExpenseFormViewModel model) => SaveAsync(id, model);
+
+    [HttpPost, Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        try
         {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null)
-                return Challenge();
-
-            var expenses = await _context.Expenses
-                .AsNoTracking()
-                .Where(e => e.BoutiqueId == boutiqueId.Value)
-                .OrderByDescending(e => e.Date)
-                .ToListAsync();
-
-            return View(expenses);
-        }
-
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null)
-                return Challenge();
-
-            var expense = await _context.Expenses
-                .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Id == id.Value && e.BoutiqueId == boutiqueId.Value);
-
-            if (expense == null) return NotFound();
-            return View(expense);
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> Create()
-        {
-            var ctx = await _tenantContext.GetContextAsync();
-            return View(new Expense
+            await writer.ExecuteAsync(shop, async () =>
             {
-                Date = DateTime.Now,
-                Category = "Loyer",
-                CurrencyCode = ctx.PrimaryCurrency.Code,
-                CurrencySymbol = ctx.PrimaryCurrency.Symbol,
-                CurrencyDecimals = ctx.PrimaryCurrency.Decimals
+                var expense = await db.Expenses.SingleOrDefaultAsync(e => e.BoutiqueId == shop && e.Id == id) ?? throw new CommerceNotFoundException();
+                writer.Audit(shop, $"Suppression de la dépense #{id}", $"{expense.Description} | {Money.Display(expense.Amount, expense.CurrencyCode)} | {expense.Date:dd/MM/yyyy}");
+                db.Expenses.Remove(expense);
+                return true;
             });
+            TempData["SuccessMessage"] = "Dépense supprimée. La correction a été journalisée.";
+            return RedirectToAction(nameof(Index));
         }
+        catch (CommerceNotFoundException) { return NotFound(); }
+    }
 
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(ExpenseFormViewModel model)
+    private Task<Expense?> FindAsync(int shop, int id) => db.Expenses.AsNoTracking().SingleOrDefaultAsync(e => e.BoutiqueId == shop && e.Id == id);
+
+    private async Task<IActionResult> SaveAsync(int? id, ExpenseFormViewModel model)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        if (ModelState.IsValid)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (string.IsNullOrEmpty(userId) || boutiqueId == null)
-                return Challenge();
-
-            var ctx = await _tenantContext.GetContextAsync();
-
-            if (!ModelState.IsValid)
+            try
             {
-                return View(new Expense
+                var expense = await writer.ExecuteAsync(shop, async () =>
                 {
-                    Description = model.Description,
-                    Amount = model.Amount,
-                    Date = model.Date,
-                    Category = model.Category,
-                    CurrencyCode = ctx.PrimaryCurrency.Code,
-                    CurrencySymbol = ctx.PrimaryCurrency.Symbol,
-                    CurrencyDecimals = ctx.PrimaryCurrency.Decimals
+                    var settings = await writer.SettingsAsync(shop);
+                    var currency = model.CurrencyCode;
+                    if (model.Date == default || model.Date.Date > DateTime.Today)
+                        throw new CommerceRuleException("Indiquez une date de dépense non future.");
+                    string? before = null;
+                    Expense row;
+                    if (id.HasValue)
+                    {
+                        row = await db.Expenses.SingleOrDefaultAsync(e => e.BoutiqueId == shop && e.Id == id) ?? throw new CommerceNotFoundException();
+                        if (currency != row.CurrencyCode) throw new CommerceRuleException("La devise historique de cette dépense ne peut pas être modifiée.");
+                        before = $"Avant : {Money.Display(row.Amount, currency)} | {row.Date:dd/MM/yyyy}";
+                    }
+                    else
+                    {
+                        if (!Money.IsMvpCurrency(currency) || !Money.AvailableCurrencies(settings).Contains(currency))
+                            throw new CommerceRuleException("Choisissez une devise configurée pour votre entreprise.");
+                        var info = CountryProfileCatalog.GetCurrency(currency);
+                        row = new Expense
+                        {
+                            BoutiqueId = shop, CurrencyCode = currency, CurrencySymbol = info.Symbol, CurrencyDecimals = info.Decimals,
+                            CdfPerUsd = settings.CdfPerUsd, UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? ""
+                        };
+                        db.Expenses.Add(row);
+                    }
+                    row.Date = model.Date.Date;
+                    row.Description = model.Description.Trim();
+                    row.Category = model.Category.Trim();
+                    row.Amount = Money.Amount(model.Amount, currency);
+                    row.PaymentMethod = row.PaymentMethod == model.PaymentMethod ? row.PaymentMethod : PaymentMeans.Validate(model.PaymentMethod, settings);
+                    writer.Audit(shop, id.HasValue ? $"Dépense #{id} corrigée" : "Dépense enregistrée",
+                        $"{before} | {row.Description} | {Money.Display(row.Amount, currency)} | {row.Date:dd/MM/yyyy}");
+                    return row;
                 });
+                TempData["SuccessMessage"] = "Dépense enregistrée.";
+                return RedirectToAction(nameof(Details), new { id = expense.Id });
             }
-
-            var expense = new Expense
-            {
-                Description = model.Description.Trim(),
-                Amount = decimal.Round(model.Amount, ctx.PrimaryCurrency.Decimals),
-                CurrencyCode = ctx.PrimaryCurrency.Code,
-                CurrencySymbol = ctx.PrimaryCurrency.Symbol,
-                CurrencyDecimals = ctx.PrimaryCurrency.Decimals,
-                Date = model.Date == default ? DateTime.Now : model.Date,
-                Category = string.IsNullOrWhiteSpace(model.Category) ? "Autre" : model.Category.Trim(),
-                BoutiqueId = boutiqueId.Value,
-                UserId = userId
-            };
-
-            _context.Expenses.Add(expense);
-            await _context.SaveChangesAsync();
-            await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-
-            TempData["SuccessMessage"] = _L.T("Dépense enregistrée.", "Expense recorded.");
-            return RedirectToAction(nameof(Index));
+            catch (CommerceRuleException error) { ModelState.AddModelError("", error.Message); }
+            catch (CommerceNotFoundException) { return NotFound(); }
         }
-
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null)
-                return Challenge();
-
-            var expense = await _context.Expenses
-                .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Id == id.Value && e.BoutiqueId == boutiqueId.Value);
-
-            if (expense == null) return NotFound();
-            return View(expense);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Edit(int id, ExpenseFormViewModel model)
-        {
-            if (id != model.Id) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null)
-                return Challenge();
-
-            var existing = await _context.Expenses
-                .FirstOrDefaultAsync(e => e.Id == id && e.BoutiqueId == boutiqueId.Value);
-
-            if (existing == null) return NotFound();
-
-            if (!ModelState.IsValid)
-            {
-                return View(new Expense
-                {
-                    Id = id,
-                    Description = model.Description,
-                    Amount = model.Amount,
-                    Date = model.Date,
-                    Category = model.Category,
-                    CurrencyCode = existing.CurrencyCode,
-                    CurrencySymbol = existing.CurrencySymbol,
-                    CurrencyDecimals = existing.CurrencyDecimals
-                });
-            }
-
-            // Conserver la devise d'origine de la dépense historique
-            existing.Description = model.Description.Trim();
-            existing.Amount = decimal.Round(model.Amount, existing.CurrencyDecimals);
-            existing.Date = model.Date == default ? existing.Date : model.Date;
-            existing.Category = string.IsNullOrWhiteSpace(model.Category) ? "Autre" : model.Category.Trim();
-
-            await _context.SaveChangesAsync();
-            await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-
-            TempData["SuccessMessage"] = _L.T("Dépense mise à jour.", "Expense updated.");
-            return RedirectToAction(nameof(Index));
-        }
-
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Delete(int? id)
-        {
-            if (id == null) return NotFound();
-
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null)
-                return Challenge();
-
-            var expense = await _context.Expenses
-                .AsNoTracking()
-                .FirstOrDefaultAsync(e => e.Id == id.Value && e.BoutiqueId == boutiqueId.Value);
-
-            if (expense == null) return NotFound();
-            return View(expense);
-        }
-
-        [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteConfirmed(int id)
-        {
-            var boutiqueId = await _boutiqueService.GetCurrentBoutiqueIdAsync();
-            if (boutiqueId == null)
-                return Challenge();
-
-            var expense = await _context.Expenses
-                .FirstOrDefaultAsync(e => e.Id == id && e.BoutiqueId == boutiqueId.Value);
-
-            if (expense != null)
-            {
-                _context.Expenses.Remove(expense);
-                await _context.SaveChangesAsync();
-                await _cacheService.RemoveAsync($"Dashboard_{boutiqueId.Value}");
-                TempData["SuccessMessage"] = _L.T("Dépense supprimée.", "Expense deleted.");
-            }
-
-            return RedirectToAction(nameof(Index));
-        }
+        ViewData["ExpenseId"] = id;
+        return View("Form", model);
     }
 }

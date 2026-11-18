@@ -25,6 +25,9 @@ namespace AdGestionHub.Middlewares
             IBoutiqueService boutiqueService,
             SignInManager<ApplicationUser> signInManager)
         {
+            if (context.User.Identity?.IsAuthenticated == true)
+                context.Response.Headers["Cache-Control"] = "no-store";
+
             if (context.User.Identity?.IsAuthenticated == true && !context.User.IsInRole("SuperAdmin"))
             {
                 var path = context.Request.Path.Value ?? string.Empty;
@@ -36,7 +39,7 @@ namespace AdGestionHub.Middlewares
                 if (!isExempt)
                 {
                     var boutique = await boutiqueService.GetCurrentBoutiqueAsync();
-                    if (boutique != null && !boutique.IsActive)
+                    if (boutique == null || !boutique.IsActive)
                     {
                         await signInManager.SignOutAsync();
                         context.Response.Redirect("/Identity/Account/Login?suspended=1");

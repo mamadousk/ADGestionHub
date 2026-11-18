@@ -1,0 +1,22 @@
+@model TradeInput
+@{
+    var settings = (StoreSettings)ViewData["TradeSettings"]!;
+}
+<label asp-for="CurrencyCode" class="form-label">Devise de l’opération</label>
+<select asp-for="CurrencyCode" class="form-select" data-trade-currency>
+    @foreach (var code in Money.AvailableCurrencies(settings))
+    {
+        <option value="@code">@code</option>
+    }
+</select>
+<div class="form-text">
+    @if (settings.CdfPerUsd is decimal rate)
+    {
+        <span>@Money.RateLabel(rate) · taux enregistré avec l’opération</span>
+    }
+    else
+    {
+        <span>Taux non configuré. Seule la devise du catalogue est disponible.</span>
+        @if (User.IsInRole("Admin")) { <a asp-controller="Settings" asp-action="Index">Configurer le taux</a> }
+    }
+</div>

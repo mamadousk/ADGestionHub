@@ -17,23 +17,18 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- BASE DE DONNÉES (SQL Server par défaut, support SQLite optionnel) ---
+// Les migrations versionnées ciblent SQL Server. SQLite sert au développement sur une base jetable.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-var dbProvider = builder.Configuration["DatabaseProvider"];
+    ?? throw new InvalidOperationException("La chaîne de connexion DefaultConnection est obligatoire.");
+var useSqlite = string.Equals(builder.Configuration["DatabaseProvider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
+if (useSqlite && !builder.Environment.IsDevelopment())
+    throw new InvalidOperationException("SQLite est réservé au développement. Configurez SQL Server pour le déploiement.");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
-    if (string.Equals(dbProvider, "Sqlite", StringComparison.OrdinalIgnoreCase)
-        || connectionString.EndsWith(".db", StringComparison.OrdinalIgnoreCase))
-    {
-        options.UseSqlite(connectionString);
-    }
-    else
-    {
-        options.UseSqlServer(connectionString);
-    }
-
+    if (useSqlite) options.UseSqlite(connectionString);
+    else options.UseSqlServer(connectionString);
+    // Le schéma SQL Server hérite de migrations historiques rédigées à la main.
     options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
@@ -44,8 +39,10 @@ builder.Services.AddScoped<IAppLocalizer, AppLocalizer>();
 builder.Services.AddScoped<ICacheService, CacheService>();
 builder.Services.AddScoped<IBoutiqueService, BoutiqueService>();
 builder.Services.AddScoped<ITenantContextService, TenantContextService>();
-builder.Services.AddScoped<IProfitService, ProfitService>();
-builder.Services.AddScoped<IStockService, StockService>();
+builder.Services.AddScoped<CommerceWriter>();
+builder.Services.AddScoped<StockService>();
+builder.Services.AddScoped<CommerceOperations>();
+builder.Services.AddScoped<BusinessReportService>();
 builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 
 // --- COMPRESSION GZIP / BROTLI ---
@@ -122,6 +119,7 @@ builder.Services.AddAntiforgery(options =>
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
     options.HeaderName = "RequestVerificationToken";
+    options.SuppressXFrameOptionsHeader = builder.Environment.IsDevelopment();
 });
 
 // --- CORS ---
@@ -157,6 +155,9 @@ builder.Services.AddHsts(options =>
 // --- POLITIQUES D'AUTORISATION ---
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("ShopMember", policy => policy.RequireRole("Admin", "Employé"));
+    options.AddPolicy("Dashboard", policy => policy.RequireRole("Admin", "Employé", "SuperAdmin"));
+
     options.AddPolicy("SuperAdminOnly", policy =>
         policy.RequireRole("SuperAdmin"));
 
@@ -184,42 +185,32 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-// --- LOCALISATION FR / EN ---
-var frCulture = new CultureInfo("fr-FR");
-var enCulture = new CultureInfo("en-US");
-var supportedCultures = new[] { frCulture, enCulture };
-var localizationOptions = new RequestLocalizationOptions
+// Le MVP est en français (RDC), sans sélection de langue ni profil fiscal.
+var french = new CultureInfo("fr-CD");
+app.UseRequestLocalization(new RequestLocalizationOptions
 {
-    DefaultRequestCulture = new RequestCulture(frCulture),
-    SupportedCultures = supportedCultures,
-    SupportedUICultures = supportedCultures
-};
-localizationOptions.RequestCultureProviders.Insert(0, new CustomRequestCultureProvider(ctx =>
-{
-    if (ctx.Request.Cookies.TryGetValue(AppLocalizer.LanguageCookieName, out var lang))
-    {
-        var culture = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase) ? "en-US" : "fr-FR";
-        return Task.FromResult<ProviderCultureResult?>(new ProviderCultureResult(culture, culture));
-    }
-    return Task.FromResult<ProviderCultureResult?>(null);
-}));
-app.UseRequestLocalization(localizationOptions);
+    DefaultRequestCulture = new RequestCulture(french),
+    SupportedCultures = [french],
+    SupportedUICultures = [french],
+    RequestCultureProviders = []
+});
 
-// --- Migration automatique & Seed des rôles / SuperAdmin ---
-using (var scope = app.Services.CreateScope())
+// Arrêt explicite si le schéma ou les rôles n'ont pas pu être initialisés.
+await using (var scope = app.Services.CreateAsyncScope())
 {
     var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    try
+    var db = services.GetRequiredService<ApplicationDbContext>();
+    if (useSqlite)
     {
-        var db = services.GetRequiredService<ApplicationDbContext>();
+        await db.Database.EnsureCreatedAsync();
+        // EnsureCreated ne met pas à jour un ancien fichier de développement.
+        await db.Payments.AnyAsync();
+    }
+    else if (app.Configuration.GetValue("Database:ApplyMigrations", true))
         await db.Database.MigrateAsync();
-        await DbInitializer.SeedAsync(services);
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Erreur lors de l'initialisation ou de la migration de la base de données.");
-    }
+    else if ((await db.Database.GetPendingMigrationsAsync()).Any())
+        throw new InvalidOperationException("Appliquez les migrations SQL Server avant de démarrer l'application.");
+    await DbInitializer.SeedAsync(services);
 }
 
 // --- Pipeline HTTP ---

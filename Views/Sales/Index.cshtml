@@ -1,115 +1,24 @@
-@model IEnumerable<AdGestionHub.Models.Sale>
-@{
-    var ctx = await TenantCtx.GetContextAsync();
-    ViewData["Title"] = ctx.IsFormalized ? L.T("Factures & Ventes", "Invoices & Sales") : L["Nav.Sales"];
-    var isAdmin = User.IsInRole("Admin");
-    var salesList = Model?.ToList() ?? new List<AdGestionHub.Models.Sale>();
-    var activeCount = salesList.Count(s => !s.IsCancelled);
+@model IReadOnlyList<Sale>
+@{ ViewData["Title"] = "Ventes et factures"; }
+<div class="page-heading">
+    <div><p class="section-eyebrow">Opérations</p><h1>Ventes et factures</h1><p>Suivez les ventes, leurs règlements et les factures commerciales.</p></div>
+    <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+</div>
+@if (Model.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Aucune vente pour le moment</h2><p class="text-slate mb-0">Votre première vente apparaîtra ici avec son total et son solde.</p></div>
 }
-
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-    <div>
-        <h1 class="h4 mb-1">@ViewData["Title"]</h1>
-        <p class="text-slate small mb-0 num">
-            @activeCount @L.T("opération(s) valide(s)", "active transaction(s)")
-        </p>
-    </div>
-    <div class="d-flex gap-2">
-        @if (ctx.IsFormalized)
+else
+{
+    <div class="panel-card table-responsive"><table class="table table-ledger">
+        <thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th><th scope="col" class="text-end">Reste dû</th><th scope="col">Règlement</th></tr></thead>
+        <tbody>
+        @foreach (var sale in Model)
         {
-            <a asp-controller="Quotes" asp-action="Index" class="btn btn-secondary-outline">
-                @LucideIcons.Svg("file-text", 16, "me-1")
-                <span>@L["Nav.Quotes"]</span>
-            </a>
+            var badge = sale.IsCancelled ? "danger" : sale.Balance == 0 ? "success" : "warning";
+            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy HH:mm")</div></td>
+                <td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Money.Display(sale.FinalPrice, sale.CurrencyCode)</td><td class="text-end text-nowrap">@Money.Display(sale.Balance, sale.CurrencyCode)</td><td><span class="status-pill @badge">@sale.PaymentStatus</span></td></tr>
         }
-        <a asp-action="Create" class="btn btn-accent">
-            @LucideIcons.Svg("plus", 16, "me-1")
-            <span>@L["Nav.NewSale"]</span>
-        </a>
-    </div>
-</div>
-
-<div class="panel-card overflow-hidden">
-    <div class="table-responsive">
-        <table class="table table-ledger">
-            <thead>
-                <tr>
-                    <th>@L["Doc.Number"]</th>
-                    <th>@L["Doc.Date"]</th>
-                    <th>@L.T("Client", "Customer")</th>
-                    <th>@L.T("Articles", "Items")</th>
-                    <th>@L["Doc.PaymentMethod"]</th>
-                    <th class="text-end">@L.T("Montant", "Total")</th>
-                    <th class="text-end">@L.T("Actions", "Actions")</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (!salesList.Any())
-                {
-                    <tr>
-                        <td colspan="7" class="text-center text-slate py-5">
-                            @L.T("Aucune vente enregistrée.", "No sales recorded yet.")
-                        </td>
-                    </tr>
-                }
-                else
-                {
-                    foreach (var s in salesList)
-                    {
-                        var docRef = !string.IsNullOrWhiteSpace(s.DocumentNumber)
-                            ? s.DocumentNumber
-                            : (s.IsFormalizedSnapshot ? $"FAC-{s.Id:D5}" : $"REC-{s.Id:D5}");
-                        <tr>
-                            <td class="num fw-medium">
-                                @docRef
-                                @if (s.IsCancelled)
-                                {
-                                    <span class="status-pill danger ms-1">@L["Doc.Cancelled"]</span>
-                                }
-                            </td>
-                            <td class="num text-slate text-nowrap">@ctx.FormatDate(s.SaleDate, true)</td>
-                            <td>
-                                @(string.IsNullOrWhiteSpace(s.CustomerName) ? L["Doc.WalkInCustomer"] : s.CustomerName)
-                                @if (!string.IsNullOrWhiteSpace(s.CustomerTaxId))
-                                {
-                                    <div class="text-slate num" style="font-size:0.75rem;">@s.CustomerTaxId</div>
-                                }
-                            </td>
-                            <td>
-                                @if (s.Items != null && s.Items.Any())
-                                {
-                                    @string.Join(", ", s.Items.Select(i => $"{i.ProductName} (x{i.Quantity})"))
-                                }
-                                else
-                                {
-                                    <span class="text-slate">—</span>
-                                }
-                            </td>
-                            <td><span class="status-pill">@(s.PaymentMethod ?? "Cash")</span></td>
-                            <td class="text-end num fw-semibold @(s.IsCancelled ? "text-decoration-line-through text-slate" : "text-forest")">
-                                @ctx.FormatHistorical(s.FinalPrice, s.CurrencyCode, s.CurrencyDecimals, s.CurrencySymbol)
-                            </td>
-                            <td class="text-end text-nowrap">
-                                <a asp-action="Receipt" asp-route-id="@s.Id" class="btn btn-secondary-outline btn-sm py-1 px-2" title="@L["Action.Print"]">
-                                    @LucideIcons.Svg("printer", 15)
-                                </a>
-                                <a asp-action="DownloadReceipt" asp-route-id="@s.Id" class="btn btn-secondary-outline btn-sm py-1 px-2" title="PDF">
-                                    @LucideIcons.Svg("download", 15)
-                                </a>
-                                <a asp-action="Details" asp-route-id="@s.Id" class="btn btn-secondary-outline btn-sm py-1 px-2" title="@L["Action.Details"]">
-                                    @LucideIcons.Svg("eye", 15)
-                                </a>
-                                @if (isAdmin && !s.IsCancelled)
-                                {
-                                    <a asp-action="Delete" asp-route-id="@s.Id" class="btn btn-danger-outline btn-sm py-1 px-2" title="@L["Action.Cancel"]">
-                                        @LucideIcons.Svg("x", 15)
-                                    </a>
-                                }
-                            </td>
-                        </tr>
-                    }
-                }
-            </tbody>
-        </table>
-    </div>
-</div>
+        </tbody>
+    </table></div>
+}

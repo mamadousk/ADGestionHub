@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="AdGestionHub.csproj" />
+  <Project Path="tests/CommerceSmoke/CommerceSmoke.csproj" />
 </Solution>

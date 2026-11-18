@@ -46,6 +46,15 @@ public class Product
     [Display(Name = "Seuil d'alerte")]
     public int StockAlertThreshold { get; set; } = 5;
 
+    [StringLength(100)]
+    [Display(Name = "Catégorie")]
+    public string? Category { get; set; }
+
+    [StringLength(1000)]
+    public string? Description { get; set; }
+
+    public bool IsArchived { get; set; }
+
     public int? BoutiqueId { get; set; }
     public string UserId { get; set; } = string.Empty;
 }

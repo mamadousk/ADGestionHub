@@ -1,164 +1,38 @@
-@model AdGestionHub.Models.Quote
+@model Quote
 @{
-    var ctx = await TenantCtx.GetContextAsync();
-    var settings = ViewBag.StoreSettings as AdGestionHub.Models.StoreSettings ?? ctx.Settings;
-    ViewData["Title"] = $"{L["Doc.Quote"]} {Model.DocumentNumber}";
-    string Fmt(decimal v) => ctx.FormatHistorical(v, Model.CurrencyCode, Model.CurrencyDecimals, Model.CurrencySymbol);
+    ViewData["Title"] = $"Devis {Model.DocumentNumber}";
+    var settings = (await TenantCtx.GetContextAsync()).Settings;
+    var expired = Model.Status == QuoteStatus.Pending && CommerceOperations.IsExpired(Model);
+    var lines = new CommercialTable(Model.Items.Select(i => new CommercialLine(i.ProductName, i.Quantity, i.UnitPrice, i.LineTotal)), Model.CurrencyCode);
+    var rate = PdfReportService.HistoricalRate(Model.CdfPerUsd, Model.SecondaryCurrencyCode, Model.ExchangeRateToSecondary, Model.CurrencyCode);
 }
-
-<style>
-    @@media print {
-        .app-sidebar, .app-topbar, .no-print, #cookieConsent { display: none !important; }
-        .app-main-wrap { margin-left: 0 !important; }
-        body, .app-content { background: #FFF !important; padding: 0 !important; }
-    }
-</style>
-
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
-    <div>
-        @if (Model.Status == "Converted" && Model.ConvertedSaleId.HasValue)
-        {
-            <span class="status-pill success me-2">@L.T("Converti en facture", "Converted to Invoice")</span>
-            <a asp-controller="Sales" asp-action="Receipt" asp-route-id="@Model.ConvertedSaleId.Value" class="btn btn-secondary-outline btn-sm">
-                @L.T("Voir la facture", "Open Invoice")
-            </a>
-        }
-        else
-        {
-            <form asp-action="ConvertToSale" method="post" class="d-inline-flex align-items-center gap-2">
-                <input type="hidden" name="id" value="@Model.Id" />
-                <select name="paymentMethod" class="form-select form-select-sm" style="width:auto;">
-                    @foreach (var pm in ctx.Country.DefaultPaymentMethods)
-                    {
-                        <option value="@pm">@pm</option>
-                    }
-                </select>
-                <button type="submit" class="btn btn-accent">
-                    @LucideIcons.Svg("check", 15, "me-1")
-                    <span>@L["Action.ConvertToInvoice"]</span>
-                </button>
-            </form>
-        }
-    </div>
-    <div class="d-flex gap-2">
-        <button type="button" onclick="window.print()" class="btn btn-secondary-outline">
-            @LucideIcons.Svg("printer", 15, "me-1")
-            <span>@L["Action.Print"]</span>
-        </button>
-        <a asp-action="DownloadPdf" asp-route-id="@Model.Id" class="btn btn-secondary-outline">
-            @LucideIcons.Svg("download", 15, "me-1")
-            <span>@L["Action.DownloadPdf"]</span>
-        </a>
-        <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
-    </div>
+<div class="page-heading no-print">
+    <div><p class="section-eyebrow"><a asp-action="Index">Devis</a></p><h1>Devis @Model.DocumentNumber</h1><p>Les prix et la devise restent identiques lors de la conversion d’un devis accepté.</p></div>
+    <div class="d-flex flex-wrap gap-2"><button type="button" class="btn btn-secondary-outline" onclick="window.print()">Imprimer</button><a asp-action="DownloadPdf" asp-route-id="@Model.Id" class="btn btn-accent">Télécharger le PDF</a></div>
 </div>
-
-<div class="panel-card p-4 p-lg-5 mx-auto preview-doc" style="max-width: 780px;">
-    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 pb-3 mb-4" style="border-bottom: 1.5px solid var(--accent);">
-        <div>
-            <h2 class="h4 fw-bold mb-1">@settings.StoreName</h2>
-            @if (!string.IsNullOrWhiteSpace(settings.Address))
-            {
-                <div class="text-slate small">@settings.Address</div>
-            }
-            @if (!string.IsNullOrWhiteSpace(settings.Phone))
-            {
-                <div class="text-slate small num">@settings.Phone</div>
-            }
-            @if (!string.IsNullOrWhiteSpace(Model.StoreLegalTaxIdSnapshot))
-            {
-                <div class="small fw-medium num mt-2">@(Model.StoreTaxIdLabelSnapshot ?? "NIF") : @Model.StoreLegalTaxIdSnapshot</div>
-            }
-            @if (!string.IsNullOrWhiteSpace(Model.StoreRccmSnapshot))
-            {
-                <div class="text-slate small num">@(Model.StoreRccmLabelSnapshot ?? "RCCM") : @Model.StoreRccmSnapshot</div>
-            }
-        </div>
-        <div class="text-end">
-            <div class="h5 fw-bold mb-1">@L["Doc.Quote"].ToUpperInvariant()</div>
-            <div class="fw-semibold num">@Model.DocumentNumber</div>
-            <div class="text-slate small num">@L["Doc.Date"] : @Model.CreatedAt.ToString("dd/MM/yyyy")</div>
-            @if (Model.ValidUntil.HasValue)
-            {
-                <div class="text-slate small num">@L["Doc.ValidUntil"] : @Model.ValidUntil.Value.ToString("dd/MM/yyyy")</div>
-            }
-        </div>
+<section class="panel-card print-document mb-3">
+    <div class="d-flex flex-wrap justify-content-between gap-3 p-3 p-md-4">
+        <div><p class="section-eyebrow mb-1">@settings.StoreName</p><h2 class="h5 mb-1">Devis @Model.DocumentNumber</h2><p class="text-slate mb-1">@Model.CreatedAt.ToString("dd/MM/yyyy") · @Model.CurrencyCode</p><span class="status-pill">@(expired ? "Expiré" : QuoteStatus.Label(Model.Status))</span></div>
+        <div class="small"><strong>Client : @Model.CustomerName</strong><div>@Model.CustomerPhone</div>@if (Model.ValidUntil is DateTime end) { <div>Valable jusqu’au @end.ToString("dd/MM/yyyy")</div> }</div>
     </div>
-
-    <div class="p-3 rounded border mb-4" style="background: var(--bg-canvas);">
-        <div class="text-slate small">@L.T("Destinataire", "Prepared for")</div>
-        <div class="fw-semibold">@Model.CustomerName</div>
-        @if (!string.IsNullOrWhiteSpace(Model.CustomerPhone))
-        {
-            <div class="text-slate small num">@Model.CustomerPhone</div>
-        }
-        @if (!string.IsNullOrWhiteSpace(Model.CustomerTaxId))
-        {
-            <div class="text-slate small num">@(Model.StoreTaxIdLabelSnapshot ?? "NIF") : @Model.CustomerTaxId</div>
-        }
+    <partial name="_CommercialLines" model="lines" />
+    <div class="doc-totals p-3 p-md-4">
+        @if (Model.TaxAmount != 0) { <div><span>Taxe historique</span><b>@Money.Display(Model.TaxAmount, Model.CurrencyCode)</b></div> }
+        <div class="total-line"><span>Total du devis</span><b>@Money.Display(Model.TotalAmount, Model.CurrencyCode)</b></div>
+        @if (rate != null) { <p class="text-slate small mb-0 mt-2">Taux enregistré : @rate</p> }
     </div>
-
-    <div class="table-responsive mb-4">
-        <table class="table table-ledger">
-            <thead>
-                <tr>
-                    <th>@L["Doc.Description"]</th>
-                    <th class="text-center">@L["Doc.Qty"]</th>
-                    <th class="text-end">@(Model.IsVatEnabledSnapshot ? L.T("P.U. HT", "Unit Excl.") : L["Doc.UnitPrice"])</th>
-                    @if (Model.IsVatEnabledSnapshot)
-                    {
-                        <th class="text-end">TVA</th>
-                    }
-                    <th class="text-end">@(Model.IsVatEnabledSnapshot ? L.T("Montant HT", "Line Excl.") : L.T("Montant", "Amount"))</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var it in Model.Items)
-                {
-                    <tr>
-                        <td>@it.ProductName</td>
-                        <td class="text-center num">@it.Quantity</td>
-                        <td class="text-end num">@Fmt(it.UnitPrice)</td>
-                        @if (Model.IsVatEnabledSnapshot)
-                        {
-                            <td class="text-end num text-slate">@it.VatRate.ToString("0.##")%</td>
-                        }
-                        <td class="text-end num fw-semibold">@Fmt(it.LineNet)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-
-    <div class="d-flex justify-content-end">
-        <div class="p-3 rounded border num" style="min-width: 260px; background: var(--bg-canvas);">
-            @if (Model.IsVatEnabledSnapshot)
-            {
-                <div class="d-flex justify-content-between text-slate small mb-1">
-                    <span>@L["Doc.SubtotalExclTax"]</span>
-                    <span>@Fmt(Model.SubtotalNet)</span>
-                </div>
-                <div class="d-flex justify-content-between text-slate small pb-2 mb-2 border-bottom">
-                    <span>@L["Doc.VatAmount"]</span>
-                    <span>@Fmt(Model.TaxAmount)</span>
-                </div>
-            }
-            <div class="d-flex justify-content-between fw-bold fs-6">
-                <span>@(Model.IsVatEnabledSnapshot ? L["Doc.TotalInclTax"] : L["Doc.NetTotal"])</span>
-                <span>@Fmt(Model.TotalAmount)</span>
-            </div>
-        </div>
-    </div>
-
-    @if (!Model.IsVatEnabledSnapshot)
+    @if (Model.Notes != null) { <p class="px-3 px-md-4 mb-2">@Model.Notes</p> }
+    <p class="border-top p-3 p-md-4 mb-0 text-slate small">Document commercial ordinaire — non normalisé DGI.</p>
+</section>
+<div class="d-flex flex-wrap gap-2 no-print">
+    @if (Model.Status == QuoteStatus.Draft) { <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-accent">Reprendre le brouillon</a> }
+    else if (Model.Status == QuoteStatus.Pending && !expired)
     {
-        <div class="text-end text-slate small fst-italic mt-3">@L["Doc.VatNotApplicable"]</div>
+        <form asp-action="Accept" asp-route-id="@Model.Id" method="post"><button type="submit" class="btn btn-accent">Marquer comme accepté</button></form>
     }
-
-    @if (!string.IsNullOrWhiteSpace(Model.Notes))
+    else if (Model.Status == QuoteStatus.Accepted)
     {
-        <div class="border-top pt-3 mt-4 small text-slate">
-            <strong>@L.T("Conditions :", "Terms:")</strong> @Model.Notes
-        </div>
+        <form asp-action="ConvertToSale" asp-route-id="@Model.Id" method="post"><button type="submit" class="btn btn-accent">Transformer en vente (non réglée)</button></form>
     }
+    else if (Model.ConvertedSaleId is int saleId) { <a asp-controller="Sales" asp-action="Details" asp-route-id="@saleId" class="btn btn-accent">Voir la vente liée</a> }
 </div>

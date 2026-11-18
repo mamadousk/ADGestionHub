@@ -24,6 +24,8 @@ namespace AdGestionHub.Models
         public string CurrencySymbol { get; set; } = "$";
 
         public int CurrencyDecimals { get; set; } = 2;
+        public decimal? CdfPerUsd { get; set; }
+        [StringLength(50)] public string? PaymentMethod { get; set; }
 
         [Display(Name = "Date")]
         public DateTime Date { get; set; } = DateTime.Now;

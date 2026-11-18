@@ -1,0 +1,11 @@
+@model BusinessReport
+<form asp-action="Index" method="get" class="panel-card filter-panel mb-3">
+    <div><label for="periodStart" class="form-label">Du</label><input id="periodStart" name="startDate" type="date" class="form-control" value="@Model.Period.Start.ToString("yyyy-MM-dd")" required /></div>
+    <div><label for="periodEnd" class="form-label">Au</label><input id="periodEnd" name="endDate" type="date" class="form-control" value="@Model.Period.End.ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" required /></div>
+    <div><label for="periodCurrency" class="form-label">Devise affichée</label><select id="periodCurrency" name="currency" class="form-select">
+        @foreach (var code in Money.Currencies.Append(Model.Settings.PrimaryCurrencyCode).Distinct()) { <option value="@code" selected="@(Model.Currency == code)">@code</option> }
+    </select></div>
+    <button type="submit" class="btn btn-secondary-outline">Appliquer</button>
+    <a asp-action="Index" asp-route-currency="@Model.Currency" class="btn btn-link">Ce mois</a>
+</form>
+<div asp-validation-summary="All" class="validation-banner" role="alert"></div>

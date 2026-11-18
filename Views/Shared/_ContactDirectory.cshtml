@@ -1,0 +1,18 @@
+@model IReadOnlyList<ContactRow>
+<form asp-action="Index" method="get" class="panel-card filter-panel mb-3">
+    <div class="filter-grow"><label for="contactSearch" class="form-label">Rechercher</label><input id="contactSearch" type="search" name="search" value="@ViewData["Search"]" class="form-control" placeholder="Nom ou téléphone" /></div>
+    <button type="submit" class="btn btn-secondary-outline">Rechercher</button>
+</form>
+@if (Model.Count == 0)
+{
+    <div class="panel-card empty-panel"><h2 class="h5">Aucune fiche trouvée</h2><p class="text-slate mb-0">Ajoutez un contact ou modifiez votre recherche.</p></div>
+}
+else
+{
+    <div class="panel-card table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Nom</th><th scope="col">Téléphone</th><th scope="col">Adresse e-mail</th><th scope="col">Adresse</th></tr></thead><tbody>
+        @foreach (var item in Model)
+        {
+            <tr><td><a asp-action="Details" asp-route-id="@item.Id" class="fw-semibold">@item.Name</a></td><td>@(item.Phone ?? "—")</td><td>@(item.Email ?? "—")</td><td>@(item.Address ?? "—")</td></tr>
+        }
+    </tbody></table></div>
+}

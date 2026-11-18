@@ -1,90 +1,60 @@
 @model Product
 @{
-    var ctx = await TenantCtx.GetContextAsync();
     ViewData["Title"] = Model.Name;
-    var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
-    var threshold = Model.LowStockThreshold > 0 ? Model.LowStockThreshold : Model.StockAlertThreshold;
-    var margin = Model.SalePrice - Model.PurchasePrice;
-    var effectiveVat = Model.VatRate ?? ctx.DefaultVatRate;
+    var movements = (IReadOnlyList<StockMovement>)ViewData["StockMovements"]!;
+    var currency = (await TenantCtx.GetContextAsync()).PrimaryCurrency.Code;
+    var admin = User.IsInRole("Admin");
 }
-
-<div class="row justify-content-center">
-    <div class="col-lg-7">
-        <div class="panel-card p-4">
-            <div class="d-flex justify-content-between align-items-start mb-3 pb-3 border-bottom">
-                <div>
-                    <h1 class="h5 mb-1">@Model.Name</h1>
-                    @if (!string.IsNullOrWhiteSpace(Model.Sku))
-                    {
-                        <div class="text-slate small num">SKU : @Model.Sku</div>
-                    }
-                </div>
-                @if (Model.StockQuantity <= 0)
-                {
-                    <span class="status-pill danger">@L.T("Rupture", "Out of stock")</span>
-                }
-                else if (Model.StockQuantity <= threshold)
-                {
-                    <span class="status-pill warning">@L.T("Stock bas", "Low stock")</span>
-                }
-                else
-                {
-                    <span class="status-pill success">@L.T("Disponible", "In stock")</span>
-                }
-            </div>
-
-            <div class="row g-3 num">
-                <div class="col-6">
-                    <div class="text-slate small">@(ctx.IsVatEnabled ? L.T("Prix de vente HT", "Sale Price Excl. Tax") : L.T("Prix de vente", "Sale Price"))</div>
-                    <div class="h5 fw-semibold mb-0">@ctx.FormatPrimary(Model.SalePrice)</div>
-                </div>
-
-                @if (ctx.IsVatEnabled)
-                {
-                    <div class="col-6">
-                        <div class="text-slate small">@L.T("Taux de TVA", "VAT Rate")</div>
-                        <div class="h5 fw-semibold mb-0">@effectiveVat.ToString("0.##")%</div>
-                    </div>
-                }
-
-                @if (isAdmin)
-                {
-                    <div class="col-6">
-                        <div class="text-slate small">@L.T("Coût d'achat", "Unit Cost")</div>
-                        <div class="fw-medium">@ctx.FormatPrimary(Model.PurchasePrice)</div>
-                    </div>
-                    <div class="col-6">
-                        <div class="text-slate small">@L.T("Marge unitaire", "Unit Margin")</div>
-                        <div class="fw-semibold @(margin >= 0 ? "text-forest" : "text-sober-red")">@ctx.FormatPrimary(margin)</div>
-                    </div>
-                }
-
-                <div class="col-6">
-                    <div class="text-slate small">@L.T("Stock disponible", "Current Stock")</div>
-                    <div class="fw-semibold">@Model.StockQuantity</div>
-                </div>
-
-                <div class="col-6">
-                    <div class="text-slate small">@L.T("Seuil d'alerte", "Alert Threshold")</div>
-                    <div class="fw-medium">@threshold</div>
-                </div>
-
-                @if (!string.IsNullOrWhiteSpace(Model.Variations))
-                {
-                    <div class="col-12">
-                        <div class="text-slate small">@L.T("Variantes", "Variants")</div>
-                        <div>@Model.Variations</div>
-                    </div>
-                }
-            </div>
-
-            <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
-                <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
-                @if (isAdmin)
-                {
-                    <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-accent">@L["Action.Edit"]</a>
-                }
-            </div>
-        </div>
+<div class="page-heading">
+    <div><p class="section-eyebrow"><a asp-action="Index">Produits et stocks</a></p><h1>@Model.Name</h1><p>@(Model.Sku ?? "Sans référence") · @(Model.Category ?? "Sans catégorie")</p></div>
+    <div class="d-flex flex-wrap gap-2">
+        @if (admin && !Model.IsArchived) { <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Modifier</a> }
+        @if (!Model.IsArchived && Model.StockQuantity > 0) { <a asp-controller="Sales" asp-action="Create" asp-route-productId="@Model.Id" class="btn btn-accent">Nouvelle vente</a> }
     </div>
 </div>
+<div class="panel-card p-3 p-md-4 mb-3">
+    @if (Model.IsArchived) { <span class="status-pill">Archivé</span> }
+    else if (Model.StockQuantity <= Model.StockAlertThreshold) { <span class="status-pill warning">@(Model.StockQuantity == 0 ? "Rupture de stock" : "Stock bas")</span> }
+    @if (Model.Description != null) { <p class="mb-3 mt-2 preserve-lines">@Model.Description</p> }
+    <dl class="row mb-0 mt-2">
+        <dt class="col-sm-4">Quantité disponible</dt><dd class="col-sm-8 num">@Model.StockQuantity</dd>
+        <dt class="col-sm-4">Seuil d’alerte</dt><dd class="col-sm-8 num">@Model.StockAlertThreshold</dd>
+        <dt class="col-sm-4">Prix de vente</dt><dd class="col-sm-8 num">@Money.Display(Model.SalePrice, currency)</dd>
+        @if (admin) { <dt class="col-sm-4">Prix d’achat au catalogue</dt><dd class="col-sm-8 num">@Money.Display(Model.PurchasePrice, currency)</dd> }
+    </dl>
+</div>
+@if (admin && !Model.IsArchived)
+{
+    <section class="panel-card p-3 p-md-4 mb-3">
+        <h2 class="h6 mb-2">Ajuster le stock</h2><p class="text-slate small">Pour une correction ou un mouvement hors vente et achat.</p>
+        <form asp-action="Adjust" asp-route-id="@Model.Id" method="post" class="row g-3 align-items-end">
+            <div class="col-sm-3"><label for="movementType" class="form-label">Mouvement</label><select id="movementType" name="IsEntry" class="form-select"><option value="true">Entrée</option><option value="false">Sortie</option></select></div>
+            <div class="col-sm-3 col-lg-2"><label for="movementQty" class="form-label">Quantité</label><input id="movementQty" name="Quantity" type="number" min="1" max="100000" value="1" class="form-control" required /></div>
+            <div class="col-sm-6 col-lg"><label for="movementReason" class="form-label">Motif</label><input id="movementReason" name="Reason" class="form-control" placeholder="Ex. inventaire, casse" maxlength="250" required /></div>
+            <div class="col-12 col-lg-auto"><button type="submit" class="btn btn-accent">Enregistrer</button></div>
+        </form>
+    </section>
+}
+<section class="panel-card mb-3">
+    <h2 class="h6 p-3 p-md-4 pb-md-2 mb-0">Historique du stock</h2>
+    @if (movements.Count == 0) { <p class="text-slate px-3 px-md-4 pb-3 mb-0">Aucun mouvement enregistré pour cet article.</p> }
+    else
+    {
+        <div class="table-responsive"><table class="table table-ledger">
+            <thead><tr><th scope="col">Date</th><th scope="col">Mouvement</th><th scope="col">Référence / motif</th><th scope="col" class="text-end">Variation</th><th scope="col" class="text-end">Stock après</th></tr></thead>
+            <tbody>
+            @foreach (var move in movements)
+            {
+                <tr><td class="text-nowrap">@move.RecordedAt.ToString("dd/MM/yyyy HH:mm")</td><td>@move.Kind</td><td>@(move.Reference ?? "—")</td>
+                    <td class="text-end @(move.Delta < 0 ? "text-sober-red" : "text-forest")">@move.Delta.ToString("+0;-0")</td><td class="text-end">@move.QuantityAfter</td></tr>
+            }
+            </tbody>
+        </table></div>
+    }
+</section>
+@if (admin && (Model.IsArchived || Model.StockQuantity == 0))
+{
+    <form asp-action="@(Model.IsArchived ? "Restore" : "Delete")" asp-route-id="@Model.Id" method="post">
+        <button type="submit" class="btn btn-secondary-outline">@(Model.IsArchived ? "Réactiver" : "Archiver le produit")</button>
+    </form>
+}
