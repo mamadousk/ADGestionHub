@@ -17,31 +17,35 @@ public static class ReportExport
         yield return ["Période", IsoDate(report.Period.Start), "", $"{report.Settings.StoreName} · jusqu'au {report.Period.End:dd/MM/yyyy}", c, null, null, null, null];
         yield return ["Synthèse", null, null, "Chiffre d'affaires", c, report.Revenue, null, null, report.Sales.Count];
         yield return ["Synthèse", null, null, "Total des ventes", c, report.Invoiced, null, null, null];
-        yield return ["Synthèse", null, null, "Total des achats", c, report.Purchased, null, null, report.Purchases.Count];
         yield return ["Synthèse", null, null, "Dépenses", c, report.Expensed, null, null, null];
         yield return ["Synthèse", null, null, "Recettes encaissées", c, report.Received, null, null, null];
         yield return ["Synthèse", null, null, "Règlements sur ventes (inclus dans les recettes)", c, report.SalesReceipts, null, null, null];
-        yield return ["Synthèse", null, null, "Règlements fournisseurs", c, report.SupplierPayments, null, null, null];
         yield return ["Synthèse", null, null, "Créances à la fin de la période", c, null, null, report.Receivables, null];
-        yield return ["Synthèse", null, null, "Dettes à la fin de la période", c, null, null, report.Payables, null];
         yield return ["Synthèse", null, null, "Stock actuel au coût catalogue", report.Settings.PrimaryCurrencyCode, report.StockValue, null, null, report.StockUnits];
+
+        if (report.HasSupplierHistory)
+        {
+            yield return ["Historique fournisseurs", null, null, "Achats archivés sur la période", c, report.Purchased, null, null, report.Purchases.Count];
+            yield return ["Historique fournisseurs", null, null, "Décaissements archivés sur la période", c, report.SupplierPayments, null, null, null];
+            yield return ["Historique fournisseurs", null, null, "Soldes archivés à la clôture", c, null, null, report.Payables, null];
+        }
 
         foreach (var s in report.Sales)
             yield return ["Ventes", IsoDate(s.SaleDate), s.Number, s.CustomerName ?? "Client de passage", c, s.FinalPrice, null, null, null];
         foreach (var p in report.Purchases)
-            yield return ["Achats", IsoDate(p.RecordedAt), p.Number, p.SupplierName, c, p.Total, null, null, null];
+            yield return ["Achats archivés", IsoDate(p.RecordedAt), p.Number, p.SupplierName, c, p.Total, null, null, null];
         foreach (var product in report.TopProducts)
             yield return ["Produits vendus", null, null, product.Name, null, null, null, null, product.Units];
         foreach (var stock in report.Stock)
             yield return ["Stock actuel", null, stock.Sku, stock.IsLow ? $"{stock.Name} · sous le seuil" : stock.Name,
                 report.Settings.PrimaryCurrencyCode, stock.Value, null, null, stock.Quantity];
         foreach (var outstanding in report.Outstanding)
-            yield return [outstanding.Kind == "Purchase" ? "Dettes fournisseurs" : "Créances clients", IsoDate(outstanding.Date), outstanding.Number,
+            yield return [outstanding.Kind == "Purchase" ? "Soldes fournisseurs archivés" : "Créances clients", IsoDate(outstanding.Date), outstanding.Number,
                 outstanding.Contact, c, outstanding.Total, outstanding.Paid, outstanding.Balance, null];
         foreach (var payment in report.Payments)
         {
-            var label = payment.PurchaseId != null ? "Paiement fournisseur" : payment.SaleId != null ? "Règlement client" : payment.DebtId != null ? "Créance manuelle" : "Recette diverse";
-            yield return [payment.PurchaseId != null ? "Décaissements" : "Encaissements", IsoDate(payment.RecordedAt), $"RGL-{payment.Id}",
+            var label = payment.PurchaseId != null ? "Règlement fournisseur archivé" : payment.SaleId != null ? "Règlement client" : payment.DebtId != null ? "Créance manuelle" : "Recette diverse";
+            yield return [payment.PurchaseId != null ? "Décaissements archivés" : "Encaissements", IsoDate(payment.RecordedAt), $"RGL-{payment.Id}",
                 $"{label} · {PaymentMeans.Display(payment.Method)}{(payment.Description == null ? "" : $" · {payment.Description}")}", c, payment.Amount, null, null, null];
         }
         foreach (var expense in report.Expenses)

@@ -75,50 +75,6 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         return true;
     });
 
-    public Task<Purchase> BuyAsync(int shop, PurchaseInput input) => writer.ExecuteAsync(shop, async () =>
-    {
-        var settings = await writer.SettingsAsync(shop);
-        var code = DocumentCurrency(input.CurrencyCode, settings);
-        var supplier = await db.Suppliers.AsNoTracking().SingleOrDefaultAsync(s => s.BoutiqueId == shop && s.Id == input.SupplierId)
-            ?? throw new CommerceRuleException("Sélectionnez un fournisseur de votre entreprise.");
-        var products = await ProductsAsync(shop, input.Items);
-        var purchase = new Purchase
-        {
-            BoutiqueId = shop, SupplierId = supplier.Id, SupplierName = supplier.Name, SupplierReference = Clean(input.SupplierReference),
-            CurrencyCode = code, CdfPerUsd = settings.CdfPerUsd, RecordedAt = DateTime.Now
-        };
-        foreach (var line in input.Items)
-        {
-            if (!line.UnitPrice.HasValue) throw new CommerceRuleException("Indiquez le prix d'achat unitaire de chaque ligne.");
-            var price = Money.Amount(line.UnitPrice.Value, code, allowZero: true);
-            purchase.Items.Add(new PurchaseItem
-            {
-                ProductId = line.ProductId, ProductName = products[line.ProductId].Name, Quantity = line.Quantity, UnitPrice = price
-            });
-        }
-        purchase.Total = Money.Amount(purchase.Items.Sum(i => i.Total), code, allowZero: true);
-        VerifyTotal(input, purchase.Total);
-        var initial = InitialPayment(input, settings, shop, code, purchase.Total, purchase.RecordedAt);
-        if (initial != null) purchase.Payments.Add(initial);
-        db.Purchases.Add(purchase);
-        await db.SaveChangesAsync(); // The document reference is derived from the database ID.
-        if (input.ReceiveNow) await ReceiveCoreAsync(purchase, products, purchase.RecordedAt);
-        writer.Audit(shop, $"Achat {purchase.Number} enregistré", Money.Display(purchase.Total, code));
-        return purchase;
-    });
-
-    public Task<bool> ReceiveAsync(int shop, int id) => writer.ExecuteAsync(shop, async () =>
-    {
-        var purchase = await db.Purchases.Include(p => p.Items)
-            .SingleOrDefaultAsync(p => p.BoutiqueId == shop && p.Id == id) ?? throw new CommerceNotFoundException();
-        if (purchase.ReceivedAt.HasValue) return false;
-        var ids = purchase.Items.Select(i => i.ProductId).ToArray();
-        var products = await db.Products.AsNoTracking().Where(p => p.BoutiqueId == shop && ids.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id);
-        await ReceiveCoreAsync(purchase, products, DateTime.Now);
-        return true;
-    });
-
     public Task<Payment> RecordPaymentAsync(int shop, string target, int? id, PaymentInput input) => writer.ExecuteAsync(shop, async () =>
     {
         var settings = await writer.SettingsAsync(shop);
@@ -127,7 +83,6 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         var (number, currency, balance) = target switch
         {
             "Sale" => await SaleBalanceAsync(shop, id),
-            "Purchase" => await PurchaseBalanceAsync(shop, id),
             "Debt" => await OldBalanceAsync(shop, id),
             "Receipt" when description != null && Money.IsMvpCurrency(input.CurrencyCode) && Money.AvailableCurrencies(settings).Contains(input.CurrencyCode) =>
                 (description, input.CurrencyCode, Money.MaximumAmount),
@@ -144,120 +99,12 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         var payment = NewPayment(shop, settings, input.CurrencyCode, amount, currency, applied, input.Method, now);
         payment.Description = description;
         payment.SaleId = target == "Sale" ? id : null;
-        payment.PurchaseId = target == "Purchase" ? id : null;
         payment.DebtId = target == "Debt" ? id : null;
         db.Payments.Add(payment);
         writer.Audit(shop, $"Règlement enregistré : {number}", $"{Money.Display(amount, input.CurrencyCode)} · {payment.Method}");
         return payment;
     });
 
-    public Task<Quote> SaveQuoteAsync(int shop, int? id, QuoteInput input) => writer.ExecuteAsync(shop, async () =>
-    {
-        var settings = await writer.SettingsAsync(shop);
-        var code = DocumentCurrency(input.CurrencyCode, settings);
-        var client = await ClientAsync(shop, input.ClientId);
-        var name = client?.Name ?? Clean(input.CustomerName) ?? throw new CommerceRuleException("Indiquez le nom du client.");
-        var now = DateTime.Now;
-        if (input.ValidUntil.HasValue && input.ValidUntil.Value.Date < now.Date)
-            throw new CommerceRuleException("La date de validité ne peut pas être dans le passé.");
-        var products = await ProductsAsync(shop, input.Items);
-        Quote quote;
-        if (id.HasValue)
-        {
-            quote = await db.Quotes.Include(q => q.Items.Where(i => i.BoutiqueId == shop))
-                .SingleOrDefaultAsync(q => q.Id == id && q.BoutiqueId == shop) ?? throw new CommerceNotFoundException();
-            if (quote.Status != QuoteStatus.Draft) throw new CommerceRuleException("Ce devis n'est plus un brouillon.");
-            quote.Items.Clear();
-        }
-        else
-        {
-            var (number, next) = await AllocateNumberAsync("DEV-", settings.NextQuoteNumber,
-                db.Quotes.Where(q => q.BoutiqueId == shop).Select(q => q.DocumentNumber));
-            settings.NextQuoteNumber = next;
-            quote = new Quote { BoutiqueId = shop, CreatedAt = now, DocumentNumber = number };
-            db.Quotes.Add(quote);
-        }
-        quote.Status = input.Publish ? QuoteStatus.Pending : QuoteStatus.Draft;
-        quote.ClientId = client?.Id;
-        quote.CustomerName = name;
-        quote.CustomerPhone = client?.Phone;
-        quote.ValidUntil = input.ValidUntil?.Date;
-        quote.Notes = Clean(input.Notes);
-        quote.CurrencyCode = code;
-        quote.CurrencySymbol = CountryProfileCatalog.GetCurrency(code).Symbol;
-        quote.CurrencyDecimals = CountryProfileCatalog.GetCurrency(code).Decimals;
-        quote.CdfPerUsd = settings.CdfPerUsd;
-        foreach (var line in input.Items)
-        {
-            var product = products[line.ProductId];
-            var price = SalePrice(product, code, settings);
-            quote.Items.Add(new QuoteItem
-            {
-                BoutiqueId = shop, ProductId = product.Id, ProductName = product.Name, Quantity = line.Quantity,
-                UnitPrice = price, LineNet = price * line.Quantity, LineTotal = price * line.Quantity
-            });
-        }
-        quote.TotalAmount = quote.SubtotalNet = Money.Amount(quote.Items.Sum(i => i.LineTotal), code, allowZero: true);
-        VerifyTotal(input, quote.TotalAmount);
-        writer.Audit(shop, $"Devis {quote.DocumentNumber} : {QuoteStatus.Label(quote.Status)}");
-        return quote;
-    });
-
-    public Task<bool> AcceptQuoteAsync(int shop, int id) => writer.ExecuteAsync(shop, async () =>
-    {
-        var quote = await db.Quotes.SingleOrDefaultAsync(q => q.BoutiqueId == shop && q.Id == id) ?? throw new CommerceNotFoundException();
-        if (quote.Status == QuoteStatus.Accepted) return false;
-        if (quote.Status != QuoteStatus.Pending || IsExpired(quote))
-            throw new CommerceRuleException("Seul un devis émis et non expiré peut être accepté.");
-        quote.Status = QuoteStatus.Accepted;
-        writer.Audit(shop, $"Devis {quote.DocumentNumber} accepté");
-        return true;
-    });
-
-    public Task<int> ConvertQuoteAsync(int shop, int id) => writer.ExecuteAsync(shop, async () =>
-    {
-        var quote = await db.Quotes.Include(q => q.Items.Where(i => i.BoutiqueId == shop))
-            .SingleOrDefaultAsync(q => q.Id == id && q.BoutiqueId == shop) ?? throw new CommerceNotFoundException();
-        if (quote.Status == QuoteStatus.Converted && quote.ConvertedSaleId is int existingId) return existingId;
-        // Once accepted, the agreed terms survive any later edit to catalogue prices or exchange rates.
-        if (quote.Status != QuoteStatus.Accepted)
-            throw new CommerceRuleException("Marquez le devis comme accepté avant de le transformer en vente.");
-        if (!Money.IsMvpCurrency(quote.CurrencyCode))
-            throw new CommerceRuleException("Ce devis historique ne peut pas être converti : seuls le CDF et l'USD sont pris en charge.");
-        if (quote.ClientId.HasValue) await ClientAsync(shop, quote.ClientId);
-        var lines = quote.Items.Select(i => new TradeLineInput { ProductId = i.ProductId ?? 0, Quantity = i.Quantity }).ToList();
-        var products = await ProductsAsync(shop, lines);
-        var settings = await writer.SettingsAsync(shop);
-        var sale = NewSale(shop, quote.CurrencyCode, quote.CdfPerUsd, quote.ClientId, quote.CustomerName, DateTime.Now);
-        sale.SecondaryCurrencyCode = quote.SecondaryCurrencyCode;
-        sale.ExchangeRateToSecondary = quote.ExchangeRateToSecondary;
-        sale.SubtotalNet = quote.SubtotalNet;
-        sale.TaxAmount = quote.TaxAmount;
-        sale.FinalPrice = quote.TotalAmount;
-        sale.IsVatEnabledSnapshot = quote.IsVatEnabledSnapshot;
-        foreach (var line in quote.Items)
-        {
-            var product = products[line.ProductId!.Value];
-            sale.Items.Add(new SaleItem
-            {
-                BoutiqueId = shop, ProductId = product.Id, ProductName = line.ProductName, Quantity = line.Quantity,
-                UnitPrice = line.UnitPrice, LineNet = line.LineNet, LineTax = line.LineTax, VatRate = line.VatRate,
-                LineTotal = line.LineTotal,
-                // Historical orders outside the RDC pair may not have a known conversion, and margin is not reported in V1.
-                UnitCost = settings.PrimaryCurrencyCode == quote.CurrencyCode || (quote.CdfPerUsd.HasValue
-                    && Money.IsMvpCurrency(settings.PrimaryCurrencyCode) && Money.IsMvpCurrency(quote.CurrencyCode))
-                    ? Money.Amount(Money.Convert(product.PurchasePrice, settings.PrimaryCurrencyCode, quote.CurrencyCode, quote.CdfPerUsd), quote.CurrencyCode, allowZero: true) : 0m
-            });
-        }
-        await SaveSaleAsync(sale, settings, products);
-        await db.SaveChangesAsync();
-        quote.ConvertedSaleId = sale.Id;
-        quote.Status = QuoteStatus.Converted;
-        writer.Audit(shop, $"Conversion du devis {quote.DocumentNumber} en vente {sale.Number}");
-        return sale.Id;
-    });
-
-    public static bool IsExpired(Quote quote) => quote.ValidUntil is DateTime end && end.Date < DateTime.Today;
     public static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private async Task<Client?> ClientAsync(int shop, int? id) => !id.HasValue ? null :
@@ -342,18 +189,6 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         return (prefix + next.ToString("D5", CultureInfo.InvariantCulture), (int)next + 1);
     }
 
-    private async Task ReceiveCoreAsync(Purchase purchase, Dictionary<int, Product> products, DateTime now)
-    {
-        foreach (var line in purchase.Items.OrderBy(i => i.ProductId))
-        {
-            if (!products.TryGetValue(line.ProductId, out var product))
-                throw new CommerceRuleException("Un produit de l'achat n'est plus disponible dans votre entreprise.");
-            await stock.ApplyAsync(purchase.BoutiqueId, product, line.Quantity, "Réception achat", purchase.Number, now);
-        }
-        purchase.ReceivedAt = now;
-        writer.Audit(purchase.BoutiqueId, $"Réception en stock de l'achat {purchase.Number}");
-    }
-
     private static Payment? InitialPayment(PayableInput input, StoreSettings settings, int shop, string code, decimal total, DateTime now)
     {
         var amount = input.PaymentMode switch
@@ -379,13 +214,6 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         var sale = await db.Sales.AsNoTracking().Include(s => s.Payments).SingleOrDefaultAsync(s => s.BoutiqueId == shop && s.Id == id)
             ?? throw new CommerceNotFoundException();
         return (sale.Number, sale.CurrencyCode, sale.Balance);
-    }
-
-    private async Task<(string, string, decimal)> PurchaseBalanceAsync(int shop, int? id)
-    {
-        var purchase = await db.Purchases.AsNoTracking().Include(s => s.Payments).SingleOrDefaultAsync(s => s.BoutiqueId == shop && s.Id == id)
-            ?? throw new CommerceNotFoundException();
-        return (purchase.Number, purchase.CurrencyCode, purchase.Balance);
     }
 
     private async Task<(string, string, decimal)> OldBalanceAsync(int shop, int? id)

@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,33 +17,6 @@ namespace AdGestionHub.Controllers
         public MarketingController(ApplicationDbContext context)
         {
             _context = context;
-        }
-
-        // ========== LISTE D'ATTENTE PRO (publique, appelée depuis la page d'accueil) ==========
-        [HttpPost]
-        [AllowAnonymous]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> JoinWaitingList(string? email)
-        {
-            email = email?.Trim();
-
-            if (string.IsNullOrWhiteSpace(email)
-                || email.Length > 254
-                || !new EmailAddressAttribute().IsValid(email))
-            {
-                return BadRequest(new { error = "Veuillez fournir une adresse email valide." });
-            }
-
-            var normalized = email.ToLowerInvariant();
-
-            var alreadyThere = await _context.WaitingListPros.AnyAsync(w => w.Email == normalized);
-            if (!alreadyThere)
-            {
-                _context.WaitingListPros.Add(new WaitingListPro { Email = normalized });
-                await _context.SaveChangesAsync();
-            }
-
-            return Ok(new { success = true });
         }
 
         // ========== FEEDBACK BÊTA (formulaire du layout, utilisateur connecté ou non) ==========

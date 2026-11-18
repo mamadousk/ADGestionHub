@@ -125,6 +125,9 @@ namespace AdGestionHub.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<bool>("SetupPending")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Telephone")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -766,6 +769,20 @@ namespace AdGestionHub.Migrations
                     b.ToTable("SaleItems");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.StoreLogo", b =>
+                {
+                    b.Property<int>("BoutiqueId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Png")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.HasKey("BoutiqueId");
+
+                    b.ToTable("StoreLogos");
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.StoreSettings", b =>
                 {
                     b.Property<int>("Id")
@@ -912,6 +929,34 @@ namespace AdGestionHub.Migrations
                     b.HasIndex("BoutiqueId");
 
                     b.ToTable("SystemLogs");
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.TermsAcceptance", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("AcceptedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("TermsAcceptances");
                 });
 
             modelBuilder.Entity("AdGestionHub.Models.UserFeedback", b =>
@@ -1516,6 +1561,15 @@ namespace AdGestionHub.Migrations
                     b.Navigation("Sale");
                 });
 
+            modelBuilder.Entity("AdGestionHub.Models.StoreLogo", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.Boutique", null)
+                        .WithOne()
+                        .HasForeignKey("AdGestionHub.Models.StoreLogo", "BoutiqueId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AdGestionHub.Models.StoreSettings", b =>
                 {
                     b.HasOne("AdGestionHub.Models.Boutique", "Boutique")
@@ -1615,6 +1669,15 @@ namespace AdGestionHub.Migrations
                         .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AdGestionHub.Models.TermsAcceptance", b =>
+                {
+                    b.HasOne("AdGestionHub.Models.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

@@ -36,20 +36,33 @@ try
     await using var server = new ApplicationDbContext(sqlOptions);
     Check(server.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent)
         .Contains("CK_Payments_OneDocument", StringComparison.Ordinal), "script SQL Server généré depuis les migrations versionnées");
+    CheckSnapshot(server);
     if (sqlServer != null)
     {
-        CheckSnapshot(server);
         try
         {
             const string legacy = "20261116180000_LocalizationFiscalQuotesAndClients";
             var migrator = server.GetService<IMigrator>();
             await migrator.MigrateAsync(legacy);
             await SeedLegacyAsync(server);
-            var upgrade = migrator.GenerateScript(fromMigration: legacy, options: MigrationsSqlGenerationOptions.Idempotent);
+            const string previous = "20261118193000_CommerceMvp";
+            var import = migrator.GenerateScript(fromMigration: legacy, toMigration: previous, options: MigrationsSqlGenerationOptions.Idempotent);
+            await ApplyScriptAsync(server, import);
+            await ApplyScriptAsync(server, import); // Must not duplicate imported payments or stock.
+            await SeedV1Async(server);
+            var upgrade = migrator.GenerateScript(fromMigration: previous, options: MigrationsSqlGenerationOptions.Idempotent);
             await ApplyScriptAsync(server, upgrade);
-            await ApplyScriptAsync(server, upgrade); // Must not duplicate imported payments or stock.
+            await ApplyScriptAsync(server, upgrade);
             await server.Database.MigrateAsync();
-            var imported = await server.Payments.AsNoTracking().SingleAsync();
+            Check(!await server.TermsAcceptances.AnyAsync(), "aucune acceptation créée pour les comptes existants");
+            Check(!await server.StoreLogos.AnyAsync() && !(await server.Boutiques.SingleAsync()).SetupPending, "pas de logo ni de configuration imposés par la migration");
+            var oldPurchase = await server.Purchases.AsNoTracking().Include(p => p.Items).Include(p => p.Payments).SingleAsync();
+            Check(oldPurchase.Balance == 7.36m && oldPurchase.Items.Single().Quantity == 4 && oldPurchase.ReceivedAt == null, "achat et règlement historiques inchangés");
+            var existingUser = await server.Users.AsNoTracking().SingleAsync();
+            server.TermsAcceptances.Add(new TermsAcceptance { UserId = existingUser.Id, Version = LegalPublication.TermsVersion, AcceptedAtUtc = DateTimeOffset.UtcNow });
+            await server.SaveChangesAsync();
+            Check(await server.TermsAcceptances.CountAsync() == 1, "stockage d'une preuve d'acceptation sur le schéma migré");
+            var imported = await server.Payments.AsNoTracking().SingleAsync(p => p.SaleId != null);
             Check(imported.Amount == 150m && imported.AppliedAmount == 150m && imported.CurrencyCode == "USD", "reprise du règlement historique");
             Equal<decimal?>(2500m, imported.CdfPerUsd, "taux historique inversé depuis la devise du document");
             Equal<decimal?>(2500m, (await server.Sales.AsNoTracking().SingleAsync()).CdfPerUsd, "taux repris sur la vente");
@@ -60,6 +73,12 @@ try
         }
         finally { await server.Database.EnsureDeletedAsync(); }
     }
+}
+catch (Exception error)
+{
+    var annotation = error.ToString().Replace("%", "%25").Replace("\r", "%0D").Replace("\n", "%0A");
+    Console.Error.WriteLine($"::error title=Échec du scénario métier ou de migration::{annotation}");
+    throw;
 }
 finally { directory.Delete(recursive: true); }
 
@@ -107,6 +126,22 @@ static async Task SeedLegacyAsync(ApplicationDbContext db)
         """);
 }
 
+static async Task SeedV1Async(ApplicationDbContext db) => await db.Database.ExecuteSqlRawAsync("""
+    DECLARE @shop int = (SELECT Id FROM Boutiques WHERE Nom = N'Historique');
+    DECLARE @product int = (SELECT Id FROM Products WHERE BoutiqueId = @shop);
+    INSERT INTO AspNetUsers (Id, BoutiqueId, UserName, EmailConfirmed, PhoneNumberConfirmed, TwoFactorEnabled, LockoutEnabled, AccessFailedCount)
+      VALUES (N'ancien-compte', @shop, N'archive@example.test', 0, 0, 0, 1, 0);
+    INSERT INTO Suppliers (BoutiqueId, [Name]) VALUES (@shop, N'Fournisseur conservé');
+    DECLARE @supplier int = CAST(SCOPE_IDENTITY() AS int);
+    INSERT INTO Purchases (BoutiqueId, SupplierId, SupplierName, CurrencyCode, Total, RecordedAt)
+      VALUES (@shop, @supplier, N'Fournisseur conservé', N'USD', 9.36, SYSDATETIME());
+    DECLARE @purchase int = CAST(SCOPE_IDENTITY() AS int);
+    INSERT INTO PurchaseItems (PurchaseId, ProductId, ProductName, Quantity, UnitPrice)
+      VALUES (@purchase, @product, N'Ancien produit', 4, 2.34);
+    INSERT INTO Payments (BoutiqueId, PurchaseId, Method, CurrencyCode, AppliedCurrencyCode, Amount, AppliedAmount, RecordedAt)
+      VALUES (@shop, @purchase, N'Espèces', N'USD', N'USD', 2, 2, SYSDATETIME());
+    """);
+
 static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
 {
     await using var db = new ApplicationDbContext(options);
@@ -126,11 +161,10 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     var client = new Client { BoutiqueId = a.Id, Name = "- Client du test CSV" };
     var otherClient = new Client { BoutiqueId = b.Id, Name = "Client B" };
     var supplier = new Supplier { BoutiqueId = a.Id, Name = "Fournisseur A" };
-    var otherSupplier = new Supplier { BoutiqueId = b.Id, Name = "Fournisseur B" };
     var rice = new Product { BoutiqueId = a.Id, Name = "Riz", SalePrice = 2800m, PurchasePrice = 1100m };
     var salt = new Product { BoutiqueId = a.Id, Name = "Sel", SalePrice = 700m, PurchasePrice = 400m };
     var foreign = new Product { BoutiqueId = b.Id, Name = "Stock B", SalePrice = 99m, StockQuantity = 10 };
-    db.AddRange(settings, client, otherClient, supplier, otherSupplier, rice, salt, foreign);
+    db.AddRange(settings, client, otherClient, supplier, rice, salt, foreign);
     await db.SaveChangesAsync();
     await writer.ExecuteAsync(a.Id, async () =>
     {
@@ -196,49 +230,50 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     Equal(4600m, historical.Receivables, "les règlements ultérieurs ne changent pas les soldes passés");
     Equal(1400m, historical.Received, "les règlements sont comptés à leur date propre");
 
-    var instant = await operations.BuyAsync(a.Id, new PurchaseInput
+    // Historical bookkeeping still contributes to its own report section, not to receipts or spending.
+    Check(!cdf.HasSupplierHistory, "pas d'archives fournisseurs affichées sur une boutique neuve");
+    var oldPurchase = new Purchase
     {
-        SupplierId = supplier.Id, CurrencyCode = "USD", Items = [Line(rice, 4, 2.34m)], PaymentMode = "Unpaid", ReceiveNow = false
-    });
-    Equal(9.36m, instant.Total, "montant d'achat calculé exactement");
-    Equal(3, await Quantity(rice), "pas de stock avant réception");
-    Check(await operations.ReceiveAsync(a.Id, instant.Id), "réception effective");
-    Check(!await operations.ReceiveAsync(a.Id, instant.Id), "réception non répétée");
-    Equal(7, await Quantity(rice), "stock à la réception");
-    await Throws<CommerceRuleException>(() => operations.BuyAsync(a.Id, new PurchaseInput
-    {
-        SupplierId = otherSupplier.Id, CurrencyCode = "USD", Items = [Line(rice, 1, 1m)], PaymentMode = "Unpaid"
-    }));
-    await operations.RecordPaymentAsync(a.Id, "Purchase", instant.Id, PaymentOf(2m, "USD"));
+        BoutiqueId = a.Id, SupplierId = supplier.Id, SupplierName = supplier.Name, CurrencyCode = "USD", Total = 9.36m,
+        RecordedAt = today.AddHours(2),
+        Items = [new PurchaseItem { ProductId = rice.Id, ProductName = rice.Name, Quantity = 4, UnitPrice = 2.34m }],
+        Payments = [new Payment { BoutiqueId = a.Id, CurrencyCode = "USD", AppliedCurrencyCode = "USD", Amount = 2m,
+            AppliedAmount = 2m, Method = "Espèces", RecordedAt = today.AddHours(3) }]
+    };
+    db.Purchases.Add(oldPurchase);
+    await db.SaveChangesAsync();
+    await Throws<CommerceNotFoundException>(() => operations.RecordPaymentAsync(a.Id, "Purchase", oldPurchase.Id, PaymentOf(2m, "USD")));
+    Equal(3, await Quantity(rice), "un achat non reçu en archive ne change pas le stock");
     await operations.RecordPaymentAsync(a.Id, "Receipt", null, new PaymentInput { CurrencyCode = "CDF", Amount = 150m, Description = "Autre recette" });
     var usd = await reports.BuildAsync(a.Id, settings, moment, "USD", finance: true);
-    Equal(7.36m, usd.Payables, "dette fournisseur après paiement partiel");
+    Check(usd.HasSupplierHistory, "rubrique d'archives disponible lorsque pertinente");
+    Equal(9.36m, usd.Purchased, "montant d'achat historique préservé");
+    Equal(7.36m, usd.Payables, "solde fournisseur historique préservé");
     Equal(1m, usd.Received, "encaissement en USD sans mélanger les devises");
-    Equal(2m, usd.SupplierPayments, "décaissement distinct de l'achat");
-    Equal(0, (await reports.BuildAsync(b.Id, new StoreSettings(), moment, "CDF", finance: true)).Sales.Count, "rapport isolé");
+    Equal(2m, usd.SupplierPayments, "décaissement historique distinct de l'achat");
+    Equal(0m, usd.Expensed, "aucun double compte d'un règlement historique en dépenses");
+    Check(!(await reports.OutstandingAsync(a.Id, moment.Until)).Any(x => x.Kind == "Purchase"), "l'écran des créances ne contient pas de dettes fournisseurs");
+    var empty = await reports.BuildAsync(b.Id, new StoreSettings(), moment, "USD", finance: true);
+    Check(empty.Sales.Count == 0 && !empty.HasSupplierHistory && !Encoding.UTF8.GetString(ReportExport.Csv(empty)).Contains("fournisseur"), "rapport et archives isolés");
 
-    var quoteInput = new QuoteInput { ClientId = client.Id, CurrencyCode = "USD", Items = [Line(rice, 1)] };
-    var quote = await operations.SaveQuoteAsync(a.Id, null, quoteInput);
-    Equal(QuoteStatus.Draft, quote.Status, "brouillon créé");
-    Equal(.93m, quote.TotalAmount, "prix converti au centime avant multiplication");
-    await Throws<CommerceRuleException>(() => operations.ConvertQuoteAsync(a.Id, quote.Id));
-    quoteInput.Publish = true;
-    quote = await operations.SaveQuoteAsync(a.Id, quote.Id, quoteInput);
-    Check(await operations.AcceptQuoteAsync(a.Id, quote.Id), "acceptation du devis");
-    await ChangeRate(3300m);
-    var convertedId = await operations.ConvertQuoteAsync(a.Id, quote.Id);
-    Equal(convertedId, await operations.ConvertQuoteAsync(a.Id, quote.Id), "conversion idempotente");
-    var converted = await db.Sales.AsNoTracking().Include(s => s.Items).Include(s => s.Payments).SingleAsync(s => s.Id == convertedId);
-    Equal(.93m, converted.Balance, "prix du devis préservé, vente non réglée");
-    Equal("FAC-00421", converted.Number, "numérotation existante préservée malgré un compteur à reprendre");
-    Equal<decimal?>(3000m, converted.CdfPerUsd, "taux utilisé dans le devis préservé dans sa vente");
-    Equal(6, await Quantity(rice), "stock décrémenté une seule fois lors de la conversion");
-    Check(await operations.CancelSaleAsync(a.Id, convertedId, "Erreur documentée"), "annulation d'une vente non réglée");
-    Equal(7, await Quantity(rice), "stock restauré à l'annulation");
-    Check(await db.SystemLogs.CountAsync(l => l.BoutiqueId == a.Id) >= 8, "journalisation des opérations");
+    var second = await operations.SellAsync(a.Id, new SaleInput
+    {
+        ClientId = client.Id, CurrencyCode = "USD", PaymentMode = "Unpaid", Items = [Line(rice, 1)], ExpectedTotal = .93m
+    }, canDiscount: true);
+    Equal(.93m, second.Balance, "prix converti au centime avant multiplication");
+    Equal("FAC-00421", second.Number, "numérotation existante préservée malgré un compteur à reprendre");
+    Equal<decimal?>(3000m, second.CdfPerUsd, "taux enregistré sur la vente en USD");
+    Equal(2, await Quantity(rice), "stock décrémenté lors de la vente");
+    Check(await operations.CancelSaleAsync(a.Id, second.Id, "Erreur documentée"), "annulation d'une vente non réglée");
+    Equal(3, await Quantity(rice), "stock restauré à l'annulation");
+    Equal(6, await db.SystemLogs.CountAsync(l => l.BoutiqueId == a.Id), "audit des opérations validées, sans doublon ni écriture pour les actions refusées");
 
     var pdf = new PdfReportService();
-    foreach (var document in new[] { pdf.SalePdf(converted, settings), pdf.QuotePdf(quote, settings), pdf.ReportPdf(usd) })
+    var png = await VerifyLogoAsync();
+    db.StoreLogos.Add(new StoreLogo { BoutiqueId = a.Id, Png = png });
+    await db.SaveChangesAsync();
+    var logo = await db.StoreLogos.AsNoTracking().SingleAsync(l => l.BoutiqueId == a.Id);
+    foreach (var document in new[] { pdf.SalePdf(second, settings), pdf.SalePdf(second, settings, logo.Png), pdf.ReportPdf(usd) })
         Check(Encoding.ASCII.GetString(document, 0, 5) == "%PDF-", "document PDF valide");
     var csv = Encoding.UTF8.GetString(ReportExport.Csv(historical));
     Check(csv.StartsWith("\uFEFFRubrique;", StringComparison.Ordinal) && csv.Contains("'- Client du test CSV", StringComparison.Ordinal), "CSV encodé et texte client non interprété");
@@ -259,7 +294,21 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     });
 }
 
-static TradeLineInput Line(Product product, int quantity, decimal? price = null) => new() { ProductId = product.Id, Quantity = quantity, UnitPrice = price };
+static async Task<byte[]> VerifyLogoAsync()
+{
+    using var bitmap = new SkiaSharp.SKBitmap(900, 300, true);
+    bitmap.Erase(SkiaSharp.SKColors.OrangeRed);
+    using var jpeg = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
+    using var input = new MemoryStream(jpeg.ToArray());
+    var file = new FormFile(input, 0, input.Length, "Logo", "test.jpg");
+    var normalized = await StoreLogoImages.NormalizeAsync(file, CancellationToken.None);
+    using var decoded = SkiaSharp.SKBitmap.Decode(normalized);
+    Check(decoded.Width == 512 && decoded.Height == 170, "JPEG normalisé en PNG borné sans modifier ses proportions");
+    Check(normalized.Take(8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }), "stockage dans un seul format raster");
+    return normalized;
+}
+
+static TradeLineInput Line(Product product, int quantity) => new() { ProductId = product.Id, Quantity = quantity };
 static PaymentInput PaymentOf(decimal amount, string currency = "CDF", string method = "Espèces") => new() { Amount = amount, CurrencyCode = currency, Method = method };
 static void Check(bool valid, string detail) { if (!valid) throw new InvalidOperationException(detail); }
 static void Equal<T>(T expected, T actual, string detail) => Check(EqualityComparer<T>.Default.Equals(expected, actual), $"{detail} : attendu {expected}, obtenu {actual}");

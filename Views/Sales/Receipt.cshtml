@@ -2,6 +2,7 @@
 @{
     Layout = null;
     var settings = (StoreSettings)ViewData["StoreSettings"]!;
+    var logo = ViewData["LogoDataUrl"] as string;
     var title = Model.DocumentType == "Invoice" ? "Facture commerciale" : "Reçu commercial";
     var rate = PdfReportService.HistoricalRate(Model.CdfPerUsd, Model.SecondaryCurrencyCode, Model.ExchangeRateToSecondary, Model.CurrencyCode);
     var lines = new CommercialTable(Model.Items.Select(i => new CommercialLine(i.ProductName, i.Quantity, i.UnitPrice, i.EffectiveLineTotal)), Model.CurrencyCode);
@@ -17,9 +18,12 @@
         <a asp-action="Receipt" asp-route-id="@Model.Id" asp-route-format="pdf" class="btn btn-accent">Télécharger le PDF</a>
     </div>
     <main class="panel-card print-document p-3 p-md-5">
-        <div class="d-flex flex-wrap justify-content-between gap-3 pb-3 mb-3 border-bottom">
+        <div class="receipt-heading d-flex flex-wrap justify-content-between gap-3 pb-3 mb-3 border-bottom">
             <div><h1 class="h3 mb-1">@title</h1><p class="text-slate mb-1">@Model.Number · @Model.SaleDate.ToString("dd/MM/yyyy")</p><span class="status-pill">@Model.PaymentStatus</span></div>
-            <div><div class="fw-bold">@settings.StoreName</div><div>@settings.Address</div><div>@settings.Phone</div><div>@settings.ContactEmail</div></div>
+            <div class="receipt-store">
+                @if (logo != null) { <img class="receipt-logo" src="@logo" alt="" /> }
+                <div><div class="fw-bold">@settings.StoreName</div><div>@settings.Address</div><div>@settings.Phone</div><div>@settings.ContactEmail</div></div>
+            </div>
         </div>
         <p><strong>Client :</strong> @(Model.CustomerName ?? "Client de passage")</p>
         <partial name="_CommercialLines" model="lines" />
@@ -31,7 +35,11 @@
             @if (rate != null) { <p class="text-slate small mt-2 mb-0">Taux enregistré : @rate</p> }
         </div>
         @if (Model.IsCancelled) { <p class="mt-3">Motif d’annulation : @Model.CancellationReason</p> }
-        <p class="text-slate mt-4 mb-1">@settings.FooterMessage</p><div class="border-top pt-3 text-slate small">Document commercial ordinaire — non normalisé DGI.</div>
+        @if (!string.IsNullOrWhiteSpace(settings.FooterMessage)) { <p class="text-slate mt-4 mb-2">@settings.FooterMessage</p> }
+        <footer class="receipt-footer border-top pt-3 mt-3 text-slate small">
+            <span>Document commercial ordinaire — non normalisé DGI.</span>
+            <strong>Généré par AdGestionHub</strong>
+        </footer>
     </main>
 </div>
 </body></html>

@@ -5,9 +5,10 @@
 }
 <div class="auth-surface mx-auto">
     <div class="panel-card p-4 p-md-5">
-        <p class="section-eyebrow">Bienvenue sur AD Gestion Hub</p>
+        <p class="section-eyebrow">Inscription gratuite · Première étape</p>
         <h1 class="h3 mb-2">Créer mon entreprise</h1>
-        <p class="text-slate mb-4">Votre compte administrateur et votre espace de gestion privé sont créés en une seule étape.</p>
+        <p class="text-slate mb-4">Créez votre compte administrateur sans carte bancaire. Vous pourrez ensuite lire et accepter les conditions d’utilisation, puis configurer votre boutique maintenant ou plus tard.</p>
+        <p class="small mb-4"><a asp-area="" asp-controller="Infos" asp-action="CGU">Conditions d’utilisation</a> · <a asp-area="" asp-controller="Infos" asp-action="Confidentialite">Confidentialité</a></p>
         <form method="post" asp-route-returnUrl="@Model.ReturnUrl">
             <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
             <div class="row g-3">

@@ -1,30 +1,39 @@
 @{
-    ViewData["Title"] = L.T("Mentions Légales", "Legal Notice");
+    ViewData["Title"] = "Mentions légales";
+    ViewData["LegalSummary"] = "Identification de l’éditeur, accès au service et modalités de contact.";
+    ViewData["PublicShell"] = true;
 }
-
-<div class="container py-5" style="max-width: 820px;">
-    <div class="panel-card p-4 p-lg-5">
-        <h1 class="h3 fw-bold mb-1">@ViewData["Title"]</h1>
-        <p class="text-slate small mb-4 num">@L.T("Mise à jour :", "Updated:") @DateTime.UtcNow.ToString("dd/MM/yyyy")</p>
-
-        <h2 class="h6 fw-semibold mt-4">1. @L.T("Éditeur", "Publisher")</h2>
-        <p class="text-slate small">
-            <strong>AdGestionHub</strong> — @L.T("édité par Adhil Digital.", "published by Adhil Digital.")<br />
-            Contact : <a href="mailto:contact@adhil-digital.com" class="text-decoration-none" style="color: var(--accent);">contact@adhil-digital.com</a>
-        </p>
-
-        <h2 class="h6 fw-semibold mt-4">2. @L.T("Hébergement & Sécurité", "Hosting & Security")</h2>
-        <p class="text-slate small">
-            @L.T(
-                "Infrastructure cloud sécurisée avec chiffrement TLS, journalisation d'audit et sauvegardes isolées.",
-                "Secure cloud infrastructure with TLS encryption, audit logging, and isolated backups.")
-        </p>
-
-        <h2 class="h6 fw-semibold mt-4">3. @L.T("Propriété intellectuelle", "Intellectual Property")</h2>
-        <p class="text-slate small mb-0">
-            @L.T(
-                "L'ensemble du logiciel, du code source et de l'interface graphique demeure la propriété exclusive d'Adhil Digital.",
-                "All software, source code, and interface components remain the exclusive property of Adhil Digital.")
-        </p>
+<article class="legal-shell">
+    <partial name="_LegalHeader" />
+    <div class="legal-copy panel-card">
+        <section>
+            <h2>1. Identification de l’éditeur</h2>
+            <p>Le site et le service AD Gestion Hub sont édités par <strong>@LegalPublication.Publisher</strong>.</p>
+            <address class="mb-3">
+                <strong>Adresse :</strong> @LegalPublication.Address<br />
+                <strong>Courrier électronique :</strong> <a href="mailto:@LegalPublication.Email">@LegalPublication.Email</a>
+            </address>
+            <p>Cette adresse de courrier électronique est le point de contact pour les questions relatives au service, à la publication, à l’hébergement de cette instance et aux données personnelles. Les demandes sont traitées selon leur objet ; une demande concernant un espace d’entreprise peut nécessiter la vérification de la qualité du demandeur.</p>
+        </section>
+        <section>
+            <h2>2. Nature de l’offre et accès au site</h2>
+            <p>AD Gestion Hub est un logiciel en ligne de gestion commerciale destiné notamment aux boutiques, aux commerçants et aux petites entreprises. La présentation publique peut être consultée sans compte. L’espace de gestion est accessible après création d’un compte ou mise à disposition d’un compte par l’entreprise, puis acceptation des <a asp-action="CGU">conditions d’utilisation</a>. La V1 est proposée gratuitement, sans fourniture de carte bancaire.</p>
+            <p>Le service nécessite une connexion à Internet et un navigateur compatible. Les captures et montants illustratifs servent à présenter les fonctionnalités ; ils ne décrivent ni des données de clients réels ni des résultats garantis.</p>
+        </section>
+        <section>
+            <h2>3. Informations, documents et liens</h2>
+            <p>L’éditeur veille à ce que la présentation publique corresponde aux fonctionnalités disponibles. Les explications générales ne constituent pas un conseil juridique, fiscal ou comptable. Les documents produits par la V1 servent à la gestion commerciale et ne sont pas des factures normalisées DGI. L’entreprise doit vérifier les obligations qui s’appliquent à sa propre activité avant d’utiliser ces documents à l’extérieur du service.</p>
+            <p>Les éventuels liens vers des ressources tierces sont proposés à titre d’information. Après avoir suivi un lien externe, le visiteur doit consulter les règles du site de destination. Cette mention ne retire pas à l’éditeur les obligations qui lui incombent lorsqu’un prestataire intervient pour son compte.</p>
+        </section>
+        <section>
+            <h2>4. Droits sur le contenu du site</h2>
+            <p>Les textes, visuels, signes distinctifs, éléments d’interface et logiciels du site sont protégés au titre des droits qui leur sont applicables. Sauf autorisation, licence ou exception légale, ils ne peuvent être exploités, reproduits ou diffusés comme s’ils étaient ceux d’un tiers. Cela n’empêche pas d’imprimer ou de conserver les informations légales, ni d’utiliser les reçus, rapports et exports de son entreprise conformément aux conditions d’utilisation.</p>
+            <p>Les entreprises utilisatrices conservent leurs droits sur leurs noms, logos et contenus. Les composants distribués par des tiers sont utilisables suivant leurs licences, sans que la présente page ne restreigne ces licences.</p>
+        </section>
+        <section>
+            <h2>5. Signalements et documents de référence</h2>
+            <p>Pour signaler un contenu inexact, une atteinte à un droit ou un problème de sécurité, écrivez à <a href="mailto:@LegalPublication.Email">@LegalPublication.Email</a>. Précisez la page ou la référence concernée, le motif du signalement et un moyen de vous répondre. Ne joignez pas d’identifiants secrets, de fichiers de clients complets ou de données qui ne sont pas nécessaires au traitement de votre demande.</p>
+            <p>Le traitement des données est décrit dans la <a asp-action="Confidentialite">politique de confidentialité</a> ; le rôle des traceurs du navigateur, dans la <a asp-action="Cookies">politique relative aux cookies</a>. Ces informations sont consultables sans accepter les conditions d’utilisation.</p>
+        </section>
     </div>
-</div>
+</article>

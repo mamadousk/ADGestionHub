@@ -10,8 +10,9 @@ else
         <tbody>
         @foreach (var row in Model)
         {
-            var controller = row.Kind switch { "Sale" => "Sales", "Purchase" => "Purchases", _ => "Debts" };
-            <tr><td><a class="fw-semibold" asp-controller="@controller" asp-action="Details" asp-route-id="@row.Id">@row.Number</a><div class="text-slate small">@row.Date.ToString("dd/MM/yyyy")</div></td>
+            var controller = row.Kind == "Sale" ? "Sales" : "Debts";
+            <tr><td>@if (row.Kind == "Purchase") { <strong>@row.Number</strong> }
+                else { <a class="fw-semibold" asp-controller="@controller" asp-action="Details" asp-route-id="@row.Id">@row.Number</a> }<div class="text-slate small">@row.Date.ToString("dd/MM/yyyy")</div></td>
                 <td>@row.Contact</td><td class="text-end text-nowrap">@Money.Display(row.Total, row.Currency)</td><td class="text-end text-nowrap">@Money.Display(row.Paid, row.Currency)</td><td class="text-end text-nowrap fw-semibold">@Money.Display(row.Balance, row.Currency)</td></tr>
         }
         </tbody>

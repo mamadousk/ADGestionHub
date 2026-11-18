@@ -62,7 +62,7 @@ public class RegisterModel(UserManager<ApplicationUser> users, SignInManager<App
             {
                 var shop = new Boutique
                 {
-                    Nom = Input.StoreName.Trim(), Email = email, Telephone = Input.PhoneNumber?.Trim() ?? "", Adresse = ""
+                    Nom = Input.StoreName.Trim(), Email = email, Telephone = Input.PhoneNumber?.Trim() ?? "", Adresse = "", SetupPending = true
                 };
                 db.Boutiques.Add(shop);
                 await db.SaveChangesAsync();
@@ -96,7 +96,6 @@ public class RegisterModel(UserManager<ApplicationUser> users, SignInManager<App
             }
         }
         await signIn.SignInAsync(user, isPersistent: false);
-        TempData["SuccessMessage"] = "Votre entreprise est prête. Ajoutez votre premier produit pour commencer.";
-        return ReturnUrl != null ? LocalRedirect(ReturnUrl) : RedirectToAction("Index", "Home", new { area = "" });
+        return RedirectToAction("Terms", "Onboarding", new { area = "" });
     }
 }

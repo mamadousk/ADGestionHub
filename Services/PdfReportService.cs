@@ -14,17 +14,12 @@ public sealed class PdfReportService : IPdfReportService
     private const string Muted = "#475569";
     private static readonly CultureInfo French = CultureInfo.GetCultureInfo("fr-FR");
 
-    public byte[] SalePdf(Sale sale, StoreSettings settings) => Commercial(settings,
+    public byte[] SalePdf(Sale sale, StoreSettings settings, byte[]? logo = null) => Commercial(settings, logo,
         sale.DocumentType == "Invoice" ? "Facture commerciale" : "Reçu commercial", sale.Number, sale.SaleDate,
-        sale.CustomerName ?? "Client de passage", null, sale.CurrencyCode, sale.IsCancelled ? "ANNULÉE" : sale.PaymentStatus,
+        sale.CustomerName ?? "Client de passage", sale.CurrencyCode, sale.IsCancelled ? "ANNULÉE" : sale.PaymentStatus,
         sale.Items.Select(i => (i.ProductName, i.Quantity, i.UnitPrice, i.EffectiveLineTotal)), sale.EffectiveSubtotalNet,
         sale.Discount, sale.TaxAmount, sale.FinalPrice, sale.IsCancelled ? null : sale.Paid, sale.IsCancelled ? null : sale.Balance,
         HistoricalRate(sale.CdfPerUsd, sale.SecondaryCurrencyCode, sale.ExchangeRateToSecondary, sale.CurrencyCode), sale.CancellationReason);
-
-    public byte[] QuotePdf(Quote quote, StoreSettings settings) => Commercial(settings, "Devis commercial", quote.DocumentNumber, quote.CreatedAt,
-        quote.CustomerName, quote.ValidUntil, quote.CurrencyCode, CommerceOperations.IsExpired(quote) && quote.Status == QuoteStatus.Pending ? "Expiré" : QuoteStatus.Label(quote.Status),
-        quote.Items.Select(i => (i.ProductName, i.Quantity, i.UnitPrice, i.LineTotal)), quote.SubtotalNet, 0m, quote.TaxAmount, quote.TotalAmount,
-        null, null, HistoricalRate(quote.CdfPerUsd, quote.SecondaryCurrencyCode, quote.ExchangeRateToSecondary, quote.CurrencyCode), quote.Notes);
 
     public byte[] ReportPdf(BusinessReport report) => Document.Create(container =>
     {
@@ -64,7 +59,7 @@ public sealed class PdfReportService : IPdfReportService
         });
     }).GeneratePdf();
 
-    private static byte[] Commercial(StoreSettings settings, string title, string reference, DateTime date, string customer, DateTime? validUntil,
+    private static byte[] Commercial(StoreSettings settings, byte[]? logo, string title, string reference, DateTime date, string customer,
         string currency, string status, IEnumerable<(string Name, int Quantity, decimal Price, decimal Total)> lines, decimal subtotal,
         decimal discount, decimal tax, decimal total, decimal? paid, decimal? balance, string? exchange, string? notes) => Document.Create(container =>
     {
@@ -75,6 +70,7 @@ public sealed class PdfReportService : IPdfReportService
             page.DefaultTextStyle(t => t.FontSize(10).FontColor(Ink));
             page.Header().PaddingBottom(16).Column(head =>
             {
+                if (logo != null) head.Item().PaddingBottom(6).AlignLeft().Width(122).Height(54).Image(logo).FitArea();
                 head.Item().Text(settings.StoreName).FontSize(18).Bold();
                 if (!string.IsNullOrWhiteSpace(settings.Address)) head.Item().Text(settings.Address).FontColor(Muted);
                 var contact = string.Join(" · ", new[] { settings.Phone, settings.ContactEmail }.Where(x => !string.IsNullOrWhiteSpace(x)));
@@ -86,7 +82,6 @@ public sealed class PdfReportService : IPdfReportService
                 content.Item().Text($"{reference} · {date:dd/MM/yyyy} · {currency}").FontColor(Muted);
                 content.Item().PaddingTop(3).Text(status).SemiBold().FontColor(Accent);
                 content.Item().PaddingTop(12).Text($"Client : {customer}");
-                if (validUntil.HasValue) content.Item().Text($"Valable jusqu'au {validUntil.Value:dd/MM/yyyy}");
                 content.Item().PaddingVertical(12).Table(table =>
                 {
                     table.ColumnsDefinition(c =>
@@ -122,7 +117,7 @@ public sealed class PdfReportService : IPdfReportService
                 if (!string.IsNullOrWhiteSpace(settings.FooterMessage)) content.Item().PaddingTop(10).Text(settings.FooterMessage).FontColor(Muted);
                 content.Item().PaddingTop(15).Text("Document commercial ordinaire — non normalisé DGI.").FontSize(9).SemiBold().FontColor(Muted);
             });
-            Footer(page);
+            Footer(page, "Généré par AdGestionHub");
         });
     }).GeneratePdf();
 
@@ -130,9 +125,9 @@ public sealed class PdfReportService : IPdfReportService
         cdfPerUsd is > 0 ? Money.RateLabel(cdfPerUsd.Value)
         : legacyRate is > 0 && !string.IsNullOrWhiteSpace(secondary) ? $"1 {secondary} = {legacyRate.Value.ToString("0.######", French)} {currency}" : null;
 
-    private static void Footer(PageDescriptor page) => page.Footer().PaddingTop(12).BorderTop(1).BorderColor(Border).AlignCenter().Text(text =>
+    private static void Footer(PageDescriptor page, string label = "AD Gestion Hub") => page.Footer().PaddingTop(12).BorderTop(1).BorderColor(Border).AlignCenter().Text(text =>
     {
-        text.Span("AD Gestion Hub · ").FontColor(Muted);
+        text.Span(label + " · ").FontColor(Muted);
         text.CurrentPageNumber();
         text.Span(" / ");
         text.TotalPages();

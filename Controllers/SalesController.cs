@@ -65,9 +65,11 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         var sale = await FindAsync(shop, id);
         if (sale == null) return NotFound();
         var settings = (await Tenant.GetContextAsync()).Settings;
+        var logo = await Db.StoreLogos.AsNoTracking().Where(l => l.BoutiqueId == shop).Select(l => l.Png).SingleOrDefaultAsync();
         if (string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase))
-            return File(pdf.SalePdf(sale, settings), "application/pdf", $"vente-{sale.Id}.pdf");
+            return File(pdf.SalePdf(sale, settings, logo), "application/pdf", $"vente-{sale.Id}.pdf");
         ViewData["StoreSettings"] = settings;
+        if (logo != null) ViewData["LogoDataUrl"] = StoreLogoImages.DataUrl(logo);
         return View(sale);
     }
 

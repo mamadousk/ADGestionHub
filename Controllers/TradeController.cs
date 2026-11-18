@@ -13,21 +13,18 @@ public abstract class TradeController(ApplicationDbContext db, IBoutiqueService 
 
     protected Task<int?> ShopAsync() => boutiques.GetCurrentBoutiqueIdAsync();
 
-    protected async Task PrepareAsync(int shop, bool purchase = false, bool quote = false)
+    protected async Task PrepareAsync(int shop)
     {
         var settings = (await Tenant.GetContextAsync()).Settings;
         ViewData["TradeSettings"] = settings;
         var products = await Db.Products.AsNoTracking().Where(p => p.BoutiqueId == shop && !p.IsArchived
-            && (purchase || quote || p.StockQuantity > 0)).OrderBy(p => p.Name)
+            && p.StockQuantity > 0).OrderBy(p => p.Name)
             .Select(p => new { p.Id, p.Name, p.Sku, p.StockQuantity, p.SalePrice }).ToListAsync();
         ViewData["TradeProducts"] = products.Select(p => new CatalogPick(p.Id, p.Name, p.Sku, p.StockQuantity,
-            purchase || !Money.IsMvpCurrency(settings.PrimaryCurrencyCode) ? new Dictionary<string, decimal>() :
+            !Money.IsMvpCurrency(settings.PrimaryCurrencyCode) ? new Dictionary<string, decimal>() :
             Money.AvailableCurrencies(settings).ToDictionary(code => code,
                 code => Money.Convert(p.SalePrice, settings.PrimaryCurrencyCode, code, settings.CdfPerUsd)))).ToList();
-        ViewData["TradeContacts"] = purchase
-            ? await Db.Suppliers.AsNoTracking().Where(c => c.BoutiqueId == shop).OrderBy(c => c.Name)
-                .Select(c => new ContactPick(c.Id, c.Name)).ToListAsync()
-            : await Db.Clients.AsNoTracking().Where(c => c.BoutiqueId == shop).OrderBy(c => c.Name)
-                .Select(c => new ContactPick(c.Id, c.Name)).ToListAsync();
+        ViewData["TradeContacts"] = await Db.Clients.AsNoTracking().Where(c => c.BoutiqueId == shop).OrderBy(c => c.Name)
+            .Select(c => new ContactPick(c.Id, c.Name)).ToListAsync();
     }
 }

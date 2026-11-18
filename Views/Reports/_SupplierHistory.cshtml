@@ -1,0 +1,40 @@
+@model BusinessReport
+@{
+    var balances = Model.Outstanding.Where(b => b.Kind == "Purchase").ToList();
+    var payments = Model.Payments.Where(p => p.PurchaseId.HasValue);
+    string Display(decimal amount) => Money.Display(amount, Model.Currency);
+}
+<section id="historique-fournisseurs" class="panel-card mt-4">
+    <div class="p-3 p-md-4">
+        <p class="section-eyebrow">Archives · Lecture seule</p>
+        <h2 class="h5">Historique fournisseurs</h2>
+        <p class="text-slate">Les écritures de l’ancien module sont conservées pour le rapprochement. Les achats archivés ne sont ni des dépenses courantes ni des encaissements. Aucun achat, règlement fournisseur ou réception ne peut être enregistré depuis ces archives.</p>
+        <dl class="d-flex flex-wrap gap-4 mb-2">
+            <div><dt class="small">Achats de la période</dt><dd class="num mb-0">@Display(Model.Purchased)</dd></div>
+            <div><dt class="small">Règlements de la période</dt><dd class="num mb-0">@Display(Model.SupplierPayments)</dd></div>
+            <div><dt class="small">Soldes à la clôture</dt><dd class="num mb-0">@Display(Model.Payables)</dd></div>
+        </dl>
+    </div>
+    @if (Model.Purchases.Count != 0 || payments.Any())
+    {
+        <div class="table-responsive"><table class="table table-ledger">
+            <caption class="visually-hidden">Écritures fournisseurs archivées sur la période</caption>
+            <thead><tr><th scope="col">Date</th><th scope="col">Écriture</th><th scope="col">Détail</th><th scope="col" class="text-end">Montant</th></tr></thead>
+            <tbody>
+                @foreach (var purchase in Model.Purchases)
+                {
+                    <tr><td>@purchase.RecordedAt.ToString("dd/MM/yyyy")</td><td>@purchase.Number</td><td>@purchase.SupplierName <div class="small text-slate">@(purchase.ReceivedAt.HasValue ? "Réception enregistrée" : "Non réceptionné")</div></td><td class="text-end text-nowrap">@Display(purchase.Total)</td></tr>
+                }
+                @foreach (var payment in payments)
+                {
+                    <tr><td>@payment.RecordedAt.ToString("dd/MM/yyyy")</td><td>Règlement de @($"ACH-{payment.PurchaseId:D5}")</td><td>@PaymentMeans.Display(payment.Method)</td><td class="text-end text-nowrap">− @Display(payment.Amount)</td></tr>
+                }
+            </tbody>
+        </table></div>
+    }
+    @if (balances.Count != 0)
+    {
+        <h3 class="h6 p-3 p-md-4 mb-0">Soldes archivés à la clôture</h3>
+        <partial name="_BalanceTable" model="balances" />
+    }
+</section>

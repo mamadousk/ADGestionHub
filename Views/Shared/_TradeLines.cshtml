@@ -1,22 +1,21 @@
 @model TradeInput
 @{
-    var isPurchase = Model is PurchaseInput;
     var count = Math.Max(1, Math.Min(Model.Items.Count, CommerceOperations.MaxLines));
 }
 <section class="panel-card p-3 p-md-4 mb-3">
     <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
-        <div><h2 class="h6 mb-1">Produits</h2><p class="text-slate small mb-0">@(isPurchase ? "Saisissez le prix d’achat unitaire dans la devise sélectionnée." : "Les prix du catalogue sont appliqués dans la devise choisie.")</p></div>
+        <div><h2 class="h6 mb-1">Produits</h2><p class="text-slate small mb-0">Les prix du catalogue sont appliqués dans la devise choisie.</p></div>
         <button type="button" class="btn btn-secondary-outline btn-sm" data-add-line>@LucideIcons.Svg("plus", 15, "me-1") Ajouter une ligne</button>
     </div>
     <div class="trade-lines" data-trade-lines data-max-lines="@CommerceOperations.MaxLines">
         @for (var index = 0; index < count; index++)
         {
-            var row = new TradeLineRow(Model.Items.ElementAtOrDefault(index) ?? new TradeLineInput(), index, isPurchase);
+            var row = new TradeLineRow(Model.Items.ElementAtOrDefault(index) ?? new TradeLineInput(), index);
             <partial name="_TradeLine" model="row" />
         }
     </div>
     <template data-line-template>
-        <partial name="_TradeLine" model="@(new TradeLineRow(new TradeLineInput(), -1, isPurchase))" />
+        <partial name="_TradeLine" model="@(new TradeLineRow(new TradeLineInput(), -1))" />
     </template>
     <input type="hidden" name="ExpectedTotal" data-expected-total />
 </section>

@@ -1,0 +1,29 @@
+@{
+    ViewData["Title"] = "Accepter les conditions d’utilisation";
+    ViewData["PublicShell"] = true;
+    ViewData["AccountFlow"] = true;
+}
+<section class="onboarding-shell mx-auto">
+    <div class="panel-card p-3 p-sm-4 p-lg-5">
+        <p class="section-eyebrow">Première connexion · Conditions d’utilisation</p>
+        <h1>Avant d’accéder à votre espace</h1>
+        <p class="text-slate">Prenez connaissance des conditions qui encadrent l’utilisation d’AD Gestion Hub. Votre acceptation est nécessaire pour accéder aux fonctionnalités de la boutique.</p>
+        <div class="terms-version mb-4">
+            <div>
+                <strong>Conditions générales d’utilisation</strong>
+                <div class="text-slate small">Version @LegalPublication.TermsVersion · @LegalPublication.DisplayDate</div>
+            </div>
+            <a asp-controller="Infos" asp-action="CGU" target="_blank" rel="noopener" class="btn btn-secondary-outline btn-sm">Lire les CGU <span class="visually-hidden">(nouvel onglet)</span></a>
+        </div>
+        <form asp-action="Terms" method="post">
+            <input type="hidden" name="version" value="@LegalPublication.TermsVersion" />
+            <div asp-validation-summary="All" class="validation-banner mb-3" role="alert"></div>
+            <div class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" id="acceptTerms" name="acceptTerms" value="true" required />
+                <label class="form-check-label fw-semibold" for="acceptTerms">J’ai lu et j’accepte les conditions générales d’utilisation.</label>
+            </div>
+            <p class="small text-slate mb-4">Notre <a asp-controller="Infos" asp-action="Confidentialite" target="_blank" rel="noopener">politique de confidentialité<span class="visually-hidden"> (nouvel onglet)</span></a> décrit séparément l’utilisation de vos données.</p>
+            <button type="submit" class="btn btn-accent">Accepter et continuer</button>
+        </form>
+    </div>
+</section>
