@@ -312,8 +312,10 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     pos = small_text(pos)
     assert 'data-pos-grid' in pos and 'Chiffre d’affaires' not in pos and 'Historique des ventes' not in pos
     assert 'Client confidentiel A' not in pos and 'name="ClientId"' not in pos and 'data-trade-discount' not in pos
-    nav = re.search(r'<nav class="sidebar-nav"[^>]*>(.*?)</nav>', pos, re.S)[1]
-    assert re.findall(r'href="([^"]+)"', nav) == ['/Sales/Create'], nav
+    # Razor CSS isolation may insert a scope attribute before the class attribute.
+    nav = re.search(r'<nav\b[^>]*\sclass="sidebar-nav"[^>]*>(.*?)</nav>', pos, re.S)
+    assert nav is not None, 'Navigation principale absente de la caisse'
+    assert re.findall(r'href="([^"]+)"', nav[1]) == ['/Sales/Create'], nav[1]
     assert cashier.request('/Home/Index?currency=CDF')[0] == '/Sales/Create'
     for path in ('/Sales', '/Reports', '/Products', '/Clients', '/Expenses', '/Payments', '/Debts', '/Settings', '/Users',
                  '/Reports/Export?format=pdf', '/Reports/Export?format=xlsx', '/Reports/Export?format=csv'):
