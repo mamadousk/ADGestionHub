@@ -372,6 +372,16 @@ def run(base, db_file, superadmin):
     assert path == '/' and 'Accès gratuit' in text and 'Créer mon compte gratuit' in text
     assert 'Version 1 gratuite' not in text and 'V1 gratuite' not in text
     assert 'https://fonts.googleapis' not in html.decode() and 'cookieConsent' not in html.decode()
+    assert 'Pilotez votre PME' in text and 'Une vente, quatre écrans.' in text
+    assert 'non normalisés DGI' in text and 'En préparation' in text and 'données fictives' in text
+    for section in ('benefices', 'demo', 'fonctionnalites', 'tarifs'):
+        assert f'id="{section}"' in text and f'href="#{section}"' in text, section
+    for screenshot in ('vente', 'stock', 'creances', 'tableau-de-bord'):
+        asset = f'/images/demo/{screenshot}.webp'
+        assert f'href="{asset}"' in text, asset
+        final, image, mime = public.request(asset)
+        assert final == asset and mime == 'image/webp' and not public.last_disposition, asset
+        assert image[:4] == b'RIFF' and image[8:12] == b'WEBP' and len(image) < 150 * 1024, asset
     for doc in ('CGU', 'MentionsLegales', 'Confidentialite', 'Cookies'):
         path, html, _ = public.request(f'/Infos/{doc}')
         text = small_text(html)

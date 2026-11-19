@@ -1,0 +1,41 @@
+@{
+    var steps = new[]
+    {
+        (Image: "vente.webp", Title: "Enregistrer la vente", Alt: "Vente FAC-00007 : deux bidons de peinture pour 48 000 CDF, dont 18 000 CDF déjà réglés.", Text: "Le document de vente indique ce qui a été vendu, le montant du versement et le solde à régler."),
+        (Image: "stock.webp", Title: "Voir le stock s’actualiser", Alt: "La fiche produit enregistre une sortie de 2 bidons de peinture et affiche un stock restant de 10 unités.", Text: "Le stock des bidons passe de 12 à 10 unités, sans créer une sortie séparée."),
+        (Image: "creances.webp", Title: "Suivre le reste à encaisser", Alt: "La liste des créances affiche un solde de 30 000 CDF pour le Client Démo.", Text: "La vente apparaît dans les créances avec 30 000 CDF à recevoir. Un prochain versement réduira ce solde."),
+        (Image: "tableau-de-bord.webp", Title: "Lire les chiffres de la période", Alt: "Tableau de bord du 12 au 18 novembre : 244 000 CDF de ventes, 214 000 CDF encaissés et 30 000 CDF de créances.", Text: "Sur la semaine, le tableau de bord distingue le total des ventes, l’argent encaissé et les créances encore ouvertes.")
+    };
+}
+<section id="demo" class="marketing-section marketing-demo" aria-labelledby="demo-title">
+    <div class="marketing-section-heading">
+        <p class="section-eyebrow">Démo en images · Sans inscription</p>
+        <h2 id="demo-title">Une vente, quatre écrans.</h2>
+        <p>Comptoir Démo vend deux bidons de peinture à 24 000 CDF chacun. Le client verse 18 000 CDF et paiera le reste plus tard. Voici où l’on retrouve chaque information.</p>
+    </div>
+    <dl class="marketing-demo-metrics" aria-label="Montants de la vente d’exemple">
+        <div><dt>Total de la vente</dt><dd class="num">48 000 <span>CDF</span></dd></div>
+        <div><dt>Acompte reçu</dt><dd class="num">18 000 <span>CDF</span></dd></div>
+        <div><dt>Reste à encaisser</dt><dd class="num">30 000 <span>CDF</span></dd></div>
+    </dl>
+    <p class="marketing-demo-hint">Aperçus illustrés de l’interface sur données fictives. Sélectionnez une image pour l’agrandir dans un nouvel onglet.</p>
+    <ol class="marketing-demo-grid list-unstyled mb-0">
+        @for (var i = 0; i < steps.Length; i++)
+        {
+            var step = steps[i];
+            var imageUrl = Url.Content($"~/images/demo/{step.Image}");
+            <li>
+                <figure class="marketing-demo-card">
+                    <a class="marketing-demo-image" href="@imageUrl" target="_blank" rel="noopener" aria-label="Agrandir l’aperçu : @step.Title (nouvel onglet)">
+                        <img src="@imageUrl" asp-append-version="true" width="1160" height="860" loading="lazy" decoding="async" alt="@step.Alt" />
+                        <span class="marketing-demo-zoom" aria-hidden="true">@LucideIcons.Svg("search", 17)</span>
+                    </a>
+                    <figcaption>
+                        <div class="marketing-demo-heading"><span class="marketing-step-index num" aria-hidden="true">@((i + 1).ToString("00"))</span><h3>@step.Title</h3></div>
+                        <p>@step.Text</p>
+                    </figcaption>
+                </figure>
+            </li>
+        }
+    </ol>
+</section>
