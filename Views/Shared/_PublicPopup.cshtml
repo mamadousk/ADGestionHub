@@ -1,0 +1,25 @@
+@model PublicPopup
+
+<div class="modal fade public-popup no-print" id="publicPopup" tabindex="-1" aria-labelledby="publicPopupTitle" aria-hidden="true"
+     data-public-popup-version="@($"{Model.Id}:{Model.PublishedAtUtc.ToUnixTimeMilliseconds()}")">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <header class="modal-header public-popup-header">
+                <div class="public-popup-heading">
+                    <span class="public-popup-mark" aria-hidden="true">@LucideIcons.Svg("bell", 21)</span>
+                    <div class="public-popup-title-wrap">
+                        <p class="public-popup-kicker">Information de la plateforme</p>
+                        <h2 class="modal-title public-popup-title" id="publicPopupTitle" tabindex="-1">@Model.Title</h2>
+                    </div>
+                </div>
+                <button type="button" class="public-popup-close" data-bs-dismiss="modal" aria-label="Fermer le pop-up">
+                    @LucideIcons.Svg("x", 19)
+                </button>
+            </header>
+            <div class="modal-body public-popup-message" tabindex="0" role="region" aria-label="Contenu du pop-up">@PublicPopupHtml.Render(Model.MessageHtml)</div>
+            <footer class="modal-footer public-popup-footer">
+                <button type="button" class="btn btn-accent" data-bs-dismiss="modal">@LucideIcons.Svg("check", 16, "me-1") J’ai compris</button>
+            </footer>
+        </div>
+    </div>
+</div>

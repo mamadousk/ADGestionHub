@@ -1,5 +1,6 @@
 using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -34,7 +35,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
         [BindProperty]
         public InputModel Input { get; set; } = new();
 
-        public string? ReturnUrl { get; set; }
+        public string ReturnUrl { get; private set; } = string.Empty;
 
         public class InputModel
         {
@@ -52,19 +53,26 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             public bool RememberMe { get; set; }
         }
 
-        public void OnGet(string? returnUrl = null, int? suspended = null)
+        public IActionResult OnGet(string? returnUrl = null, int? suspended = null, bool expired = false)
         {
-            ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
+            ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
+            if (User.Identity?.IsAuthenticated == true) return LocalRedirect(ReturnUrl);
+
             if (suspended == 1)
             {
                 ModelState.AddModelError(string.Empty, "L'accès à votre boutique est temporairement suspendu. Veuillez contacter l'administrateur de la plateforme.");
             }
+            else if (expired)
+            {
+                ModelState.AddModelError(string.Empty, "La vérification de connexion a expiré. Reconnectez-vous.");
+            }
+            return Page();
         }
 
         public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
         {
-            if (!Url.IsLocalUrl(returnUrl)) returnUrl = Url.Content("~/");
-            ReturnUrl = returnUrl;
+            ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
+            if (User.Identity?.IsAuthenticated == true) return LocalRedirect(ReturnUrl);
 
             if (!ModelState.IsValid)
                 return Page();
@@ -104,11 +112,11 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             if (result.Succeeded)
             {
                 _logger.LogInformation("Connexion réussie pour un utilisateur.");
-                return LocalRedirect(returnUrl);
+                return LocalRedirect(ReturnUrl);
             }
             if (result.RequiresTwoFactor)
             {
-                return RedirectToPage("./LoginWith2fa", new { ReturnUrl = returnUrl, RememberMe = Input.RememberMe });
+                return RedirectToPage("./LoginWith2fa", new { ReturnUrl, RememberMe = Input.RememberMe });
             }
             if (result.IsLockedOut)
             {

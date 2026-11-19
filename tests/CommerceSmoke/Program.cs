@@ -28,6 +28,8 @@ try
     await RunAsync(sqliteOptions);
     Console.WriteLine("Scénarios métier SQLite réussis.");
 
+    VerifyPopupHtml();
+
     var target = new SqlConnectionStringBuilder(sqlServer ?? "Server=localhost;Integrated Security=True")
     {
         InitialCatalog = "AdghSmoke_" + Guid.NewGuid().ToString("N")
@@ -36,6 +38,10 @@ try
     await using var server = new ApplicationDbContext(sqlOptions);
     Check(server.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent)
         .Contains("CK_Payments_OneDocument", StringComparison.Ordinal), "script SQL Server généré depuis les migrations versionnées");
+    const string onboarding = "20261118213000_PublicV1Onboarding";
+    var popupUpgrade = server.GetService<IMigrator>().GenerateScript(fromMigration: onboarding, options: MigrationsSqlGenerationOptions.Idempotent);
+    Check(popupUpgrade.Contains("CREATE TABLE [PublicPopups]", StringComparison.Ordinal)
+        && !popupUpgrade.Contains("GlobalNotifications", StringComparison.Ordinal), "migration additive sans reprise publique des annonces existantes");
     CheckSnapshot(server);
     if (sqlServer != null)
     {
@@ -56,6 +62,8 @@ try
             await server.Database.MigrateAsync();
             Check(!await server.TermsAcceptances.AnyAsync(), "aucune acceptation créée pour les comptes existants");
             Check(!await server.StoreLogos.AnyAsync() && !(await server.Boutiques.SingleAsync()).SetupPending, "pas de logo ni de configuration imposés par la migration");
+            Check(!await server.PublicPopups.AnyAsync() && (await server.GlobalNotifications.SingleAsync()).Message == "Annonce historique privée",
+                "l’ancienne annonce est conservée, aucun pop-up public n’est créé");
             var oldPurchase = await server.Purchases.AsNoTracking().Include(p => p.Items).Include(p => p.Payments).SingleAsync();
             Check(oldPurchase.Balance == 7.36m && oldPurchase.Items.Single().Quantity == 4 && oldPurchase.ReceivedAt == null, "achat et règlement historiques inchangés");
             var existingUser = await server.Users.AsNoTracking().SingleAsync();
@@ -81,6 +89,32 @@ catch (Exception error)
     throw;
 }
 finally { directory.Delete(recursive: true); }
+
+static void VerifyPopupHtml()
+{
+    var sanitized = PublicPopupHtml.Prepare("""
+        <h2 id="test">Annonce</h2><p style="color:red" onclick="return false">Texte <strong>mis en forme</strong>.</p>
+        <ul><li>Un élément</li></ul><a href="/Infos/CGU" target="_blank">Conditions</a>
+        <a href="https://example.test/info">Informations</a>
+        <a href="http://example.test/">Lien non sécurisé</a><a href="//example.test/">Lien relatif au protocole</a>
+        <a href="javascript:void(0)">Lien hors liste</a><a href="data:text/plain,texte">Lien de données</a>
+        <script>texte non publiable</script><style>p{color:red}</style><iframe></iframe><img alt="Non autorisée">
+        """);
+    Check(sanitized != null, "publication avec du texte");
+    var html = sanitized!;
+    foreach (var allowed in new[] { "<h2>Annonce</h2>", "<strong>mis en forme</strong>", "<ul>", "href=\"/Infos/CGU\"", "href=\"https://example.test/info\"" })
+        Check(html.Contains(allowed, StringComparison.Ordinal), $"mise en forme conservée : {allowed}");
+    foreach (var forbidden in new[] { "style=", "onclick=", "id=", "target=", "<script", "<style", "<iframe", "<img", "texte non publiable", "href=\"http:", "href=\"//", "href=\"data:", "href=\"javascript:" })
+        Check(!html.Contains(forbidden, StringComparison.OrdinalIgnoreCase), $"élément retiré : {forbidden}");
+    Check(PublicPopupHtml.Prepare("<p>&nbsp;<br></p>") == null
+        && PublicPopupHtml.Prepare(new string('A', PublicPopupHtml.MaxInputLength + 1)) == null,
+        "un pop-up vide ou trop long n’est pas publiable");
+    var now = DateTimeOffset.UtcNow;
+    var popup = new PublicPopup { PublishedAtUtc = now, ExpiresAtUtc = now.AddHours(1) };
+    Check(popup.IsVisibleAt(now) && !popup.IsVisibleAt(popup.ExpiresAtUtc), "expiration à l’heure prévue");
+    popup.WithdrawnAtUtc = now;
+    Check(!popup.IsVisibleAt(now), "retrait immédiat du prochain rendu");
+}
 
 static void CheckSnapshot(ApplicationDbContext db)
 {
@@ -140,6 +174,8 @@ static async Task SeedV1Async(ApplicationDbContext db) => await db.Database.Exec
       VALUES (@purchase, @product, N'Ancien produit', 4, 2.34);
     INSERT INTO Payments (BoutiqueId, PurchaseId, Method, CurrencyCode, AppliedCurrencyCode, Amount, AppliedAmount, RecordedAt)
       VALUES (@shop, @purchase, N'Espèces', N'USD', N'USD', 2, 2, SYSDATETIME());
+    INSERT INTO GlobalNotifications (Message, IsActive, IsCritical, CreatedAt, ExpiryDate)
+      VALUES (N'Annonce historique privée', 1, 0, SYSDATETIME(), DATEADD(HOUR, 1, SYSDATETIME()));
     """);
 
 static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)

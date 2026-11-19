@@ -33,6 +33,7 @@ namespace AdGestionHub.Data
         public DbSet<WaitingListPro> WaitingListPros { get; set; }
         public DbSet<UserFeedback> UserFeedbacks { get; set; }
         public DbSet<GlobalNotification> GlobalNotifications { get; set; }
+        public DbSet<PublicPopup> PublicPopups { get; set; }
         public DbSet<SystemLog> SystemLogs { get; set; }
         public DbSet<ErrorLog> ErrorLogs { get; set; }
 
