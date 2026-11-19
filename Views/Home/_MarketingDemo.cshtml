@@ -8,18 +8,18 @@
     };
 }
 <section id="demo" class="marketing-section marketing-demo" aria-labelledby="demo-title">
-    <div class="marketing-section-heading">
+    <div class="marketing-section-heading" data-landing-reveal>
         <p class="section-eyebrow">Démo en images · Sans inscription</p>
         <h2 id="demo-title">Une vente, quatre écrans.</h2>
         <p>Comptoir Démo vend deux bidons de peinture à 24 000 CDF chacun. Le client verse 18 000 CDF et paiera le reste plus tard. Voici où l’on retrouve chaque information.</p>
     </div>
-    <dl class="marketing-demo-metrics" aria-label="Montants de la vente d’exemple">
+    <dl class="marketing-demo-metrics" data-landing-stagger aria-label="Montants de la vente d’exemple">
         <div><dt>Total de la vente</dt><dd class="num">48 000 <span>CDF</span></dd></div>
         <div><dt>Acompte reçu</dt><dd class="num">18 000 <span>CDF</span></dd></div>
         <div><dt>Reste à encaisser</dt><dd class="num">30 000 <span>CDF</span></dd></div>
     </dl>
-    <p class="marketing-demo-hint">Aperçus illustrés de l’interface sur données fictives. Sélectionnez une image pour l’agrandir dans un nouvel onglet.</p>
-    <ol class="marketing-demo-grid list-unstyled mb-0">
+    <p class="marketing-demo-hint" data-landing-reveal>Aperçus illustrés de l’interface sur données fictives. Sélectionnez une image pour l’agrandir dans un nouvel onglet.</p>
+    <ol class="marketing-demo-grid list-unstyled mb-0" data-landing-stagger>
         @for (var i = 0; i < steps.Length; i++)
         {
             var step = steps[i];
