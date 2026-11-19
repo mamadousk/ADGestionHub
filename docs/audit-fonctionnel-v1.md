@@ -90,3 +90,9 @@ Aucun code applicatif ni réglage d’hébergement n’a été modifié pendant 
 Le graphique garde son défilement interne et propose les montants par intervalle dans un tableau. Le menu mobile fermé n’est plus dans l’ordre de tabulation ; il se ferme au bouton, en touchant le fond ou avec Échap, en rendant le focus au bouton Menu. Une reproduction Chromium utilisant le CSS et le JavaScript du dépôt a validé le graphique à 14 barres à 320/390/768/1440 px, ainsi que le clavier et le retour au format ordinateur.
 
 Les [scénarios HTTP](../tests/http_smoke.py) et [navigateur](../tests/browser_smoke.py) ont été étendus. À lancer sur un SDK .NET 10 avant publication, puis refaire sur MonsterASP en HTTPS avec un compte de test : **accueil → Se connecter → tableau de bord → se déconnecter → se reconnecter**, et **reconnexion depuis un lien vers un PDF → document HTML → téléchargement sur demande**. Le message « Download » signalé à l’ouverture du formulaire n’a pas été reproduit sur l’hébergement ; il reste à confirmer dans le navigateur concerné.
+
+## Suivi — Vitrine et démo en images
+
+La [vitrine](../Views/Home/Welcome.cshtml) s’adresse aux PME, commerces et distributeurs. Elle distingue les bénéfices (une seule saisie, réapprovisionnement et suivi des soldes), les fonctions disponibles et les offres encore en préparation. Les devis, le circuit d’achat et les comptes de caisse ou de banque ne sont pas présentés comme disponibles.
+
+La [démo](../Views/Home/_MarketingDemo.cshtml) suit la même vente fictive sur quatre écrans : **48 000 CDF vendus**, **18 000 CDF encaissés**, **30 000 CDF restant dus**, avec **12 → 10 bidons en stock**. Les [images WebP](../wwwroot/images/demo/) sont des illustrations reconstruites d’après les vues et les styles du dépôt, pas des captures d’une entreprise réelle ni un environnement de saisie. Elles sont accessibles sans connexion et s’agrandissent dans un nouvel onglet.

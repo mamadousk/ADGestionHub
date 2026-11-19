@@ -1432,48 +1432,56 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 .marketing-main { padding:clamp(1.5rem, 5vw, 3.25rem) 0 clamp(2.75rem, 6vw, 5.25rem); }
 .marketing-page { --marketing-space:clamp(3rem, 7vw, 5.75rem); }
 .marketing-page section[id] { scroll-margin-top:7rem; }
-.marketing-hero { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:clamp(1.7rem, 5vw, 5rem); align-items:center; padding:clamp(1.25rem, 4.5vw, 4.25rem); border:1px solid #e5e3ef; border-radius:clamp(18px, 3vw, 28px); background:radial-gradient(ellipse at 97% 25%,#eae4ff 0,transparent 60%),linear-gradient(147deg,#fff 20%,#fff7ee 100%); }
+.marketing-hero { display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); gap:clamp(1.7rem, 4vw, 3.75rem); align-items:center; padding:clamp(1.25rem, 4vw, 3.5rem); border:1px solid #e5e3ef; border-radius:clamp(18px, 3vw, 28px); background:radial-gradient(ellipse at 97% 25%,#eae4ff 0,transparent 60%),linear-gradient(147deg,#fff 20%,#fff7ee 100%); }
 .marketing-tag { display:inline-flex; align-items:center; gap:.45rem; background:#fff0e8; color:#963918; border:1px solid #f8d9c9; border-radius:99px; padding:.38rem .72rem; font-size:.72rem; font-weight:750; letter-spacing:.04em; text-transform:uppercase; }
-.marketing-hero h1 { font-size:clamp(2.25rem, 4.6vw, 4.15rem); line-height:1.04; letter-spacing:-.058em; margin:1rem 0 1.1rem; }
+.marketing-hero h1 { font-size:clamp(2.25rem, 4.6vw, 4.15rem); line-height:1.04; letter-spacing:-.058em; margin:1rem 0 1.1rem; text-wrap:balance; }
 .marketing-hero h1 span { display:block; color:#a63917; }
 .marketing-lead { color:var(--text-secondary); font-size:clamp(1rem, 1.55vw, 1.16rem); line-height:1.65; max-width:46ch; margin-bottom:1.55rem; }
 .marketing-actions { display:flex; align-items:center; flex-wrap:wrap; gap:.65rem; }
-.marketing-actions .btn, .marketing-final .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.68rem .92rem; font-weight:700; text-wrap:balance; }
+.marketing-actions .btn, .marketing-final .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:44px; padding:.68rem .92rem; font-weight:700; text-wrap:balance; }
 .marketing-checks { display:flex; flex-wrap:wrap; gap:.4rem .95rem; margin-top:1.15rem; color:var(--text-secondary); font-size:.78rem; }
 .marketing-checks li { display:flex; align-items:center; gap:.35rem; }
 .marketing-checks svg { color:#087b61; flex:none; }
-.marketing-preview { border:1px solid #dedff0; border-radius:18px; box-shadow:var(--shadow-xl); overflow:hidden; background:#f8f9fe; align-self:center; }
-.preview-hdr { display:flex; align-items:center; gap:.6rem; background:var(--bg-sidebar); padding:.77rem 1rem; color:#fff; }
-.preview-app-logo { display:grid; place-items:center; width:33px; height:33px; border-radius:8px; color:#0f172a; background:var(--accent-grad); font-weight:800; flex:none; }
-.preview-hdr small { display:block; color:#bdc6df; font-size:.68rem; }
-.preview-demo { margin-left:auto; padding:.22rem .6rem; border:1px solid #414b68; border-radius:50px; font-size:.68rem; color:#e0e5f5; }
-.preview-body { padding:clamp(.72rem, 2vw, 1.2rem); }
-.preview-title { letter-spacing:-.025em; font-size:clamp(.98rem, 1.7vw, 1.2rem); }
-.preview-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-bottom:.65rem; }
-.preview-metrics > div, .preview-chart { padding:.64rem .68rem; border:1px solid #e4e6f0; border-radius:10px; background:#fff; }
-.preview-metrics dt { color:var(--text-secondary); font-size:.7rem; font-weight:600; }
-.preview-metrics dd { font-weight:750; font-size:clamp(.82rem, 1.58vw, 1.24rem); letter-spacing:-.035em; margin:0; }
-.preview-chart strong { font-size:.78rem; }
-.preview-chart small, .preview-days { color:var(--text-secondary); font-size:.65rem; }
-.preview-bars { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); justify-items:center; align-items:end; gap:.3rem; height:90px; margin-top:.55rem; background:repeating-linear-gradient(to top,#edf0f6 0,#edf0f6 1px,transparent 1px,transparent 22px); }
-.preview-bars span { height:var(--bar); width:70%; max-width:32px; border-radius:5px 5px 0 0; background:linear-gradient(180deg,#a29af5,#6a5bda); }
-.preview-bars span:last-child { background:var(--accent-grad); }
-.preview-days { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); text-align:center; margin-top:.24rem; }
-.preview-status > div { display:flex; align-items:center; gap:.4rem; border-bottom:1px solid #e4e6f0; padding:.58rem 0; font-size:.73rem; }
-.preview-status > div:last-child { border-bottom:0; padding-bottom:0; }
-.preview-status .metric-icon { width:28px; height:28px; border-radius:7px; }
-.preview-status strong { margin-left:auto; text-align:right; white-space:nowrap; }
-.marketing-preview figcaption { text-align:center; padding:.45rem .65rem; border-top:1px solid #e4e6f0; color:var(--text-secondary); font-size:.68rem; }
+.marketing-preview { min-width:0; border:1px solid #dfe0ed; border-radius:16px; box-shadow:var(--shadow-xl); overflow:hidden; background:#fff; align-self:center; }
+.marketing-preview img, .marketing-demo-image img { display:block; width:100%; height:auto; }
+.marketing-preview figcaption { display:flex; flex-wrap:wrap; align-items:center; gap:.35rem .55rem; padding:.7rem .85rem; border-top:1px solid var(--border-color); color:#334155; font-size:.73rem; font-weight:650; }
+.marketing-preview-dot { width:8px; height:8px; border-radius:50%; background:#6d5ee7; }
+.marketing-preview-note { margin-inline-start:auto; color:var(--text-muted); font-weight:500; }
 .marketing-section { margin-top:var(--marketing-space); }
-.marketing-section-heading { max-width:690px; margin-bottom:clamp(1.1rem, 2.6vw, 1.9rem); }
-.marketing-section-heading h2, .marketing-offer h2, .marketing-final h2 { font-size:clamp(1.75rem, 3.4vw, 2.85rem); letter-spacing:-.045em; line-height:1.12; margin:.38rem 0 .65rem; }
+.marketing-section-heading { max-width:720px; margin-bottom:clamp(1.1rem, 2.6vw, 1.9rem); }
+.marketing-section-heading h2, .marketing-offer h2, .marketing-final h2 { font-size:clamp(1.75rem, 3.4vw, 2.85rem); letter-spacing:-.045em; line-height:1.12; margin:.38rem 0 .65rem; text-wrap:balance; }
 .marketing-section-heading > p:not(.section-eyebrow), .marketing-final p:not(.section-eyebrow) { font-size:1rem; color:var(--text-secondary); margin-bottom:0; }
-.marketing-features, .marketing-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
-.marketing-feature, .marketing-steps > li { padding:clamp(1.05rem, 2vw, 1.65rem); }
-.marketing-feature .metric-icon { width:44px; height:44px; }
-.marketing-feature h3, .marketing-steps h3 { font-size:1.13rem; margin:.85rem 0 .55rem; }
-.marketing-feature p, .marketing-steps p { color:var(--text-secondary); margin-bottom:.75rem; }
-.marketing-feature .feature-detail { border-top:1px solid var(--border-color); padding-top:.75rem; margin-bottom:0; font-size:.83rem; }
+.marketing-benefits, .marketing-features, .marketing-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
+.marketing-benefits { gap:1px; border:1px solid var(--border-color); border-radius:var(--radius-lg); overflow:hidden; background:var(--border-color); }
+.marketing-benefit { padding:clamp(1.05rem, 2.6vw, 1.9rem); background:var(--bg-surface); }
+.marketing-benefit h3 { font-size:clamp(1.05rem, 1.45vw, 1.24rem); line-height:1.3; margin:.85rem 0 .55rem; }
+.marketing-benefit p { color:var(--text-secondary); margin:0; }
+.marketing-demo { padding:clamp(.875rem, 3.2vw, 2.55rem); border:1px solid #e3e1f2; border-radius:var(--radius-xl); background:linear-gradient(140deg,#f1efff,#fbfbff 67%,#fff6ee); }
+.marketing-demo-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.65rem; margin-bottom:1rem; }
+.marketing-demo-metrics > div { padding:.8rem .95rem; border:1px solid #e2e0ef; border-radius:11px; background:var(--bg-surface); }
+.marketing-demo-metrics dt { color:var(--text-secondary); font-size:.8rem; font-weight:600; }
+.marketing-demo-metrics dd { margin:.18rem 0 0; font-weight:800; font-size:clamp(1.2rem, 2.65vw, 1.9rem); line-height:1.1; letter-spacing:-.04em; white-space:nowrap; }
+.marketing-demo-metrics dd span { font-size:.74rem; letter-spacing:0; color:#5a538d; }
+.marketing-demo-hint { color:var(--text-secondary); font-size:.82rem; margin-bottom:.85rem; }
+.marketing-demo-grid, .marketing-pricing { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+.marketing-demo-card { height:100%; margin:0; border:1px solid #dedfee; border-radius:12px; background:var(--bg-surface); box-shadow:var(--shadow-sm); }
+.marketing-demo-image { display:block; position:relative; border-radius:11px 11px 0 0; background:#f3f4fa; }
+.marketing-demo-image img { border-radius:11px 11px 0 0; }
+.marketing-demo-zoom { position:absolute; right:.58rem; bottom:.58rem; display:grid; place-items:center; width:36px; height:36px; border:1px solid #e3e4f1; border-radius:9px; background:#fff; color:#4338ca; box-shadow:var(--shadow-sm); }
+.marketing-demo-image:hover .marketing-demo-zoom, .marketing-demo-image:focus-visible .marketing-demo-zoom { color:#fff; background:#4338ca; border-color:#4338ca; }
+.marketing-demo-card figcaption { padding:clamp(.85rem, 2.25vw, 1.2rem); border-top:1px solid var(--border-color); }
+.marketing-demo-heading { display:flex; align-items:center; gap:.6rem; margin-bottom:.5rem; }
+.marketing-demo-heading h3 { font-size:clamp(.98rem, 1.5vw, 1.12rem); margin:0; }
+.marketing-demo-heading .marketing-step-index { flex:none; padding:.27rem .45rem; font-size:.75rem; }
+.marketing-demo-card p { font-size:.875rem; color:var(--text-secondary); margin:0; }
+.marketing-feature, .marketing-steps > li, .marketing-plan { padding:clamp(1.05rem, 2vw, 1.65rem); }
+.marketing-feature .metric-icon, .marketing-benefit .metric-icon { width:44px; height:44px; }
+.marketing-feature h3, .marketing-steps h3, .marketing-plan h3 { font-size:1.13rem; margin:.85rem 0 .55rem; }
+.marketing-feature ul { padding-inline-start:1.1rem; margin-bottom:0; color:var(--text-secondary); font-size:.9rem; }
+.marketing-feature li + li { margin-top:.45rem; }
+.marketing-feature li::marker { color:#6754b8; }
+.marketing-feature .feature-detail { border-top:1px solid var(--border-color); padding-top:.7rem; margin:.75rem 0 0; color:var(--text-secondary); font-size:.8rem; }
+.marketing-steps p, .marketing-plan p { color:var(--text-secondary); margin-bottom:0; }
 .marketing-offer { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr); gap:1.25rem 2rem; align-items:center; margin-top:var(--marketing-space); padding:clamp(1.5rem, 5vw, 3.4rem); background:radial-gradient(ellipse at 100% 0%,#252755 0%,transparent 65%),var(--bg-sidebar); border-radius:var(--radius-xl); color:#dbe3f6; }
 .marketing-offer .section-eyebrow { color:#ffc29e; }
 .marketing-offer h2 { color:#fff; }
@@ -1499,7 +1507,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
     .marketing-actions .btn { font-size:.84rem; }
 }
 @media (max-width: 767.98px) {
-    .marketing-hero, .marketing-offer, .marketing-faq { grid-template-columns:1fr; }
+    .marketing-hero, .marketing-offer, .marketing-faq, .marketing-demo-grid, .marketing-pricing, .marketing-benefits { grid-template-columns:1fr; }
     .marketing-features, .marketing-steps { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .trade-line { grid-template-columns:minmax(0,1fr) auto; }
     .trade-item { grid-column:1/-1; }
@@ -1509,7 +1517,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
     .public-topbar .container { gap:.5rem; }
     .public-topbar .container .btn { font-size:.76rem; padding:.37rem .55rem; }
     .public-brand { font-size:.9rem; }
+    .marketing-hero h1 { font-size:clamp(1.95rem, 8vw, 2.25rem); }
+    .marketing-lead { line-height:1.55; }
     .marketing-features, .marketing-steps { grid-template-columns:1fr; }
+    .marketing-demo-metrics { grid-template-columns:1fr; gap:0; border:1px solid #e2e0ef; border-radius:11px; overflow:hidden; }
+    .marketing-demo-metrics > div { display:flex; justify-content:space-between; align-items:baseline; gap:.5rem; padding:.65rem .75rem; border:0; border-radius:0; }
+    .marketing-demo-metrics > div + div { border-top:1px solid #e2e0ef; }
+    .marketing-demo-metrics dd { margin:0; font-size:1rem; }
     .marketing-page section[id] { scroll-margin-top:7.5rem; }
 }
 @media print {

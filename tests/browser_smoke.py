@@ -71,9 +71,28 @@ def run_browser(base, cookies, product, server_pdf):
                 assert visitor.goto(base + '/').ok
                 assert visitor.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
                 assert_centered_with_gutters(visitor.locator('.marketing-hero'))
+                assert_centered_with_gutters(visitor.locator('#demo'))
                 cta = visitor.locator('.marketing-hero').get_by_role('link', name='Créer mon compte gratuit')
                 expect(cta).to_be_visible()
+                expect(visitor.locator('.marketing-preview img')).to_have_js_property('naturalWidth', 1160)
                 assert_accent_contrast(cta)  # no hover
+
+            visitor.set_viewport_size({'width': 320, 'height': 760})
+            visitor.get_by_role('link', name='Voir la démo', exact=True).click()
+            assert urlparse(visitor.url).fragment == 'demo'
+            expect(visitor.get_by_role('heading', name='Une vente, quatre écrans.')).to_be_in_viewport()
+            gallery = visitor.locator('.marketing-demo-grid')
+            expect(gallery.locator('figure img')).to_have_count(4)
+            for image in gallery.locator('figure img').all():
+                image.scroll_into_view_if_needed()
+                expect(image).to_have_js_property('naturalWidth', 1160)
+            zoom = gallery.get_by_role('link', name='Agrandir l’aperçu : Enregistrer la vente (nouvel onglet)')
+            with visitor.expect_popup() as screenshot_tab:
+                zoom.press('Enter')
+            picture = screenshot_tab.value
+            picture.wait_for_url(base + '/images/demo/vente.webp')
+            picture.close()
+            assert visitor.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
             visitor.set_viewport_size({'width': 390, 'height': 844})
             visitor.locator('.public-footer').get_by_role('link', name='Politique de confidentialité').click()
             expect(visitor.get_by_role('heading', name='Politique de confidentialité')).to_be_visible()
