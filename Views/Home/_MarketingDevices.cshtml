@@ -1,23 +1,31 @@
-<figure class="marketing-preview" data-marketing-preview>
-    <div class="marketing-device-scene" id="commerce-scene">
+<figure class="marketing-preview">
+    <div class="marketing-device-scene">
         <svg class="marketing-commerce-vectors" viewBox="0 0 640 480" preserveAspectRatio="none" fill="none" aria-hidden="true" focusable="false">
-            <g class="marketing-vector-bars">
-                <rect x="28" y="396" width="22" height="52" rx="6" />
-                <rect x="58" y="372" width="22" height="76" rx="6" />
-                <rect x="88" y="344" width="22" height="104" rx="6" />
-            </g>
-            <path class="marketing-vector-rail" d="M-20 424H52C108 424 106 358 160 358H190C248 358 256 271 318 271H364C418 271 432 167 486 167H532C574 167 576 88 630 88H660" />
-            <path class="marketing-vector-flow marketing-animated" pathLength="100" d="M-20 424H52C108 424 106 358 160 358H190C248 358 256 271 318 271H364C418 271 432 167 486 167H532C574 167 576 88 630 88H660" />
-            <circle class="marketing-vector-halo marketing-animated" cx="52" cy="424" r="11" />
-            <circle class="marketing-vector-halo marketing-animated" cx="630" cy="88" r="11" />
-            <circle class="marketing-vector-node" cx="52" cy="424" r="5" />
-            <circle class="marketing-vector-node" cx="630" cy="88" r="5" />
-            <circle class="marketing-vector-ring" cx="596" cy="248" r="32" />
-            <circle class="marketing-vector-ring" cx="596" cy="248" r="46" />
+            <defs>
+                <linearGradient id="commerce-trace-ink" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#d37c54" />
+                    <stop offset="53%" stop-color="#9781cb" />
+                    <stop offset="100%" stop-color="#7457be" />
+                </linearGradient>
+                <path id="commerce-trace" pathLength="100" d="M-30 418C67 489 184 453 281 408S435 318 484 229 561 100 671 79" />
+            </defs>
+            <path class="marketing-vector-orbit" d="M-26 386C75 470 212 442 311 390S471 298 529 184 581 116 667 109" />
+            <path class="marketing-vector-orbit marketing-vector-orbit--dotted" d="M-24 441C79 507 206 476 323 418S472 301 522 218 582 142 659 125" />
+            <path class="marketing-vector-orbit marketing-vector-orbit--dotted" d="M-18 76C131 5 259 41 361 66S532 101 656 39" />
+            <use class="marketing-vector-rail" href="#commerce-trace" />
+            <use class="marketing-vector-flow" href="#commerce-trace" />
+            <circle class="marketing-vector-halo" cx="87" cy="451" r="12" />
+            <circle class="marketing-vector-halo marketing-vector-halo--late" cx="610" cy="97" r="12" />
+            <circle class="marketing-vector-node" cx="87" cy="451" r="4" />
+            <circle class="marketing-vector-node" cx="610" cy="97" r="4" />
+            <circle class="marketing-vector-node" cx="525" cy="59" r="3" />
+            <circle class="marketing-vector-node" cx="47" cy="416" r="3" />
         </svg>
+        <span class="marketing-vector-badge marketing-vector-badge--report" aria-hidden="true">@LucideIcons.Svg("bar-chart-3", 22)</span>
+        <span class="marketing-vector-badge marketing-vector-badge--payment" aria-hidden="true">@LucideIcons.Svg("wallet", 22)</span>
         <div class="marketing-scene-head" aria-hidden="true">
             <span class="marketing-scene-label"><span class="tiny-dot"></span> Le logiciel en aperçu</span>
-            <span class="marketing-scene-chip marketing-scene-sale marketing-animated">@LucideIcons.Svg("shopping-bag", 15) Vente suivie</span>
+            <span class="marketing-scene-chip marketing-scene-sale">@LucideIcons.Svg("shopping-bag", 15) Vente suivie</span>
         </div>
 
         <a class="marketing-desktop-device" href="@Url.Content("~/images/demo/tableau-de-bord.webp")" target="_blank" rel="noopener" aria-label="Agrandir la vue ordinateur (nouvel onglet)">
@@ -38,19 +46,7 @@
                 <span class="marketing-phone-home" aria-hidden="true"></span>
             </span>
         </a>
-        <span class="marketing-scene-chip marketing-scene-stock marketing-animated" aria-hidden="true">@LucideIcons.Svg("package", 16) Stock à jour</span>
+        <span class="marketing-scene-chip marketing-scene-stock" aria-hidden="true">@LucideIcons.Svg("package", 16) Stock à jour</span>
     </div>
-    <figcaption>
-        <div class="marketing-device-labels">
-            <span>@LucideIcons.Svg("monitor", 16) Ordinateur</span>
-            <span>@LucideIcons.Svg("smartphone", 16) iPhone 18 Pro Max</span>
-        </div>
-        <div class="marketing-preview-meta">
-            <span>Aperçus illustrés · Données fictives</span>
-            <button type="button" class="marketing-motion-toggle" data-marketing-motion aria-controls="commerce-scene" hidden>
-                <span data-motion-pause>@LucideIcons.Svg("pause", 14) Pause de l’animation</span>
-                <span data-motion-play hidden>@LucideIcons.Svg("play", 14) Reprendre l’animation</span>
-            </button>
-        </div>
-    </figcaption>
+    <figcaption>Aperçus illustrés · Données fictives</figcaption>
 </figure>

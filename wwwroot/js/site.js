@@ -108,27 +108,17 @@
     }
 
     function initMarketingMotion() {
-        var preview = document.querySelector("[data-marketing-preview]");
-        var control = preview && preview.querySelector("[data-marketing-motion]");
-        if (!control) return;
+        var scene = document.querySelector(".marketing-device-scene");
+        if (!scene || !window.matchMedia("(prefers-reduced-motion: no-preference)").matches) return;
+        if (!("IntersectionObserver" in window)) return;
 
-        var motion = window.matchMedia("(prefers-reduced-motion: no-preference)");
-        var pauseLabel = control.querySelector("[data-motion-pause]");
-        var playLabel = control.querySelector("[data-motion-play]");
-        var paused = false;
-        function update() {
-            control.hidden = !motion.matches;
-            preview.dataset.motion = motion.matches ? (paused ? "paused" : "running") : "static";
-            pauseLabel.hidden = paused;
-            playLabel.hidden = !paused;
-        }
-        control.addEventListener("click", function () {
-            paused = !paused;
-            update();
-        });
-        if (motion.addEventListener) motion.addEventListener("change", update);
-        else motion.addListener(update);
-        update();
+        // Play the short sequence once, when the devices come into view (also on phones).
+        var observer = new IntersectionObserver(function (entries) {
+            if (!entries.some(function (entry) { return entry.intersectionRatio >= 0.25; })) return;
+            scene.classList.add("is-in-view");
+            observer.disconnect();
+        }, { threshold: 0.25 });
+        observer.observe(scene);
     }
 
     document.addEventListener("DOMContentLoaded", function () {

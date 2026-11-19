@@ -131,18 +131,25 @@ def run_browser(base, cookies, product, server_pdf):
                 expect(visitor.locator('.marketing-phone-device img')).to_have_js_property('naturalWidth', 824)
                 assert_accent_contrast(cta)  # no hover
 
-            flow = visitor.locator('.marketing-vector-flow')
-            expect(flow).to_have_css('animation-name', 'marketing-vector-travel')
-            pause = visitor.get_by_role('button', name='Pause de l’animation', exact=True)
-            pause.press('Enter')
-            expect(flow).to_have_css('animation-play-state', 'paused')
-            resume = visitor.get_by_role('button', name='Reprendre l’animation', exact=True)
-            expect(resume).to_be_focused()
-            resume.press('Space')
-            expect(flow).to_have_css('animation-play-state', 'running')
-            visitor.emulate_media(reduced_motion='reduce')
-            expect(visitor.locator('[data-marketing-motion]')).to_be_hidden()
+            expect(visitor.locator('#hero-title')).to_have_text('Pilotez votre entreprise, de la vente aux chiffres.')
+            preview = visitor.locator('.marketing-preview')
+            expect(preview.locator('figcaption')).to_have_text('Aperçus illustrés · Données fictives')
+            expect(preview.get_by_role('button')).to_have_count(0)
+
+            # No motion off screen; the short introduction plays once when discovered by scrolling.
+            visitor.set_viewport_size({'width': 320, 'height': 480})
+            assert visitor.goto(base + '/').ok
+            scene = preview.locator('.marketing-device-scene')
+            flow = scene.locator('.marketing-vector-flow')
+            expect(scene).not_to_be_in_viewport()
             expect(flow).to_have_css('animation-name', 'none')
+            scene.scroll_into_view_if_needed()
+            expect(flow).to_have_css('animation-name', 'marketing-vector-travel')
+            timing = scene.evaluate('el => el.getAnimations({ subtree: true }).map(a => a.effect.getComputedTiming())')
+            assert timing and all(t['iterations'] == 1 and t['endTime'] < 5000 for t in timing), timing
+            visitor.emulate_media(reduced_motion='reduce')
+            expect(flow).to_have_css('animation-name', 'none')
+            assert scene.evaluate('el => el.getAnimations({ subtree: true }).length === 0')
 
             visitor.set_viewport_size({'width': 320, 'height': 760})
             mobile = visitor.get_by_role('link', name='Agrandir la vue iPhone 18 Pro Max (nouvel onglet)', exact=True)

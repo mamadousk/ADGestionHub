@@ -372,9 +372,11 @@ def run(base, db_file, superadmin):
     assert path == '/' and 'Accès gratuit' in text and 'Créer mon compte gratuit' in text
     assert 'Version 1 gratuite' not in text and 'V1 gratuite' not in text
     assert 'https://fonts.googleapis' not in html.decode() and 'cookieConsent' not in html.decode()
-    assert 'Pilotez votre PME' in text and 'Une vente, quatre écrans.' in text
+    assert '<h1 id="hero-title">Pilotez votre entreprise,' in text and 'Une vente, quatre écrans.' in text
+    assert 'Bénéfices pour votre PME' in text
     assert 'non normalisés DGI' in text and 'En préparation' in text and 'données fictives' in text
-    assert 'iPhone 18 Pro Max' in text and 'data-marketing-motion' in text
+    assert 'iPhone 18 Pro Max' in text and 'marketing-vector-flow' in text
+    assert 'Pause de l’animation' not in text and 'marketing-device-labels' not in text
     assert 'href="/favicon.ico' in text and 'href="/images/brand/mark.png' in text
     for section in ('benefices', 'demo', 'fonctionnalites', 'tarifs'):
         assert f'id="{section}"' in text and f'href="#{section}"' in text, section
