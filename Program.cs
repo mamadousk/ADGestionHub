@@ -206,6 +206,7 @@ await using (var scope = app.Services.CreateAsyncScope())
             await db.TermsAcceptances.AnyAsync();
             await db.StoreLogos.AnyAsync();
             await db.Boutiques.AnyAsync(b => b.SetupPending);
+            await db.PublicPopups.AnyAsync();
         }
         catch (Microsoft.Data.Sqlite.SqliteException ex)
         {

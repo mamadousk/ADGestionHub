@@ -1,12 +1,19 @@
 @model IEnumerable<AdGestionHub.Models.GlobalNotification>
 @{
-    ViewData["Title"] = L["Nav.SystemNotices"];
+    ViewData["Title"] = "Annonces système";
     var list = Model?.ToList() ?? new List<AdGestionHub.Models.GlobalNotification>();
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h4 mb-0">@ViewData["Title"]</h1>
-    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Back"]</a>
+<div class="page-heading">
+    <div>
+        <p class="section-eyebrow">Communication plateforme</p>
+        <h1>Annonces système</h1>
+        <p>Ces bandeaux sont réservés aux utilisateurs connectés. Pour informer aussi les visiteurs, publiez un pop-up public.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="ManagePopups" class="btn btn-secondary-outline">Pop-ups publics</a>
+        <a asp-action="Index" class="btn btn-secondary-outline">Retour à la console</a>
+    </div>
 </div>
 
 <div class="panel-card overflow-hidden">

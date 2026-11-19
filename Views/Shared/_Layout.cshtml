@@ -2,17 +2,31 @@
 @inject AdGestionHub.Data.ApplicationDbContext _context
 
 @{
-    AdGestionHub.Models.GlobalNotification? activeNotification = null;
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    GlobalNotification? activeNotification = null;
+    PublicPopup? activePopup = null;
     try
     {
-        activeNotification = _context.GlobalNotifications
-            .AsNoTracking()
-            .OrderByDescending(n => n.CreatedAt)
-            .FirstOrDefault(n => n.ExpiryDate > DateTime.Now && n.IsActive);
+        // Read the newest record before checking its status: a previous publication must never reappear.
+        var latest = await _context.PublicPopups.AsNoTracking().OrderByDescending(p => p.Id)
+            .FirstOrDefaultAsync(Context.RequestAborted);
+        if (latest?.IsVisibleAt(DateTimeOffset.UtcNow) == true) activePopup = latest;
     }
-    catch { }
+    catch (Exception) when (!Context.RequestAborted.IsCancellationRequested) { }
 
-    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    if (isAuthenticated)
+    {
+        try
+        {
+            var now = DateTime.Now;
+            activeNotification = await _context.GlobalNotifications.AsNoTracking()
+                .Where(n => n.ExpiryDate > now && n.IsActive)
+                .OrderByDescending(n => n.CreatedAt).ThenByDescending(n => n.Id)
+                .FirstOrDefaultAsync(Context.RequestAborted);
+        }
+        catch (Exception) when (!Context.RequestAborted.IsCancellationRequested) { }
+    }
+
     var isSuperAdmin = User.IsInRole("SuperAdmin");
     var isAdmin = User.IsInRole("Admin");
     var publicShell = !isAuthenticated || ViewData["PublicShell"] is true;
@@ -41,9 +55,9 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
 <body>
-    @if (activeNotification != null)
+    @if (isAuthenticated && activeNotification != null)
     {
-        <div class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") mb-0 rounded-0 border-0 border-bottom text-center py-2 px-3">
+        <div id="systemNotice" class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") mb-0 rounded-0 border-0 border-bottom text-center py-2 px-3">
             @LucideIcons.Svg("bell", 16, "me-2")
             <span>@activeNotification.Message</span>
         </div>
@@ -51,14 +65,19 @@
 
     @if (!publicShell)
     {
-        <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+        <div class="sidebar-backdrop" aria-hidden="true" data-sidebar-backdrop></div>
 
         <div class="app-shell">
             <!-- Navigation latérale sobre -->
-            <aside class="app-sidebar">
-                <a class="sidebar-brand" asp-area="" asp-controller="Home" asp-action="Index">
-                    <span class="d-flex align-items-center"><span class="brand-mark">A</span>AD Gestion Hub</span>
-                </a>
+            <aside id="appSidebar" class="app-sidebar">
+                <div class="sidebar-heading">
+                    <a class="sidebar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                        <span class="d-flex align-items-center"><span class="brand-mark" aria-hidden="true">A</span>AD Gestion Hub</span>
+                    </a>
+                    <button type="button" class="sidebar-close d-lg-none" data-sidebar-close aria-label="Fermer le menu">
+                        @LucideIcons.Svg("x", 19)
+                    </button>
+                </div>
 
                 @if (fiscalCtx != null)
                 {
@@ -70,7 +89,7 @@
                     </div>
                 }
 
-                <nav class="sidebar-nav">
+                <nav class="sidebar-nav" aria-label="Navigation principale">
                     @if (isSuperAdmin)
                     {
                         <div class="sidebar-section-label">@L["Nav.SystemConsole"]</div>
@@ -84,7 +103,11 @@
                         </a>
                         <a class="sidebar-link @(ctrl == "SuperAdmin" && act == "ManageNotifications" ? "active" : "")" asp-area="" asp-controller="SuperAdmin" asp-action="ManageNotifications">
                             @LucideIcons.Svg("bell", 17)
-                            <span>@L.T("Annonces globales", "Global Notices")</span>
+                            <span>Annonces système</span>
+                        </a>
+                        <a class="sidebar-link @(ctrl == "SuperAdmin" && (act == "ManagePopups" || act == "SavePopup") ? "active" : "")" asp-area="" asp-controller="SuperAdmin" asp-action="ManagePopups">
+                            @LucideIcons.Svg("globe", 17)
+                            <span>Pop-ups publics</span>
                         </a>
                         <a class="sidebar-link @(ctrl == "SuperAdmin" && act == "Logs" ? "active" : "")" asp-area="" asp-controller="SuperAdmin" asp-action="Logs">
                             @LucideIcons.Svg("alert-circle", 17)
@@ -159,7 +182,7 @@
             <div class="app-main-wrap">
                 <header class="app-topbar no-print">
                     <div class="d-flex align-items-center gap-3">
-                        <button type="button" class="btn btn-secondary-outline d-lg-none py-1 px-2" onclick="document.body.classList.toggle('sidebar-open')" aria-label="Menu">
+                        <button type="button" class="btn btn-secondary-outline d-lg-none sidebar-toggle" data-sidebar-toggle aria-label="Menu" aria-controls="appSidebar" aria-expanded="false">
                             @LucideIcons.Svg("menu", 18)
                         </button>
                         <span class="fw-bold" style="font-size:0.98rem; letter-spacing:-0.02em;">@ViewData["Title"]</span>
@@ -214,7 +237,7 @@
                     </div>
                 </header>
 
-                <main class="app-content">
+                <main class="app-content" id="contenu" tabindex="-1">
                     @if (TempData["SuccessMessage"] != null)
                     {
                         <div class="alert alert-success d-flex align-items-center justify-content-between mb-3 py-2 px-3" role="alert">
@@ -281,7 +304,7 @@
             </div>
         </header>
 
-        <main class="@(marketing ? "marketing-main" : "py-4")" id="contenu">
+        <main class="@(marketing ? "marketing-main" : "py-4")" id="contenu" tabindex="-1">
             <div class="container">
                 @if (TempData["SuccessMessage"] != null)
                 {
@@ -333,6 +356,11 @@
                 </div>
             </div>
         </footer>
+    }
+
+    @if (activePopup != null)
+    {
+        <partial name="_PublicPopup" model="activePopup" />
     }
 
     <!-- Modale Feedback sobre (sans emojis) -->

@@ -2,7 +2,8 @@
 
 Lancer après `dotnet build`. Une base SQLite et un serveur jetables sont créés pour le test.
 """
-from base64 import b64decode
+from base64 import b32decode, b64decode
+import hmac
 from html import unescape
 from html.parser import HTMLParser
 from http.cookiejar import CookieJar
@@ -17,7 +18,7 @@ import tempfile
 import time
 import traceback
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 from uuid import uuid4
 import zlib
@@ -58,7 +59,9 @@ class Browser:
             response = error
         with response:
             payload = response.read()
-            final = urlparse(response.geturl()).path
+            self.last_url = urlparse(response.geturl())
+            self.last_disposition = response.headers.get('Content-Disposition')
+            final = self.last_url.path
             if response.code != expected:
                 raise AssertionError(f'{path}: HTTP {response.code}, attendu {expected}; arrivée {final}\n{payload[:500]!r}')
             return final, payload, response.headers.get_content_type()
@@ -83,6 +86,12 @@ def small_text(html):
 PNG_HEADER = b'\x89PNG\r\n\x1a\n'
 TERMS = '/Onboarding/Terms'
 SETUP = '/Settings/Setup'
+LOGIN = '/Identity/Account/Login'
+LOGOUT = '/Identity/Account/Logout'
+LOGIN_2FA = '/Identity/Account/LoginWith2fa'
+RECOVERY = '/Identity/Account/LoginWithRecoveryCode'
+HOME = ('/Home', '/Home/Index')
+REPORTS = ('/Reports', '/Reports/Index')
 PRIVACY = '/Infos/Confidentialite'
 PRIVACY_ACCENTED = quote('/Infos/Confidentialité')
 SETTINGS = {'StoreName': 'Pilote Marchand A', 'PrimaryCurrencyCode': 'CDF', 'CdfPerUsd': '2800,125678',
@@ -174,7 +183,188 @@ def seed_archives(db_file, email, product):
         return purchase
 
 
-def run(base, db_file):
+
+def verify_session_navigation(base, email, password, sale):
+    visitor = Browser(base)
+    credentials = {'Input.Email': email, 'Input.Password': password, 'Input.RememberMe': 'true'}
+
+    def check_html(response, paths, text=None):
+        path, data, kind = response
+        assert path in paths and kind == 'text/html' and not visitor.last_disposition, (path, kind, visitor.last_disposition)
+        if text:
+            assert text in small_text(data), (path, text)
+        return data
+
+    def target(page, return_url):
+        return f'{page}?{urlencode({"returnUrl": return_url})}'
+
+    _, landing, _ = visitor.request('/')
+    link = re.search(r'<a[^>]+href="([^"?#]+)"[^>]*>\s*Se connecter\s*</a>', small_text(landing))
+    assert link and link.group(1) == LOGIN
+    check_html(visitor.request(link.group(1)), (LOGIN,), 'id="account"')
+    for step in (LOGIN_2FA, RECOVERY):
+        # Without a temporary 2FA session, the browser should return to the login form instead of a 500.
+        check_html(visitor.request(target(step, '/Sales/Create')), (LOGIN,), 'La vérification de connexion a expiré.')
+
+    date = time.strftime('%Y-%m-%d')
+    export = f'/Reports/Export?format=pdf&startDate={date}&endDate={date}&currency=USD'
+    check_html(visitor.request(export), (LOGIN,), 'id="account"')
+    check_html(visitor.post(target(LOGIN, export), credentials), REPORTS, 'Rapports d’activité')
+    assert parse_qs(visitor.last_url.query) == {'startDate': [date], 'endDate': [date], 'currency': ['USD']}, visitor.last_url
+    # A signed-in user who opens the login URL never sees the sign-in form or a file response.
+    check_html(visitor.request(LOGIN), HOME, 'Tableau de bord')
+    check_html(visitor.request(target(LOGIN, '/reports/EXPORT/?format=csv')), REPORTS, 'Rapports d’activité')
+    check_html(visitor.request(target(LOGIN, 'https://outside.example.test/')), HOME, 'Tableau de bord')
+    check_html(visitor.request(target(LOGIN, LOGIN)), HOME, 'Tableau de bord')
+    # GET and POST without a valid anti-forgery token cannot sign the user out.
+    check_html(visitor.request(LOGOUT), HOME, 'Tableau de bord')
+    visitor.request(LOGOUT, {}, expected=400)
+    check_html(visitor.request('/Home/Index'), HOME, 'Tableau de bord')
+    check_html(visitor.post(target(LOGOUT, export), {}, source='/Home/Index'), (LOGIN,), 'id="account"')
+    check_html(visitor.request('/Home/Index'), (LOGIN,), 'id="account"')
+
+    # After expiry on a PDF URL, resume at the corresponding HTML receipt; explicit PDF is still available.
+    printable = f'/Sales/Receipt/{sale}'
+    pdf = printable + '?format=PDF'
+    check_html(visitor.request(pdf), (LOGIN,), 'id="account"')
+    check_html(visitor.post(target(LOGIN, pdf), credentials), (printable,), 'Télécharger le PDF')
+    _, data, mime = visitor.request(pdf)
+    assert data.startswith(b'%PDF-') and mime == 'application/pdf' and visitor.last_disposition.startswith('attachment'), mime
+    check_html(visitor.request(target(LOGIN, '/Sales/Create')), ('/Sales/Create',), 'Nouvelle vente')
+
+    # Enable an authenticator on the disposable account and run both completion paths.
+    authenticator = '/Identity/Account/Manage/EnableAuthenticator'
+    _, html, _ = visitor.request(authenticator)
+    key = re.search(r'<code>([a-z2-7 ]+)</code>', small_text(html)).group(1).replace(' ', '')
+    secret = b32decode(key + '=' * (-len(key) % 8), casefold=True)
+
+    def temporary_code():
+        digest = hmac.digest(secret, struct.pack('>Q', int(time.time()) // 30), 'sha1')
+        offset = digest[-1] & 15
+        return f'{(int.from_bytes(digest[offset:offset + 4], "big") & 0x7fffffff) % 1000000:06d}'
+
+    _, html, _ = visitor.post(authenticator, {'Input.Code': temporary_code()})
+    recovery_code = re.search(r'<code class="recovery-code">([^<]+)</code>', small_text(html)).group(1)
+    check_html(visitor.post(LOGOUT, {}, source='/Home/Index'), (LOGIN,))
+    check_html(visitor.post(target(LOGIN, export), credentials), (LOGIN_2FA,), 'Double authentification')
+    mfa = target(LOGIN_2FA, export)
+    rejected = check_html(visitor.post(mfa, {'Input.TwoFactorCode': 'x', 'rememberMe': 'true'}), (LOGIN_2FA,), 'Double authentification')
+    # Submit the returned form action, not the original URL: the retry must preserve the page destination.
+    retry = re.search(r'<form[^>]*action="([^"]+)"', small_text(rejected)).group(1)
+    assert '/Reports' in parse_qs(urlparse(retry).query)['returnUrl'][0]
+    assert re.search(r'(?i)<input(?=[^>]*name="RememberMe")(?=[^>]*value="true")[^>]*>', small_text(rejected))
+    check_html(visitor.post(retry, {'Input.TwoFactorCode': temporary_code(), 'rememberMe': 'true'}), REPORTS)
+    check_html(visitor.post(LOGOUT, {}, source='/Home/Index'), (LOGIN,))
+    check_html(visitor.post(target(LOGIN, pdf), credentials), (LOGIN_2FA,))
+    check_html(visitor.post(target(RECOVERY, pdf), {'Input.RecoveryCode': recovery_code}), (printable,))
+
+
+def verify_broadcasts(base, db_file, customer, other_company, staff, public, superadmin):
+    manage = '/SuperAdmin/ManagePopups'
+    save = '/SuperAdmin/SavePopup'
+    withdraw = '/SuperAdmin/WithdrawPopup'
+    manager = Browser(base)
+    login, _, _ = manager.post(LOGIN, {'Input.Email': superadmin[0], 'Input.Password': superadmin[1]})
+    assert login in ('/SuperAdmin', '/SuperAdmin/Index'), login
+    assert public.request(manage)[0] == LOGIN
+    assert public.post(save, {'command': 'publish'}, source='/')[0] == LOGIN
+    assert public.post(f'{withdraw}/1', {}, source='/')[0] == LOGIN
+    for member in (customer, other_company, staff):
+        assert member.request(manage)[0].endswith('/AccessDenied')
+        assert member.post(save, {'command': 'preview'}, source='/Home/Index')[0].endswith('/AccessDenied')
+        assert member.post(save, {'command': 'publish'}, source='/Home/Index')[0].endswith('/AccessDenied')
+        assert member.post(f'{withdraw}/1', {}, source='/Home/Index')[0].endswith('/AccessDenied')
+    manager.request('/SuperAdmin/SendNotification', {'message': 'Publication interdite'}, expected=400)
+    manager.request(save, {'command': 'preview'}, expected=400)
+    manager.request(save, {'command': 'publish'}, expected=400)
+    manager.request(f'{withdraw}/1', {}, expected=400)
+
+    # The original notification stays plain text and never enters an anonymous response.
+    system_notice = 'Note interne de recette <b>non publiée</b>'
+    manager.post('/SuperAdmin/SendNotification', {'message': system_notice, 'hoursActive': '2'}, source='/SuperAdmin/Index')
+    public_paths = ('/', LOGIN, '/Infos/CGU')
+    for url in public_paths:
+        _, body, _ = public.request(url)
+        assert b'systemNotice' not in body and 'Note interne de recette' not in small_text(body), url
+    for member, url in ((customer, '/Home/Index'), (staff, '/Home/Index'), (other_company, '/Infos/CGU')):
+        _, body, _ = member.request(url)
+        assert b'id="systemNotice"' in body and system_notice in small_text(body), url
+        assert b'<b>non publi' not in body and b'id="publicPopup"' not in body, url
+
+    title = 'Maintenance prévue <dimanche>'
+    html = ('<p style="color:red" onclick="return false">Bienvenue sur <strong>AD Gestion Hub</strong>.</p>'
+            '<ul><li>Consulter les informations</li></ul><p><a href="/Infos/CGU">Lire les conditions</a></p>'
+            '<a href="javascript:void(0)">Lien retiré</a><script>contenu non publiable</script>')
+    html += '<p>Le service reste disponible pour les opérations habituelles pendant la maintenance.</p>' * 18
+    fields = {'Input.Title': title, 'Input.MessageHtml': html, 'Input.HoursActive': '2'}
+
+    def safe_message(body):
+        match = re.search(rb'<div class="(?:modal-body )?public-popup-message"[^>]*>(.*?)</div>', body, re.S)
+        assert match, 'Contenu du pop-up absent'
+        fragment = match[1].decode()
+        assert '<strong>AD Gestion Hub</strong>' in fragment and '<ul>' in fragment
+        assert 'href="/Infos/CGU"' in fragment and 'javascript:' not in fragment
+        assert not re.search(r'<script|onclick=|style=|contenu non publiable', fragment, re.I), fragment
+        return fragment
+
+    path, preview, _ = manager.post(save, {**fields, 'command': 'preview'}, source=manage)
+    assert path == save and b'id="popupPreview"' in preview
+    assert title in small_text(preview) and b'<dimanche>' not in preview
+    message = safe_message(preview)
+    for invalid, error in (({'Input.HoursActive': '0'}, 'durée de 1 à 720 heures'),
+                           ({'Input.MessageHtml': '<script>contenu non publiable</script>'}, 'Ajoutez du texte')):
+        path, body, _ = manager.post(save, {**fields, **invalid, 'command': 'publish'}, source=manage)
+        assert path == save and error in small_text(body)
+    assert b'id="publicPopup"' not in public.request('/')[1]
+    with sqlite3.connect(db_file) as db:
+        assert db.execute('SELECT COUNT(*) FROM PublicPopups').fetchone() == (0,)
+
+    def publish(values):
+        path, _, _ = manager.post(save, {**values, 'command': 'publish'}, source=manage)
+        assert path == manage, path
+        with sqlite3.connect(db_file) as db:
+            return db.execute('SELECT Id, Title, MessageHtml FROM PublicPopups ORDER BY Id DESC LIMIT 1').fetchone()
+
+    initial_id, stored_title, stored_html = publish(fields)
+    assert stored_title == title and stored_html == message
+    for browser, url in [(public, url) for url in public_paths] + [(customer, '/Home/Index'), (staff, '/Home/Index')]:
+        _, body, _ = browser.request(url)
+        assert b'id="publicPopup"' in body and f'data-public-popup-version="{initial_id}:'.encode() in body
+        assert title in small_text(body) and b'<dimanche>' not in body
+        assert (b'id="systemNotice"' in body) == (browser is not public)
+        assert safe_message(body) == message
+    path, body, _ = other_company.post(LOGOUT, {}, source='/Home/Index')
+    assert path == LOGIN and b'id="systemNotice"' not in body and b'id="publicPopup"' in body
+
+    # Opening the next publication must work even after this browser dismissed the first.
+    second_title = 'Fin de la maintenance — nouvelle publication'
+
+    def replace():
+        return publish({**fields, 'Input.Title': second_title, 'Input.MessageHtml': '<p>Le service est disponible.</p>'})[0]
+
+    if os.environ.get('ADGH_SMOKE_BROWSER') == '1':
+        from browser_smoke import run_popup_browser
+        second_id = run_popup_browser(base, customer.cookies, title, second_title, replace)
+    else:
+        second_id = replace()
+    body = public.request('/')[1]
+    assert second_title in small_text(body) and title not in small_text(body)
+    path, history, _ = manager.post(f'{withdraw}/{second_id}', {}, source=manage)
+    assert path == manage and 'Retiré' in small_text(history) and 'Remplacé' in small_text(history)
+    assert b'id="publicPopup"' not in public.request('/')[1]
+    assert b'id="systemNotice"' in customer.request('/Home/Index')[1]
+
+    expired_id, _, _ = publish({**fields, 'Input.Title': 'Pop-up à expirer'})
+    assert b'id="publicPopup"' in public.request('/')[1]
+    with sqlite3.connect(db_file) as db:
+        db.execute("UPDATE PublicPopups SET ExpiresAtUtc = '2000-01-01 00:00:00+00:00' WHERE Id = ?", (expired_id,))
+    assert b'id="publicPopup"' not in public.request('/')[1]
+    assert b'id="publicPopup"' not in customer.request('/Home/Index')[1]
+    assert 'Expiré' in small_text(manager.request(manage)[1])
+    print('Diffusion : rôles et anti-CSRF, annonce privée, aperçu filtré, publication publique, remplacement, retrait et expiration validés.')
+
+
+def run(base, db_file, superadmin):
     password = 'Pilote-' + uuid4().hex + '!9'
     a, b, staff, public = (Browser(base) for _ in range(4))
     path, html, _ = public.request('/')
@@ -307,7 +497,9 @@ def run(base, db_file):
     assert receipt_logo(html) is None and 'Généré par AdGestionHub' in small_text(html)
     _, _, mime = a.request(f'/Sales/Receipt/{sale}?format=pdf')
     assert mime == 'application/pdf'
-    print('Parcours HTTP : CGU, configuration et report, logo, ventes, anciens modules désactivés, rapports et isolation réussis.')
+    verify_session_navigation(base, email_a, password, sale)
+    verify_broadcasts(base, db_file, a, b, staff, public, superadmin)
+    print('Parcours HTTP : connexion, déconnexion, double authentification, CGU, configuration, logo, ventes, rapports et isolation réussis.')
 
 
 def main():
@@ -317,8 +509,10 @@ def main():
     root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryFile(mode='w+') as log:
         host = f'http://127.0.0.1:{port}'
+        superadmin = (f'super-{uuid4().hex}@example.test', f'Recette-{uuid4().hex}!9')
         env = {**os.environ, 'ASPNETCORE_ENVIRONMENT': 'Development', 'DOTNET_ENVIRONMENT': 'Development',
-               'DatabaseProvider': 'Sqlite', 'ConnectionStrings__DefaultConnection': f'Data Source={tmp}/http.db'}
+               'DatabaseProvider': 'Sqlite', 'ConnectionStrings__DefaultConnection': f'Data Source={tmp}/http.db',
+               'SuperAdmin__Email': superadmin[0], 'SuperAdmin__Password': superadmin[1]}
         command = ['dotnet', 'run', '--project', str(root / 'AdGestionHub.csproj'), '--no-build', '--no-launch-profile', '--urls', host]
         with subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=env, cwd=root) as server:
             try:
@@ -332,7 +526,7 @@ def main():
                         time.sleep(1)
                 else:
                     raise RuntimeError('Le démarrage a dépassé le délai du test.')
-                run(host, Path(tmp) / 'http.db')
+                run(host, Path(tmp) / 'http.db', superadmin)
             except Exception as error:
                 log.seek(0)
                 print(log.read()[-15000:])

@@ -1,4 +1,5 @@
 using AdGestionHub.Models;
+using AdGestionHub.Services;
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
@@ -11,23 +12,20 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
 
 namespace AdGestionHub.Areas.Identity.Pages.Account
 {
+    [AllowAnonymous]
     public class LoginWith2faModel : PageModel
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly UserManager<ApplicationUser> _userManager;
         private readonly ILogger<LoginWith2faModel> _logger;
 
         public LoginWith2faModel(
             SignInManager<ApplicationUser> signInManager,
-            UserManager<ApplicationUser> userManager,
             ILogger<LoginWith2faModel> logger)
         {
             _signInManager = signInManager;
-            _userManager = userManager;
             _logger = logger;
         }
 
@@ -76,45 +74,30 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
 
         public async Task<IActionResult> OnGetAsync(bool rememberMe, string returnUrl = null)
         {
-            // Ensure the user has gone through the username & password screen first
-            var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
-
-            if (user == null)
-            {
-                throw new InvalidOperationException($"Unable to load two-factor authentication user.");
-            }
-
-            ReturnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
+            ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
             RememberMe = rememberMe;
-
-            return Page();
+            if (User.Identity?.IsAuthenticated == true) return LocalRedirect(ReturnUrl);
+            return await _signInManager.GetTwoFactorAuthenticationUserAsync() == null ? RestartLogin() : Page();
         }
 
         public async Task<IActionResult> OnPostAsync(bool rememberMe, string returnUrl = null)
         {
-            if (!ModelState.IsValid)
-            {
-                return Page();
-            }
-
-            returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
+            ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
+            RememberMe = rememberMe;
+            if (User.Identity?.IsAuthenticated == true) return LocalRedirect(ReturnUrl);
 
             var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
-            if (user == null)
-            {
-                throw new InvalidOperationException($"Unable to load two-factor authentication user.");
-            }
+            if (user == null) return RestartLogin();
+            if (!ModelState.IsValid) return Page();
 
             var authenticatorCode = Input.TwoFactorCode.Replace(" ", string.Empty).Replace("-", string.Empty);
 
             var result = await _signInManager.TwoFactorAuthenticatorSignInAsync(authenticatorCode, rememberMe, Input.RememberMachine);
 
-            var userId = await _userManager.GetUserIdAsync(user);
-
             if (result.Succeeded)
             {
                 _logger.LogInformation("User with ID '{UserId}' logged in with 2fa.", user.Id);
-                return LocalRedirect(returnUrl);
+                return LocalRedirect(ReturnUrl);
             }
             else if (result.IsLockedOut)
             {
@@ -128,5 +111,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
                 return Page();
             }
         }
+
+        private IActionResult RestartLogin() => RedirectToPage("./Login", new { ReturnUrl, expired = true });
     }
 }

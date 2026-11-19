@@ -1,11 +1,13 @@
 using AdGestionHub.Data;
 using AdGestionHub.Models;
+using AdGestionHub.Models.ViewModels;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AdGestionHub.Controllers
@@ -72,9 +74,9 @@ namespace AdGestionHub.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> SendNotification(string message, bool isCritical, int hoursActive)
         {
-            if (string.IsNullOrWhiteSpace(message))
+            if (string.IsNullOrWhiteSpace(message) || message.Trim().Length > 300)
             {
-                TempData["ErrorMessage"] = "Le message de notification ne peut pas être vide.";
+                TempData["ErrorMessage"] = "Saisissez un message d’annonce de 300 caractères au maximum.";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -91,7 +93,7 @@ namespace AdGestionHub.Controllers
             _context.GlobalNotifications.Add(notification);
             await _context.SaveChangesAsync();
 
-            TempData["SuccessMessage"] = "Annonce globale diffusée avec succès.";
+            TempData["SuccessMessage"] = "Annonce publiée pour les utilisateurs connectés.";
             return RedirectToAction(nameof(Index));
         }
 
@@ -126,6 +128,60 @@ namespace AdGestionHub.Controllers
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
             return View(notifications);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ManagePopups(CancellationToken cancellationToken) =>
+            View(await PopupPageAsync(new PublicPopupInput(), null, cancellationToken));
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(128 * 1024)]
+        public async Task<IActionResult> SavePopup([Bind(Prefix = nameof(ManagePopupsViewModel.Input))] PublicPopupInput input,
+            string? command, CancellationToken cancellationToken)
+        {
+            if (command is not ("preview" or "publish")) return BadRequest();
+            string? sanitized = null;
+            if (ModelState.IsValid)
+            {
+                sanitized = PublicPopupHtml.Prepare(input.MessageHtml);
+                if (sanitized == null)
+                    ModelState.AddModelError("Input.MessageHtml", "Ajoutez du texte et utilisez uniquement la mise en forme HTML indiquée ci-dessous.");
+            }
+
+            if (sanitized == null || command == "preview")
+                return View(nameof(ManagePopups), await PopupPageAsync(input, sanitized, cancellationToken));
+
+            var now = DateTimeOffset.UtcNow;
+            _context.PublicPopups.Add(new PublicPopup
+            {
+                Title = input.Title.Trim(),
+                MessageHtml = sanitized,
+                PublishedAtUtc = now,
+                ExpiresAtUtc = now.AddHours(input.HoursActive)
+            });
+            await _context.SaveChangesAsync(cancellationToken);
+            TempData["SuccessMessage"] = "Pop-up publié pour tous les visiteurs, avec ou sans compte.";
+            return RedirectToAction(nameof(ManagePopups));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> WithdrawPopup(int id, CancellationToken cancellationToken)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var updated = await _context.PublicPopups.Where(p => p.Id == id && p.WithdrawnAtUtc == null)
+                .ExecuteUpdateAsync(p => p.SetProperty(x => x.WithdrawnAtUtc, (DateTimeOffset?)now), cancellationToken);
+            if (updated == 0) return NotFound();
+            TempData["SuccessMessage"] = "Pop-up retiré de la diffusion.";
+            return RedirectToAction(nameof(ManagePopups));
+        }
+
+        private async Task<ManagePopupsViewModel> PopupPageAsync(PublicPopupInput input, string? preview, CancellationToken cancellationToken)
+        {
+            var history = await _context.PublicPopups.AsNoTracking().OrderByDescending(p => p.Id)
+                .Take(20).ToListAsync(cancellationToken);
+            return new ManagePopupsViewModel(input, history, preview);
         }
 
         public async Task<IActionResult> BoutiqueDetails(int id)

@@ -19,22 +19,15 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
         }
 
         // Sécurité : jamais de déconnexion via GET (prévention Logout CSRF).
-        public IActionResult OnGet()
-        {
-            return RedirectToAction("Index", "Home", new { area = "" });
-        }
+        public IActionResult OnGet() => User.Identity?.IsAuthenticated == true
+            ? RedirectToAction("Index", "Home", new { area = "" })
+            : RedirectToPage("./Login");
 
-        public async Task<IActionResult> OnPost(string? returnUrl = null)
+        public async Task<IActionResult> OnPostAsync()
         {
             await _signInManager.SignOutAsync();
             _logger.LogInformation("L'utilisateur s'est déconnecté.");
-
-            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-            {
-                return LocalRedirect(returnUrl);
-            }
-
-            return RedirectToPage("/Account/Login");
+            return RedirectToPage("./Login");
         }
     }
 }

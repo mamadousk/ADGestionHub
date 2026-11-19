@@ -2,7 +2,114 @@
 (function () {
     "use strict";
 
+    function initSidebar() {
+        var sidebar = document.getElementById("appSidebar");
+        var toggle = document.querySelector("[data-sidebar-toggle]");
+        var backdrop = document.querySelector("[data-sidebar-backdrop]");
+        var closeButton = sidebar && sidebar.querySelector("[data-sidebar-close]");
+        if (!sidebar || !toggle || !closeButton || !backdrop) return;
+
+        var mobile = window.matchMedia("(max-width: 991.98px)");
+        var activeLink = sidebar.querySelector(".sidebar-link.active");
+        var open = false;
+        function revealActiveLink() {
+            if (activeLink) activeLink.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+        function close(restoreFocus) {
+            if (!open) return;
+            open = false;
+            document.body.classList.remove("sidebar-open");
+            toggle.setAttribute("aria-expanded", "false");
+            if (restoreFocus && mobile.matches) toggle.focus({ preventScroll: true });
+        }
+        toggle.addEventListener("click", function () {
+            if (!mobile.matches) return;
+            if (open) { close(true); return; }
+            open = true;
+            document.body.classList.add("sidebar-open");
+            toggle.setAttribute("aria-expanded", "true");
+            revealActiveLink();
+            closeButton.focus({ preventScroll: true });
+        });
+        closeButton.addEventListener("click", function () { close(true); });
+        backdrop.addEventListener("click", function () { close(true); });
+        document.addEventListener("keydown", function (event) {
+            if (open && event.key === "Escape" && !event.defaultPrevented) {
+                event.preventDefault();
+                close(true);
+            }
+        });
+        // If keyboard focus leaves the disclosure, don't leave the backdrop over the page.
+        document.addEventListener("focusin", function (event) {
+            if (open && !sidebar.contains(event.target) && event.target !== toggle) close(false);
+        });
+        function syncViewport() {
+            if (mobile.matches && sidebar.contains(document.activeElement)) toggle.focus({ preventScroll: true });
+            close(false);
+            if (!mobile.matches) revealActiveLink();
+        }
+        if (mobile.addEventListener) mobile.addEventListener("change", syncViewport);
+        else mobile.addListener(syncViewport);
+        window.addEventListener("pageshow", function (event) { if (event.persisted) close(true); });
+        if (!mobile.matches) revealActiveLink();
+    }
+
+    function initPublicPopup() {
+        var popup = document.getElementById("publicPopup");
+        if (!popup || !window.bootstrap || document.querySelector(".modal.show")) return;
+
+        var version = popup.dataset.publicPopupVersion;
+        var storageKey = "adgh.public-popup.dismissed";
+        try {
+            if (window.localStorage.getItem(storageKey) === version) return;
+        } catch { /* Storage can be disabled by the browser. */ }
+        try {
+            if (window.sessionStorage.getItem(storageKey) === version) return;
+        } catch { /* Keeping the page usable takes precedence over persistence. */ }
+
+        var previousFocus = document.activeElement;
+        var title = document.getElementById("publicPopupTitle");
+        var first = popup.querySelector(".public-popup-close");
+        var last = popup.querySelector(".public-popup-footer button");
+        var instance = window.bootstrap.Modal.getOrCreateInstance(popup);
+        popup.addEventListener("shown.bs.modal", function () {
+            title.focus({ preventScroll: true });
+        });
+        // Wrap explicitly at the two ends; the last control can be the last tab stop on the page.
+        popup.addEventListener("keydown", function (event) {
+            if (event.key !== "Tab" || event.ctrlKey || event.altKey || event.metaKey) return;
+            var active = document.activeElement;
+            if (event.shiftKey && (active === first || active === title || active === popup)) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && active === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
+        popup.addEventListener("hide.bs.modal", function () {
+            try {
+                window.localStorage.setItem(storageKey, version);
+            } catch {
+                try { window.sessionStorage.setItem(storageKey, version); } catch { }
+            }
+            if (popup.contains(document.activeElement)) document.activeElement.blur();
+        });
+        popup.addEventListener("hidden.bs.modal", function () {
+            var target = previousFocus && previousFocus !== document.body && previousFocus.getClientRects().length
+                ? previousFocus : document.getElementById("contenu");
+            if (target) target.focus({ preventScroll: true });
+        });
+        // Following a link in the announcement should not reopen it on the destination page.
+        popup.addEventListener("click", function (event) {
+            if (!event.defaultPrevented && event.target.closest("a[href]")) instance.hide();
+        });
+        instance.show();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
+        initSidebar();
+        initPublicPopup();
         // 1. Ombre de la topbar au défilement (effet glass premium)
         var topbar = document.querySelector(".app-topbar");
         if (topbar) {
@@ -13,13 +120,7 @@
             onScroll();
         }
 
-        // 2. Lien actif de la sidebar toujours visible dans la navigation
-        var activeLink = document.querySelector(".sidebar-link.active");
-        if (activeLink && typeof activeLink.scrollIntoView === "function") {
-            activeLink.scrollIntoView({ block: "nearest" });
-        }
-
-        // 3. Apparition en cascade des cartes KPI / panneaux (stagger léger)
+        // 2. Apparition en cascade des cartes KPI / panneaux (stagger léger)
         var cards = document.querySelectorAll(".card-dashboard, .kpi-card");
         if (cards.length && "IntersectionObserver" in window) {
             cards.forEach(function (card, i) {
@@ -40,7 +141,7 @@
             cards.forEach(function (card) { observer.observe(card); });
         }
 
-        // 4. Soumission AJAX fluide du formulaire de Feedback global
+        // 3. Soumission AJAX fluide du formulaire de Feedback global
         var feedbackForm = document.getElementById("globalFeedbackForm");
         if (feedbackForm) {
             feedbackForm.addEventListener("submit", function (e) {

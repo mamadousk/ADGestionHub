@@ -51,4 +51,4 @@ Pour les scénarios SQL Server, configurez `ADGH_SMOKE_SQLSERVER` vers un serveu
 
 ## Déploiement et pilote
 
-Consultez le [guide d’exploitation](docs/exploitation-mvp.md) avant toute migration. L’ouverture au public suppose notamment une restauration testée, la validation du déploiement SQL Server, la vérification des textes légaux et un pilote avec 5 à 10 entreprises.
+Consultez le [guide d’exploitation](docs/exploitation-mvp.md) avant toute migration. Pour une recette sous IIS chez MonsterASP, suivez le [guide de déploiement et de diagnostic de l’erreur 500.30](docs/deploiement-monsterasp.md). L’ouverture au public suppose notamment une restauration testée, la validation du déploiement SQL Server, la vérification des textes légaux et un pilote avec 5 à 10 entreprises.
