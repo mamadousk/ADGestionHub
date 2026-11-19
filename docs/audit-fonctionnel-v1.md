@@ -96,3 +96,9 @@ Les [scénarios HTTP](../tests/http_smoke.py) et [navigateur](../tests/browser_s
 La [vitrine](../Views/Home/Welcome.cshtml) s’adresse aux PME, commerces et distributeurs. Elle distingue les bénéfices (une seule saisie, réapprovisionnement et suivi des soldes), les fonctions disponibles et les offres encore en préparation. Les devis, le circuit d’achat et les comptes de caisse ou de banque ne sont pas présentés comme disponibles.
 
 La [démo](../Views/Home/_MarketingDemo.cshtml) suit la même vente fictive sur quatre écrans : **48 000 CDF vendus**, **18 000 CDF encaissés**, **30 000 CDF restant dus**, avec **12 → 10 bidons en stock**. Les [images WebP](../wwwroot/images/demo/) sont des illustrations reconstruites d’après les vues et les styles du dépôt, pas des captures d’une entreprise réelle ni un environnement de saisie. Elles sont accessibles sans connexion et s’agrandissent dans un nouvel onglet.
+
+## Suivi — Aperçus sur deux écrans, logo et profil
+
+L’accueil montre le tableau de bord sur ordinateur et dans une maquette d’iPhone 18 Pro Max. Les deux écrans agrandissables reprennent l’exemple Comptoir Démo. Le décor vectoriel animé évoque le suivi des ventes et du stock ; il peut être mis en pause et reste fixe si le navigateur demande de réduire les mouvements. Aucun service externe n’est nécessaire pour les images ou les animations.
+
+Le logo fourni est décliné pour les fonds clairs et sombres, les aperçus et l’icône d’onglet, sans remplacer le logo que chaque entreprise choisit pour ses documents. Le [menu du profil](../Areas/Identity/Pages/Account/Manage/_ManageNav.cshtml) utilise une palette claire dédiée : tous les liens restent lisibles hors sélection, la rubrique courante est signalée au clavier et aux lecteurs d’écran, et les liens propres à chaque rôle restent conditionnels.

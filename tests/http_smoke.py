@@ -374,11 +374,19 @@ def run(base, db_file, superadmin):
     assert 'https://fonts.googleapis' not in html.decode() and 'cookieConsent' not in html.decode()
     assert 'Pilotez votre PME' in text and 'Une vente, quatre écrans.' in text
     assert 'non normalisés DGI' in text and 'En préparation' in text and 'données fictives' in text
+    assert 'iPhone 18 Pro Max' in text and 'data-marketing-motion' in text
+    assert 'href="/favicon.ico' in text and 'href="/images/brand/mark.png' in text
     for section in ('benefices', 'demo', 'fonctionnalites', 'tarifs'):
         assert f'id="{section}"' in text and f'href="#{section}"' in text, section
-    for screenshot in ('vente', 'stock', 'creances', 'tableau-de-bord'):
-        asset = f'/images/demo/{screenshot}.webp'
+    screenshots = ('vente', 'stock', 'creances', 'tableau-de-bord', 'tableau-de-bord-mobile')
+    assets = [f'/images/demo/{name}.webp' for name in screenshots]
+    for asset in assets:
         assert f'href="{asset}"' in text, asset
+    for theme in ('logo', 'logo-inverse'):
+        asset = f'/images/brand/{theme}.webp'
+        assert f'src="{asset}' in text, asset
+        assets.append(asset)
+    for asset in assets:
         final, image, mime = public.request(asset)
         assert final == asset and mime == 'image/webp' and not public.last_disposition, asset
         assert image[:4] == b'RIFF' and image[8:12] == b'WEBP' and len(image) < 150 * 1024, asset

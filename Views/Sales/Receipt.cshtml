@@ -9,6 +9,7 @@
 }
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>@title @Model.Number | AD Gestion Hub</title>
+    <link rel="icon" href="~/favicon.ico" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" /><link rel="stylesheet" href="~/css/site.css" asp-append-version="true" /></head>
 <body>
 <div class="print-shell mx-auto p-3 p-md-4">
@@ -38,7 +39,7 @@
         @if (!string.IsNullOrWhiteSpace(settings.FooterMessage)) { <p class="text-slate mt-4 mb-2">@settings.FooterMessage</p> }
         <footer class="receipt-footer border-top pt-3 mt-3 text-slate small">
             <span>Document commercial ordinaire — non normalisé DGI.</span>
-            <strong>Généré par AdGestionHub</strong>
+            <strong class="brand-label"><partial name="_BrandMark" /> Généré par AdGestionHub</strong>
         </footer>
     </main>
 </div>

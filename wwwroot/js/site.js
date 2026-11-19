@@ -107,9 +107,34 @@
         instance.show();
     }
 
+    function initMarketingMotion() {
+        var preview = document.querySelector("[data-marketing-preview]");
+        var control = preview && preview.querySelector("[data-marketing-motion]");
+        if (!control) return;
+
+        var motion = window.matchMedia("(prefers-reduced-motion: no-preference)");
+        var pauseLabel = control.querySelector("[data-motion-pause]");
+        var playLabel = control.querySelector("[data-motion-play]");
+        var paused = false;
+        function update() {
+            control.hidden = !motion.matches;
+            preview.dataset.motion = motion.matches ? (paused ? "paused" : "running") : "static";
+            pauseLabel.hidden = paused;
+            playLabel.hidden = !paused;
+        }
+        control.addEventListener("click", function () {
+            paused = !paused;
+            update();
+        });
+        if (motion.addEventListener) motion.addEventListener("change", update);
+        else motion.addListener(update);
+        update();
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         initSidebar();
         initPublicPopup();
+        initMarketingMotion();
         // 1. Ombre de la topbar au défilement (effet glass premium)
         var topbar = document.querySelector(".app-topbar");
         if (topbar) {

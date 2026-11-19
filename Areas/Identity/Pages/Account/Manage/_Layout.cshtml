@@ -7,16 +7,10 @@
     <p class="text-slate small mb-0">@L.T("Sécurité du compte et préférences personnelles", "Account security and personal preferences")</p>
 </div>
 
-<div class="row g-4">
-    <div class="col-lg-3">
-        <div class="panel-card p-2">
-            <partial name="_ManageNav" />
-        </div>
-    </div>
-    <div class="col-lg-9">
-        <div class="panel-card p-4">
-            @RenderBody()
-        </div>
+<div class="profile-layout">
+    <partial name="_ManageNav" />
+    <div class="panel-card profile-content">
+        @RenderBody()
     </div>
 </div>
 

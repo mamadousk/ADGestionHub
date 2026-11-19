@@ -2,7 +2,7 @@
 
 **Pilotez votre PME, de la vente aux chiffres.**
 
-AD Gestion Hub est un logiciel de gestion commerciale en français pour les PME, commerces et distributeurs en RDC. Il relie les ventes, le stock, les encaissements et les dépenses en CDF et en USD. La vitrine présente les fonctions disponibles et une [démonstration en images](Views/Home/_MarketingDemo.cshtml) sur données fictives, sans compte.
+AD Gestion Hub est un logiciel de gestion commerciale en français pour les PME, commerces et distributeurs en RDC. Il relie les ventes, le stock, les encaissements et les dépenses en CDF et en USD. La vitrine présente les fonctions disponibles, des [aperçus ordinateur et iPhone](Views/Home/_MarketingDevices.cshtml) et une [démonstration en images](Views/Home/_MarketingDemo.cshtml) sur données fictives, sans compte.
 
 L’application repose sur **ASP.NET Core MVC / Razor (.NET 10 LTS)**, **ASP.NET Core Identity**, Entity Framework Core, SQL Server, QuestPDF et SkiaSharp pour le traitement des logos.
 

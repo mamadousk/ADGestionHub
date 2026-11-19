@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 from io import BytesIO
 import os
+import re
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -43,6 +44,37 @@ def assert_centered_with_gutters(element):
     assert min(left, right) >= 11 and abs(left - right) <= 1, (left, right)
 
 
+def assert_profile_navigation(page, active_id):
+    nav = page.get_by_role('navigation', name='Réglages du profil', exact=True)
+    links = nav.get_by_role('link')
+    labels = ('Informations du profil', 'Adresse e-mail', 'Mot de passe',
+              'Double authentification (2FA)', 'Données personnelles', 'Paramètres boutique')
+    expect(links).to_have_count(len(labels))
+    for label in labels:
+        expect(nav.get_by_role('link', name=label, exact=True)).to_be_visible()
+    expect(nav.locator('[aria-current="page"]')).to_have_count(1)
+    expect(nav.locator(f'#{active_id}')).to_have_attribute('aria-current', 'page')
+
+    ratios = links.evaluate_all(r'''nodes => {
+        const channels = color => color.match(/[\d.]+/g).map(Number);
+        const luminance = rgb => rgb.slice(0, 3).map(n => n / 255)
+            .map(n => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4)
+            .reduce((sum, n, i) => sum + n * [.2126, .7152, .0722][i], 0);
+        return nodes.map(link => {
+            const text = channels(getComputedStyle(link.querySelector('span')).color);
+            let bg;
+            for (let node = link; node; node = node.parentElement) {
+                const current = channels(getComputedStyle(node).backgroundColor);
+                if (current.length === 3 || current[3] === 1) { bg = current; break; }
+            }
+            if (!bg || (text.length === 4 && text[3] !== 1)) return 0;
+            const a = luminance(text), b = luminance(bg);
+            return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+        });
+    }''')
+    assert min(ratios) >= 4.5, ratios
+
+
 def run_browser(base, cookies, product, server_pdf):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel=os.environ.get('ADGH_SMOKE_BROWSER_CHANNEL'))
@@ -61,7 +93,27 @@ def run_browser(base, cookies, product, server_pdf):
                     assert response and response.ok and urlparse(page.url).path == path, page.url
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), (width, path)
 
-            public = browser.new_context(locale='fr-CD')
+            sidebar_logo = page.locator('.sidebar-heading .brand-logo')
+            expect(sidebar_logo).to_have_js_property('naturalWidth', 865)
+            expect(sidebar_logo).to_have_attribute('src', re.compile(r'/images/brand/logo-inverse\.webp'))
+            for width in (1440, 390, 320):
+                page.set_viewport_size({'width': width, 'height': 900})
+                assert page.goto(base + '/Identity/Account/Manage').ok
+                assert_profile_navigation(page, 'profile')
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+            page.locator('#profile').focus()
+            page.keyboard.press('Tab')
+            email = page.locator('#email')
+            expect(email).to_be_focused()
+            assert email.evaluate('el => el.matches(":focus-visible") && getComputedStyle(el).outlineStyle !== "none"')
+            page.keyboard.press('Enter')
+            expect(page.locator('.profile-content h2')).to_have_text('Email')
+            assert_profile_navigation(page, 'email')
+            page.locator('#two-factor').click()
+            expect(page.locator('.profile-content h2')).to_have_text('Double authentification (2FA)')
+            assert_profile_navigation(page, 'two-factor')
+
+            public = browser.new_context(locale='fr-CD', reduced_motion='no-preference')
             public.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base + '/') else route.abort())
             visitor = public.new_page()
             visitor.on('pageerror', lambda error: failures.append(str(error)))
@@ -74,10 +126,30 @@ def run_browser(base, cookies, product, server_pdf):
                 assert_centered_with_gutters(visitor.locator('#demo'))
                 cta = visitor.locator('.marketing-hero').get_by_role('link', name='Créer mon compte gratuit')
                 expect(cta).to_be_visible()
-                expect(visitor.locator('.marketing-preview img')).to_have_js_property('naturalWidth', 1160)
+                expect(visitor.locator('.public-brand .brand-logo')).to_have_js_property('naturalWidth', 865)
+                expect(visitor.locator('.marketing-desktop-device img')).to_have_js_property('naturalWidth', 1160)
+                expect(visitor.locator('.marketing-phone-device img')).to_have_js_property('naturalWidth', 824)
                 assert_accent_contrast(cta)  # no hover
 
+            flow = visitor.locator('.marketing-vector-flow')
+            expect(flow).to_have_css('animation-name', 'marketing-vector-travel')
+            pause = visitor.get_by_role('button', name='Pause de l’animation', exact=True)
+            pause.press('Enter')
+            expect(flow).to_have_css('animation-play-state', 'paused')
+            resume = visitor.get_by_role('button', name='Reprendre l’animation', exact=True)
+            expect(resume).to_be_focused()
+            resume.press('Space')
+            expect(flow).to_have_css('animation-play-state', 'running')
+            visitor.emulate_media(reduced_motion='reduce')
+            expect(visitor.locator('[data-marketing-motion]')).to_be_hidden()
+            expect(flow).to_have_css('animation-name', 'none')
+
             visitor.set_viewport_size({'width': 320, 'height': 760})
+            mobile = visitor.get_by_role('link', name='Agrandir la vue iPhone 18 Pro Max (nouvel onglet)', exact=True)
+            with visitor.expect_popup() as mobile_tab:
+                mobile.press('Enter')
+            mobile_tab.value.wait_for_url(base + '/images/demo/tableau-de-bord-mobile.webp')
+            mobile_tab.value.close()
             visitor.get_by_role('link', name='Voir la démo', exact=True).click()
             assert urlparse(visitor.url).fragment == 'demo'
             expect(visitor.get_by_role('heading', name='Une vente, quatre écrans.')).to_be_in_viewport()
