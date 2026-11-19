@@ -99,6 +99,6 @@ La [démo](../Views/Home/_MarketingDemo.cshtml) suit la même vente fictive sur 
 
 ## Suivi — Aperçus sur deux écrans, logo et profil
 
-L’accueil montre le tableau de bord sur ordinateur et dans une maquette d’iPhone 18 Pro Max. Les deux écrans agrandissables reprennent l’exemple Comptoir Démo. Le décor vectoriel animé évoque le suivi des ventes et du stock ; il peut être mis en pause et reste fixe si le navigateur demande de réduire les mouvements. Aucun service externe n’est nécessaire pour les images ou les animations.
+L’accueil montre le tableau de bord sur ordinateur et dans une maquette d’iPhone 18 Pro Max. Les deux écrans agrandissables reprennent l’exemple Comptoir Démo. Le décor vectoriel relie les pictogrammes de vente, de stock, d’encaissement et de suivi d’activité. L’animation joue une seule fois, en moins de cinq secondes, quand l’aperçu entre dans le champ visible. Le décor reste fixe si le navigateur demande de réduire les mouvements. Aucun service externe n’est nécessaire pour les images ou les animations.
 
 Le logo fourni est décliné pour les fonds clairs et sombres, les aperçus et l’icône d’onglet, sans remplacer le logo que chaque entreprise choisit pour ses documents. Le [menu du profil](../Areas/Identity/Pages/Account/Manage/_ManageNav.cshtml) utilise une palette claire dédiée : tous les liens restent lisibles hors sélection, la rubrique courante est signalée au clavier et aux lecteurs d’écran, et les liens propres à chaque rôle restent conditionnels.
