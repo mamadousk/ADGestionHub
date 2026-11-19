@@ -1,0 +1,56 @@
+<figure class="marketing-preview" data-marketing-preview>
+    <div class="marketing-device-scene" id="commerce-scene">
+        <svg class="marketing-commerce-vectors" viewBox="0 0 640 480" preserveAspectRatio="none" fill="none" aria-hidden="true" focusable="false">
+            <g class="marketing-vector-bars">
+                <rect x="28" y="396" width="22" height="52" rx="6" />
+                <rect x="58" y="372" width="22" height="76" rx="6" />
+                <rect x="88" y="344" width="22" height="104" rx="6" />
+            </g>
+            <path class="marketing-vector-rail" d="M-20 424H52C108 424 106 358 160 358H190C248 358 256 271 318 271H364C418 271 432 167 486 167H532C574 167 576 88 630 88H660" />
+            <path class="marketing-vector-flow marketing-animated" pathLength="100" d="M-20 424H52C108 424 106 358 160 358H190C248 358 256 271 318 271H364C418 271 432 167 486 167H532C574 167 576 88 630 88H660" />
+            <circle class="marketing-vector-halo marketing-animated" cx="52" cy="424" r="11" />
+            <circle class="marketing-vector-halo marketing-animated" cx="630" cy="88" r="11" />
+            <circle class="marketing-vector-node" cx="52" cy="424" r="5" />
+            <circle class="marketing-vector-node" cx="630" cy="88" r="5" />
+            <circle class="marketing-vector-ring" cx="596" cy="248" r="32" />
+            <circle class="marketing-vector-ring" cx="596" cy="248" r="46" />
+        </svg>
+        <div class="marketing-scene-head" aria-hidden="true">
+            <span class="marketing-scene-label"><span class="tiny-dot"></span> Le logiciel en aperçu</span>
+            <span class="marketing-scene-chip marketing-scene-sale marketing-animated">@LucideIcons.Svg("shopping-bag", 15) Vente suivie</span>
+        </div>
+
+        <a class="marketing-desktop-device" href="@Url.Content("~/images/demo/tableau-de-bord.webp")" target="_blank" rel="noopener" aria-label="Agrandir la vue ordinateur (nouvel onglet)">
+            <span class="marketing-desktop-frame">
+                <span class="marketing-desktop-chrome" aria-hidden="true"><i></i><i></i><i></i></span>
+                <img src="~/images/demo/tableau-de-bord.webp" asp-append-version="true" width="1160" height="860"
+                     alt="Tableau de bord de Comptoir Démo sur ordinateur : ventes, recettes encaissées, créances et alertes de stock."
+                     fetchpriority="high" decoding="async" />
+            </span>
+            <span class="marketing-monitor-stand" aria-hidden="true"></span>
+        </a>
+        <a class="marketing-phone-device" href="@Url.Content("~/images/demo/tableau-de-bord-mobile.webp")" target="_blank" rel="noopener" aria-label="Agrandir la vue iPhone 18 Pro Max (nouvel onglet)">
+            <span class="marketing-phone-display">
+                <img src="~/images/demo/tableau-de-bord-mobile.webp" asp-append-version="true" width="824" height="1710"
+                     alt="Maquette du tableau de bord sur iPhone 18 Pro Max : 244 000 CDF de ventes, 214 000 CDF encaissés et 30 000 CDF à recevoir."
+                     decoding="async" />
+                <span class="marketing-phone-island" aria-hidden="true"></span>
+                <span class="marketing-phone-home" aria-hidden="true"></span>
+            </span>
+        </a>
+        <span class="marketing-scene-chip marketing-scene-stock marketing-animated" aria-hidden="true">@LucideIcons.Svg("package", 16) Stock à jour</span>
+    </div>
+    <figcaption>
+        <div class="marketing-device-labels">
+            <span>@LucideIcons.Svg("monitor", 16) Ordinateur</span>
+            <span>@LucideIcons.Svg("smartphone", 16) iPhone 18 Pro Max</span>
+        </div>
+        <div class="marketing-preview-meta">
+            <span>Aperçus illustrés · Données fictives</span>
+            <button type="button" class="marketing-motion-toggle" data-marketing-motion aria-controls="commerce-scene" hidden>
+                <span data-motion-pause>@LucideIcons.Svg("pause", 14) Pause de l’animation</span>
+                <span data-motion-play hidden>@LucideIcons.Svg("play", 14) Reprendre l’animation</span>
+            </button>
+        </div>
+    </figcaption>
+</figure>

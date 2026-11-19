@@ -51,6 +51,8 @@
     <title>@ViewData["Title"] — AD Gestion Hub</title>
 
     @if (ViewData["MetaDescription"] is string description) { <meta name="description" content="@description" /> }
+    <link rel="icon" href="~/favicon.ico" asp-append-version="true" />
+    <link rel="apple-touch-icon" href="~/images/brand/mark.png" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
@@ -72,7 +74,7 @@
             <aside id="appSidebar" class="app-sidebar">
                 <div class="sidebar-heading">
                     <a class="sidebar-brand" asp-area="" asp-controller="Home" asp-action="Index">
-                        <span class="d-flex align-items-center"><span class="brand-mark" aria-hidden="true">A</span>AD Gestion Hub</span>
+                        <partial name="_BrandLogo" model="true" />
                     </a>
                     <button type="button" class="sidebar-close d-lg-none" data-sidebar-close aria-label="Fermer le menu">
                         @LucideIcons.Svg("x", 19)
@@ -171,7 +173,7 @@
                 </nav>
 
                 <div class="sidebar-footer d-flex justify-content-between align-items-center">
-                    <span>AD Gestion Hub</span>
+                    <span class="brand-label"><partial name="_BrandMark" /> AD Gestion Hub</span>
                     <button type="button" class="btn btn-link p-0 text-decoration-none text-slate" style="font-size:0.75rem;" data-bs-toggle="modal" data-bs-target="#feedbackModal">
                         @L["Nav.Feedback"]
                     </button>
@@ -273,8 +275,8 @@
     {
         <header class="public-topbar">
             <div class="container public-nav">
-                <a class="sidebar-brand border-0 px-0 public-brand" asp-area="" asp-controller="Home" asp-action="@(isAuthenticated ? "Index" : "Welcome")">
-                    <span class="d-flex align-items-center"><span class="brand-mark" aria-hidden="true">A</span>AD Gestion Hub</span>
+                <a class="public-brand" asp-area="" asp-controller="Home" asp-action="@(isAuthenticated ? "Index" : "Welcome")">
+                    <partial name="_BrandLogo" model="false" />
                 </a>
                 @if (marketing)
                 {
@@ -323,7 +325,9 @@
             <div class="container">
                 <div class="row g-4">
                     <div class="col-md-5">
-                        <div class="fw-semibold text-dark mb-2">AD Gestion Hub</div>
+                        <a class="public-footer-brand mb-3" asp-area="" asp-controller="Home" asp-action="@(isAuthenticated ? "Index" : "Welcome")">
+                            <partial name="_BrandLogo" model="true" />
+                        </a>
                         <p class="mb-2">
                             @L.T(
                                 "Gestion commerciale, stocks et trésorerie pour les commerçants et PME en RDC.",

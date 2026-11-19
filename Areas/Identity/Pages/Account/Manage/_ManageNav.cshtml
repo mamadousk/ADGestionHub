@@ -1,56 +1,43 @@
-@using AdGestionHub.Models
-@using Microsoft.AspNetCore.Identity
-@inject UserManager<ApplicationUser> UserManager
-@inject SignInManager<ApplicationUser> SignInManager
-
 @{
-    var isAdmin = User.IsInRole("Admin");
-    var isSuperAdmin = User.IsInRole("SuperAdmin");
+    var links = new (string Id, string Page, string Icon, string Label)[]
+    {
+        ("profile", ManageNavPages.Index, "users", L.T("Informations du profil", "Profile details")),
+        ("email", ManageNavPages.Email, "mail", L.T("Adresse e-mail", "Email address")),
+        ("change-password", ManageNavPages.ChangePassword, "lock", L.T("Mot de passe", "Password")),
+        ("two-factor", ManageNavPages.TwoFactorAuthentication, "shield", L.T("Double authentification (2FA)", "Two-factor authentication (2FA)")),
+        ("personal-data", ManageNavPages.PersonalData, "file-text", L.T("Données personnelles", "Personal data"))
+    };
 }
 
-<ul class="nav flex-column gap-1">
-    <li class="nav-item">
-        <a class="sidebar-link @ManageNavPages.IndexNavClass(ViewContext)" id="profile" asp-page="./Index">
-            @L.T("Informations du profil", "Profile details")
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="sidebar-link @ManageNavPages.EmailNavClass(ViewContext)" id="email" asp-page="./Email">
-            Email
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="sidebar-link @ManageNavPages.ChangePasswordNavClass(ViewContext)" id="change-password" asp-page="./ChangePassword">
-            @L.T("Mot de passe", "Password")
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="sidebar-link @ManageNavPages.TwoFactorAuthenticationNavClass(ViewContext)" id="two-factor" asp-page="./TwoFactorAuthentication">
-            @L.T("Double authentification (2FA)", "Two-factor authentication")
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="sidebar-link @ManageNavPages.PersonalDataNavClass(ViewContext)" id="personal-data" asp-page="./PersonalData">
-            @L.T("Données personnelles", "Personal data")
-        </a>
-    </li>
-
-    @if (isAdmin)
-    {
-        <li class="nav-item pt-2 mt-2 border-top">
-            <a class="sidebar-link" asp-area="" asp-controller="Settings" asp-action="Index">
-                @LucideIcons.Svg("settings", 16)
-                <span>@L["Nav.MyStore"]</span>
-            </a>
-        </li>
-    }
-    @if (isSuperAdmin)
-    {
-        <li class="nav-item pt-2 mt-2 border-top">
-            <a class="sidebar-link" asp-area="" asp-controller="SuperAdmin" asp-action="Index">
-                @LucideIcons.Svg("shield", 16)
-                <span>@L["Nav.SystemConsole"]</span>
-            </a>
-        </li>
-    }
-</ul>
+<nav class="panel-card profile-nav" aria-label="@L.T("Réglages du profil", "Profile settings")">
+    <ul>
+        @foreach (var link in links)
+        {
+            var active = ManageNavPages.PageNavClass(ViewContext, link.Page) == "active";
+            <li>
+                <a class="profile-nav-link" id="@link.Id" asp-page="@("./" + link.Page)" aria-current="@(active ? "page" : null)">
+                    @LucideIcons.Svg(link.Icon, 18)
+                    <span>@link.Label</span>
+                </a>
+            </li>
+        }
+        @if (User.IsInRole("Admin"))
+        {
+            <li class="profile-nav-separator">
+                <a class="profile-nav-link" asp-area="" asp-controller="Settings" asp-action="Index">
+                    @LucideIcons.Svg("settings", 18)
+                    <span>@L["Nav.MyStore"]</span>
+                </a>
+            </li>
+        }
+        @if (User.IsInRole("SuperAdmin"))
+        {
+            <li class="profile-nav-separator">
+                <a class="profile-nav-link" asp-area="" asp-controller="SuperAdmin" asp-action="Index">
+                    @LucideIcons.Svg("shield", 18)
+                    <span>@L["Nav.SystemConsole"]</span>
+                </a>
+            </li>
+        }
+    </ul>
+</nav>

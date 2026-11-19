@@ -1,0 +1,6 @@
+@model bool
+@{
+    var source = Model ? "~/images/brand/logo-inverse.webp" : "~/images/brand/logo.webp";
+}
+<img class="brand-logo" src="@Url.Content(source)" asp-append-version="true" width="865" height="160"
+     alt="AD Gestion Hub — Gestion commerciale" />
