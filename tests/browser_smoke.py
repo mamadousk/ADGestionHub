@@ -44,6 +44,39 @@ def assert_centered_with_gutters(element):
     assert min(left, right) >= 11 and abs(left - right) <= 1, (left, right)
 
 
+def assert_landing_entrances(page):
+    # Check elements actually started a CSS animation as we traverse the page,
+    # including content far from the animated illustration in the hero.
+    targets = (
+        '.public-topbar .public-nav', '#hero-title', '.marketing-hero .marketing-activity-line',
+        '#benefices .marketing-benefit', '#demo .marketing-demo-grid > li',
+        '#fonctionnalites .marketing-feature', '.marketing-offer .marketing-currency > div',
+        '#tarifs .marketing-plan', '#demarrage .marketing-steps > li', '#faq .marketing-faq-list > details',
+        '.marketing-final a.btn', '.marketing-final .marketing-activity-line', '.public-footer .row > div',
+    )
+    for selector in targets:
+        target = page.locator(selector).first
+        target.scroll_into_view_if_needed()
+        expect(target).to_have_attribute('data-test-entrance', re.compile(r'^marketing-(enter|trace-draw)$'))
+    page.evaluate('scrollTo({top: document.documentElement.scrollHeight, behavior: "instant"})')
+    progress = page.locator('.marketing-reading-progress')
+    expect(progress).to_have_css('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+    expect(progress).to_be_in_viewport()
+
+
+def assert_touch_demo(browser, base):
+    with browser.new_context(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True,
+                             reduced_motion='no-preference') as context:
+        page = context.new_page()
+        assert page.goto(base + '/', wait_until='domcontentloaded').ok
+        # The action must work even before the entry animation settles.
+        page.locator('.marketing-actions a[href="#demo"]').tap()
+        heading = page.locator('#demo-title')
+        expect(heading).to_be_in_viewport()
+        assert urlparse(page.url).fragment == 'demo'
+        assert heading.bounding_box()['y'] >= page.locator('.public-topbar').bounding_box()['height']
+
+
 def assert_profile_navigation(page, active_id):
     nav = page.get_by_role('navigation', name='Réglages du profil', exact=True)
     links = nav.get_by_role('link')
@@ -117,6 +150,11 @@ def run_browser(base, cookies, product, server_pdf):
             public.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base + '/') else route.abort())
             visitor = public.new_page()
             visitor.on('pageerror', lambda error: failures.append(str(error)))
+            visitor.add_init_script('''document.addEventListener('animationstart', event => {
+                if (['marketing-enter', 'marketing-trace-draw'].includes(event.animationName)) {
+                    event.target.setAttribute('data-test-entrance', event.animationName);
+                }
+            });''')
             public_sizes = ((320, 760), (390, 844), (768, 1024), (1366, 768), (1440, 900))
             for width, height in public_sizes:
                 visitor.set_viewport_size({'width': width, 'height': height})
@@ -134,22 +172,68 @@ def run_browser(base, cookies, product, server_pdf):
             expect(visitor.locator('#hero-title')).to_have_text('Pilotez votre entreprise, de la vente aux chiffres.')
             preview = visitor.locator('.marketing-preview')
             expect(preview.locator('figcaption')).to_have_text('Aperçus illustrés · Données fictives')
-            expect(preview.get_by_role('button')).to_have_count(0)
+            expect(preview.locator('figcaption').get_by_role('button')).to_have_count(0)
+            scene = preview.locator('.marketing-device-scene')
+            flow = scene.locator('.marketing-vector-header .marketing-vector-flow')
+            report_badge = scene.locator('.marketing-vector-badge--report')
+            pause = scene.get_by_role('button', name='Mettre le décor en pause', exact=True)
+            expect(flow).to_have_css('animation-play-state', 'running')
+            expect(pause).to_be_in_viewport()
+            trace_progress = flow.evaluate('''async path => {
+                const offset = () => parseFloat(getComputedStyle(path).strokeDashoffset);
+                const start = offset();
+                const distance = () => Math.abs(offset() - start);
+                for (let i = 0; i < 8 && distance() < 3; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                }
+                return distance();
+            }''')
+            assert trace_progress >= 3, trace_progress
+            assert_landing_entrances(visitor)
+            assert_touch_demo(browser, base)
 
-            # No motion off screen; the short introduction plays once when discovered by scrolling.
             visitor.set_viewport_size({'width': 320, 'height': 480})
             assert visitor.goto(base + '/').ok
-            scene = preview.locator('.marketing-device-scene')
-            flow = scene.locator('.marketing-vector-flow')
             expect(scene).not_to_be_in_viewport()
-            expect(flow).to_have_css('animation-name', 'none')
+            expect(flow).to_have_css('animation-play-state', 'paused')
             scene.scroll_into_view_if_needed()
-            expect(flow).to_have_css('animation-name', 'marketing-vector-travel')
-            timing = scene.evaluate('el => el.getAnimations({ subtree: true }).map(a => a.effect.getComputedTiming())')
-            assert timing and all(t['iterations'] == 1 and t['endTime'] < 5000 for t in timing), timing
+            expect(flow).to_have_css('animation-play-state', 'running')
+            expect(flow).to_have_css('animation-iteration-count', 'infinite')
+            # Check physical movement after the previous one-shot animation would have ended.
+            distance = report_badge.evaluate('''async badge => {
+                await new Promise(resolve => setTimeout(resolve, 5200));
+                const initial = badge.getBoundingClientRect();
+                const deadline = performance.now() + 1900;
+                return new Promise(resolve => {
+                    function measure(now) {
+                        const position = badge.getBoundingClientRect();
+                        const distance = Math.hypot(position.x - initial.x, position.y - initial.y);
+                        if (distance >= 5 || now >= deadline) resolve(distance);
+                        else requestAnimationFrame(measure);
+                    }
+                    requestAnimationFrame(measure);
+                });
+            }''')
+            assert distance >= 5, distance
+            pause.press('Enter')
+            expect(pause).to_have_attribute('aria-pressed', 'true')
+            expect(flow).to_have_css('animation-play-state', 'paused')
+            expect(report_badge).to_have_css('animation-play-state', 'paused')
+            pause.press('Space')
+            expect(pause).to_have_attribute('aria-pressed', 'false')
+            expect(flow).to_have_css('animation-play-state', 'running')
+            visitor.evaluate('scrollTo({top: 0, behavior: "instant"})')
+            expect(scene).not_to_be_in_viewport()
+            expect(flow).to_have_css('animation-play-state', 'paused')
+            scene.scroll_into_view_if_needed()
+            expect(flow).to_have_css('animation-play-state', 'running')
             visitor.emulate_media(reduced_motion='reduce')
+            expect(pause).to_be_hidden()
+            expect(visitor.locator('.marketing-reading-progress')).to_be_hidden()
             expect(flow).to_have_css('animation-name', 'none')
-            assert scene.evaluate('el => el.getAnimations({ subtree: true }).length === 0')
+            visitor.locator('#faq-title').scroll_into_view_if_needed()
+            expect(visitor.locator('#faq [data-test-entrance]')).to_have_count(0)
+            assert visitor.evaluate('!document.getAnimations().some(a => a.animationName?.startsWith("marketing-"))')
 
             visitor.set_viewport_size({'width': 320, 'height': 760})
             mobile = visitor.get_by_role('link', name='Agrandir la vue iPhone 18 Pro Max (nouvel onglet)', exact=True)

@@ -1,5 +1,5 @@
-<figure class="marketing-preview">
-    <div class="marketing-device-scene">
+<figure class="marketing-preview" data-landing-reveal>
+    <div class="marketing-device-scene" id="commerce-scene">
         <svg class="marketing-commerce-vectors" viewBox="0 0 640 480" preserveAspectRatio="none" fill="none" aria-hidden="true" focusable="false">
             <defs>
                 <linearGradient id="commerce-trace-ink" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -13,19 +13,27 @@
             <path class="marketing-vector-orbit marketing-vector-orbit--dotted" d="M-24 441C79 507 206 476 323 418S472 301 522 218 582 142 659 125" />
             <path class="marketing-vector-orbit marketing-vector-orbit--dotted" d="M-18 76C131 5 259 41 361 66S532 101 656 39" />
             <use class="marketing-vector-rail" href="#commerce-trace" />
-            <use class="marketing-vector-flow" href="#commerce-trace" />
-            <circle class="marketing-vector-halo" cx="87" cy="451" r="12" />
-            <circle class="marketing-vector-halo marketing-vector-halo--late" cx="610" cy="97" r="12" />
+            <use class="marketing-vector-flow marketing-vector-flow--orbit marketing-moving" href="#commerce-trace" />
             <circle class="marketing-vector-node" cx="87" cy="451" r="4" />
             <circle class="marketing-vector-node" cx="610" cy="97" r="4" />
             <circle class="marketing-vector-node" cx="525" cy="59" r="3" />
             <circle class="marketing-vector-node" cx="47" cy="416" r="3" />
         </svg>
-        <span class="marketing-vector-badge marketing-vector-badge--report" aria-hidden="true">@LucideIcons.Svg("bar-chart-3", 22)</span>
-        <span class="marketing-vector-badge marketing-vector-badge--payment" aria-hidden="true">@LucideIcons.Svg("wallet", 22)</span>
-        <div class="marketing-scene-head" aria-hidden="true">
-            <span class="marketing-scene-label"><span class="tiny-dot"></span> Le logiciel en aperçu</span>
-            <span class="marketing-scene-chip marketing-scene-sale">@LucideIcons.Svg("shopping-bag", 15) Vente suivie</span>
+        <svg class="marketing-vector-header" viewBox="0 0 640 64" preserveAspectRatio="none" fill="none" aria-hidden="true" focusable="false">
+            <path class="marketing-vector-header-rail" d="M-12 56C101 62 158 39 262 48S430 63 522 50 603 40 652 41" />
+            <path class="marketing-vector-flow marketing-moving" pathLength="100" d="M-12 56C101 62 158 39 262 48S430 63 522 50 603 40 652 41" />
+        </svg>
+        <span class="marketing-vector-badge marketing-vector-badge--report marketing-moving" aria-hidden="true">@LucideIcons.Svg("bar-chart-3", 22)</span>
+        <span class="marketing-vector-badge marketing-vector-badge--payment marketing-moving" aria-hidden="true">@LucideIcons.Svg("wallet", 22)</span>
+        <div class="marketing-scene-head">
+            <span class="marketing-scene-label" aria-hidden="true"><span class="tiny-dot"></span> Le logiciel en aperçu</span>
+            <div class="marketing-scene-actions">
+                <span class="marketing-scene-chip marketing-scene-sale marketing-moving" aria-hidden="true">@LucideIcons.Svg("shopping-bag", 15) Vente suivie</span>
+                <button class="marketing-scene-toggle" type="button" data-scene-motion-toggle aria-label="Mettre le décor en pause" aria-pressed="false" aria-controls="commerce-scene" hidden>
+                    @LucideIcons.Svg("pause", 18, "marketing-scene-icon-pause")
+                    @LucideIcons.Svg("play", 16, "marketing-scene-icon-play")
+                </button>
+            </div>
         </div>
 
         <a class="marketing-desktop-device" href="@Url.Content("~/images/demo/tableau-de-bord.webp")" target="_blank" rel="noopener" aria-label="Agrandir la vue ordinateur (nouvel onglet)">
@@ -46,7 +54,7 @@
                 <span class="marketing-phone-home" aria-hidden="true"></span>
             </span>
         </a>
-        <span class="marketing-scene-chip marketing-scene-stock" aria-hidden="true">@LucideIcons.Svg("package", 16) Stock à jour</span>
+        <span class="marketing-scene-chip marketing-scene-stock marketing-moving" aria-hidden="true">@LucideIcons.Svg("package", 16) Stock à jour</span>
     </div>
     <figcaption>Aperçus illustrés · Données fictives</figcaption>
 </figure>

@@ -56,7 +56,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body>
+<body class="@(marketing ? "marketing-body" : null)">
     @if (isAuthenticated && activeNotification != null)
     {
         <div id="systemNotice" class="alert @(activeNotification.IsCritical ? "alert-danger" : "alert-warning") mb-0 rounded-0 border-0 border-bottom text-center py-2 px-3">
@@ -274,6 +274,10 @@
     else
     {
         <header class="public-topbar">
+            @if (marketing)
+            {
+                <span class="marketing-reading-progress" aria-hidden="true" hidden></span>
+            }
             <div class="container public-nav">
                 <a class="public-brand" asp-area="" asp-controller="Home" asp-action="@(isAuthenticated ? "Index" : "Welcome")">
                     <partial name="_BrandLogo" model="false" />

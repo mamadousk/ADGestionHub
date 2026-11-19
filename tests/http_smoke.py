@@ -375,7 +375,10 @@ def run(base, db_file, superadmin):
     assert '<h1 id="hero-title">Pilotez votre entreprise,' in text and 'Une vente, quatre écrans.' in text
     assert 'Bénéfices pour votre PME' in text
     assert 'non normalisés DGI' in text and 'En préparation' in text and 'données fictives' in text
-    assert 'iPhone 18 Pro Max' in text and 'marketing-vector-flow' in text
+    assert 'iPhone 18 Pro Max' in text and 'marketing-vector-flow' in text and 'data-scene-motion-toggle' in text
+    assert '/js/marketing-motion.js' in text and 'marketing-reading-progress' in text
+    assert 'data-landing-reveal' in text and 'data-landing-stagger' in text and 'data-landing-draw' in text
+    assert '<figcaption>Aperçus illustrés · Données fictives</figcaption>' in text
     assert 'Pause de l’animation' not in text and 'marketing-device-labels' not in text
     assert 'href="/favicon.ico' in text and 'href="/images/brand/mark.png' in text
     for section in ('benefices', 'demo', 'fonctionnalites', 'tarifs'):

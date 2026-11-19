@@ -3,9 +3,13 @@
     ViewData["MetaDescription"] = "AD Gestion Hub relie ventes, stocks, encaissements et dépenses pour les PME, commerces et distributeurs en RDC. Découvrez le logiciel en images, en CDF et en USD.";
     ViewData["Marketing"] = true;
 }
+@section Scripts {
+    <script src="~/js/marketing-motion.js" asp-append-version="true"></script>
+}
 <div class="marketing-page">
     <section class="marketing-hero" aria-labelledby="hero-title">
-        <div class="marketing-hero-copy">
+        <partial name="_MarketingTrace" />
+        <div class="marketing-hero-copy" data-landing-stagger>
             <span class="marketing-tag"><span class="tiny-dot" aria-hidden="true"></span> Gestion commerciale · RDC</span>
             <h1 id="hero-title">Pilotez votre entreprise, <span>de la vente aux chiffres.</span></h1>
             <p class="marketing-lead">Un seul espace pour les PME, commerces et distributeurs. Reliez vos ventes, vos stocks et vos dépenses pour savoir ce qui se vend, ce qui est encaissé et ce qu’il reste à recevoir.</p>
@@ -23,12 +27,12 @@
     </section>
 
     <section id="benefices" class="marketing-section" aria-labelledby="benefits-title">
-        <div class="marketing-section-heading">
+        <div class="marketing-section-heading" data-landing-reveal>
             <p class="section-eyebrow">Bénéfices pour votre PME</p>
             <h2 id="benefits-title">Moins de ressaisie, plus de visibilité.</h2>
             <p>Le soir, retrouvez l’activité de votre entreprise sans rapprocher plusieurs cahiers ou fichiers.</p>
         </div>
-        <div class="marketing-benefits">
+        <div class="marketing-benefits" data-landing-stagger>
             <article class="marketing-benefit">
                 <span class="metric-icon orange">@LucideIcons.Svg("check", 22)</span>
                 <h3>Saisissez la vente une seule fois</h3>
@@ -50,12 +54,12 @@
     <partial name="_MarketingDemo" />
 
     <section id="fonctionnalites" class="marketing-section" aria-labelledby="features-title">
-        <div class="marketing-section-heading">
+        <div class="marketing-section-heading" data-landing-reveal>
             <p class="section-eyebrow">Fonctions disponibles</p>
             <h2 id="features-title">Ce que vous pouvez faire avec AD Gestion Hub</h2>
             <p>De la saisie d’une vente au rapport d’activité, voici les outils inclus aujourd’hui.</p>
         </div>
-        <div class="marketing-features">
+        <div class="marketing-features" data-landing-stagger>
             <article class="panel-card marketing-feature">
                 <span class="metric-icon orange">@LucideIcons.Svg("receipt", 22)</span>
                 <h3>Ventes, reçus et factures</h3>
@@ -115,20 +119,21 @@
     </section>
 
     <section class="marketing-offer" aria-labelledby="currency-title">
-        <div><p class="section-eyebrow">Adapté aux échanges en RDC</p><h2 id="currency-title">Travaillez en francs congolais ou en dollars.</h2>
+        <partial name="_MarketingTrace" />
+        <div data-landing-reveal><p class="section-eyebrow">Adapté aux échanges en RDC</p><h2 id="currency-title">Travaillez en francs congolais ou en dollars.</h2>
             <p>Choisissez la devise de votre catalogue et saisissez votre taux de change. Une opération conserve le taux enregistré lors de sa saisie. Les rapports n’additionnent pas des montants en CDF et en USD.</p></div>
-        <div class="marketing-currency" aria-label="Devises prises en charge">
+        <div class="marketing-currency" data-landing-stagger aria-label="Devises prises en charge">
             <div><strong class="num">CDF</strong><span>Franc congolais</span></div>
             <div><strong class="num">USD</strong><span>Dollar américain</span></div>
         </div>
     </section>
 
     <section id="tarifs" class="marketing-section" aria-labelledby="pricing-title">
-        <div class="marketing-section-heading">
+        <div class="marketing-section-heading" data-landing-reveal>
             <p class="section-eyebrow">Tarifs</p>
             <h2 id="pricing-title">Un accès gratuit pour commencer</h2>
         </div>
-        <div class="marketing-pricing">
+        <div class="marketing-pricing" data-landing-stagger>
             <article class="panel-card marketing-plan">
                 <span class="status-pill success">Disponible</span>
                 <h3>Accès gratuit</h3>
@@ -143,11 +148,11 @@
     </section>
 
     <section id="demarrage" class="marketing-section" aria-labelledby="getting-started-title">
-        <div class="marketing-section-heading">
+        <div class="marketing-section-heading" data-landing-reveal>
             <p class="section-eyebrow">Premiers pas</p>
             <h2 id="getting-started-title">Ouvrez votre espace en trois étapes</h2>
         </div>
-        <ol class="marketing-steps list-unstyled">
+        <ol class="marketing-steps list-unstyled" data-landing-stagger>
             <li class="panel-card"><span class="marketing-step-index num" aria-hidden="true">01</span><h3>Créez votre compte</h3><p>Renseignez le nom de votre entreprise et vos identifiants. Le compte administrateur est créé avec votre espace.</p></li>
             <li class="panel-card"><span class="marketing-step-index num" aria-hidden="true">02</span><h3>Lisez et acceptez les conditions</h3><p>Prenez connaissance des <a asp-controller="Infos" asp-action="CGU">conditions d’utilisation</a> et confirmez que vous les acceptez pour accéder au service.</p></li>
             <li class="panel-card"><span class="marketing-step-index num" aria-hidden="true">03</span><h3>Personnalisez votre espace</h3><p>Ajoutez votre logo, vos coordonnées et vos préférences, ou passez cette étape et ajoutez votre premier produit.</p></li>
@@ -155,8 +160,8 @@
     </section>
 
     <section id="faq" class="marketing-faq marketing-section" aria-labelledby="faq-title">
-        <div class="marketing-section-heading"><p class="section-eyebrow">Questions fréquentes</p><h2 id="faq-title">Ce qu’il faut savoir avant de commencer</h2></div>
-        <div class="marketing-faq-list">
+        <div class="marketing-section-heading" data-landing-reveal><p class="section-eyebrow">Questions fréquentes</p><h2 id="faq-title">Ce qu’il faut savoir avant de commencer</h2></div>
+        <div class="marketing-faq-list" data-landing-stagger>
             <details class="panel-card"><summary>AD Gestion Hub est-il gratuit&nbsp;?</summary><p>Oui. Les fonctionnalités disponibles présentées sur cette page sont accessibles gratuitement, sans carte bancaire ni abonnement. Il vous faut une connexion Internet et un navigateur.</p></details>
             <details class="panel-card"><summary>AD Gestion Hub reçoit-il l’argent de mes clients&nbsp;?</summary><p>Non. Vous recevez les paiements par vos moyens habituels, puis vous les enregistrez dans votre espace : espèces, Mobile Money, virement ou autre moyen configuré. Le service ne déclenche pas de transaction.</p></details>
             <details class="panel-card"><summary>Les documents sont-ils des factures normalisées&nbsp;?</summary><p>Non. Les reçus et factures générés sont des documents commerciaux ordinaires, non normalisés DGI. Ils ne se substituent pas aux pièces fiscales exigées pour votre activité.</p></details>
@@ -166,7 +171,8 @@
     </section>
 
     <section class="marketing-final" aria-labelledby="final-title">
-        <div><p class="section-eyebrow">Prêt à démarrer&nbsp;?</p><h2 id="final-title">Passez de la vente au suivi de votre activité.</h2><p>Créez votre compte gratuit, ajoutez un produit et enregistrez votre première vente.</p></div>
-        <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent">Créer mon compte gratuit @LucideIcons.Svg("arrow-right", 18)</a>
+        <partial name="_MarketingTrace" />
+        <div data-landing-reveal><p class="section-eyebrow">Prêt à démarrer&nbsp;?</p><h2 id="final-title">Passez de la vente au suivi de votre activité.</h2><p>Créez votre compte gratuit, ajoutez un produit et enregistrez votre première vente.</p></div>
+        <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-accent" data-landing-reveal>Créer mon compte gratuit @LucideIcons.Svg("arrow-right", 18)</a>
     </section>
 </div>
