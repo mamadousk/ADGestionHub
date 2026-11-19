@@ -2,24 +2,30 @@
 @{
     var settings = (StoreSettings)ViewData["TradeSettings"]!;
 }
-<div class="row g-3 mt-1">
-    <div class="col-md-4">
-        <label asp-for="PaymentMode" class="form-label">État du règlement</label>
-        <select asp-for="PaymentMode" class="form-select" data-payment-mode>
-            <option value="Full">Réglé intégralement</option>
-            <option value="Partial">Partiellement réglé</option>
-            <option value="Unpaid">Non réglé</option>
-        </select>
+<fieldset class="pos-payment">
+    <legend>Règlement</legend>
+    <div class="pos-payment-modes">
+        <label for="pos-pay-full"><input asp-for="PaymentMode" type="radio" value="Full" id="pos-pay-full" /><span>Comptant</span></label>
+        <label for="pos-pay-partial"><input asp-for="PaymentMode" type="radio" value="Partial" id="pos-pay-partial" /><span>Acompte</span></label>
+        <label for="pos-pay-unpaid"><input asp-for="PaymentMode" type="radio" value="Unpaid" id="pos-pay-unpaid" /><span>À crédit</span></label>
     </div>
-    <div class="col-md-4" data-partial-payment>
-        <label asp-for="InitialPayment" class="form-label">Montant réglé</label>
-        <input asp-for="InitialPayment" class="form-control num" inputmode="decimal" placeholder="0,00" />
-        <div class="form-text">Seulement pour un règlement partiel.</div>
+    <div class="pos-payment-fields">
+        <div data-payment-method>
+            <label asp-for="PaymentMethod" class="form-label">Moyen de paiement</label>
+            <select asp-for="PaymentMethod" class="form-select">
+                @foreach (var method in PaymentMeans.All(settings)) { <option value="@method">@method</option> }
+            </select>
+        </div>
+        <div data-partial-payment>
+            <label asp-for="InitialPayment" class="form-label">Acompte reçu</label>
+            <input asp-for="InitialPayment" class="form-control num" inputmode="decimal" placeholder="0,00" />
+        </div>
     </div>
-    <div class="col-md-4" data-payment-method>
-        <label asp-for="PaymentMethod" class="form-label">Moyen de paiement</label>
-        <select asp-for="PaymentMethod" class="form-select">
-            @foreach (var method in PaymentMeans.All(settings)) { <option value="@method">@method</option> }
-        </select>
-    </div>
-</div>
+    <details class="pos-cash" data-pos-cash hidden>
+        <summary>Calculer la monnaie</summary>
+        <div class="pos-cash-fields">
+            <div><label for="pos-tendered" class="form-label">Somme remise</label><input id="pos-tendered" class="form-control num" inputmode="decimal" autocomplete="off" placeholder="0,00" data-pos-tendered /></div>
+            <div><span class="form-label">Monnaie à rendre</span><strong class="num" data-pos-change>—</strong></div>
+        </div>
+    </details>
+</fieldset>

@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AdGestionHub.Controllers;
 
-[Authorize(Policy = "ShopMember")]
+[Authorize(Policy = StaffAccessRules.Expenses)]
 public sealed class ExpensesController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
     CommerceWriter writer) : Controller
 {

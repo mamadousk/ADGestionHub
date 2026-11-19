@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Models.ViewModels;
@@ -10,8 +11,9 @@ namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = "ShopMember")]
 public sealed class SalesController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
-    CommerceOperations commerce, IPdfReportService pdf) : TradeController(db, boutiques, tenant)
+    CommerceOperations commerce, IPdfReportService pdf, StaffAccess access) : TradeController(db, boutiques, tenant)
 {
+    [Authorize(Policy = StaffAccessRules.SalesHistory)]
     public async Task<IActionResult> Index()
     {
         if (await ShopAsync() is not int shop) return Forbid();
@@ -19,11 +21,11 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
             .OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync());
     }
 
-    [HttpGet]
+    [HttpGet, Authorize(Policy = StaffAccessRules.Sell)]
     public async Task<IActionResult> Create(int? productId)
     {
         if (await ShopAsync() is not int shop) return Forbid();
-        await PrepareAsync(shop);
+        await PrepareAsync(shop, (await access.CurrentAsync()).Has(StaffPermission.Clients));
         return View(new SaleInput
         {
             CurrencyCode = (await Tenant.GetContextAsync()).PrimaryCurrency.Code,
@@ -31,15 +33,19 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         });
     }
 
-    [HttpPost]
+    [HttpPost, Authorize(Policy = StaffAccessRules.Sell)]
     public async Task<IActionResult> Create(SaleInput model)
     {
         if (await ShopAsync() is not int shop) return Forbid();
+        var canUseDirectory = (await access.CurrentAsync()).Has(StaffPermission.Clients);
+        if (model.ClientId.HasValue && !canUseDirectory) return Forbid();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId)) return Forbid();
         if (ModelState.IsValid)
         {
             try
             {
-                var sale = await commerce.SellAsync(shop, model, User.IsInRole("Admin"));
+                var sale = await commerce.SellAsync(shop, model, User.IsInRole("Admin"), userId);
                 TempData["SuccessMessage"] = $"Vente {sale.Number} enregistrée. Le stock a été mis à jour.";
                 if (sale.StockWarnings > 0)
                     TempData["StockNotice"] = $"{sale.StockWarnings} produit(s) de cette vente sont au seuil d’alerte ou en dessous.";
@@ -48,10 +54,11 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
             catch (CommerceRuleException error) { ModelState.AddModelError("", error.Message); }
             catch (CommerceNotFoundException) { return NotFound(); }
         }
-        await PrepareAsync(shop);
+        await PrepareAsync(shop, canUseDirectory);
         return View(model);
     }
 
+    [Authorize(Policy = StaffAccessRules.SaleDocuments)]
     public async Task<IActionResult> Details(int id)
     {
         if (await ShopAsync() is not int shop) return Forbid();
@@ -59,6 +66,7 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         return sale == null ? NotFound() : View(sale);
     }
 
+    [Authorize(Policy = StaffAccessRules.SaleDocuments)]
     public async Task<IActionResult> Receipt(int id, string? format = null)
     {
         if (await ShopAsync() is not int shop) return Forbid();
@@ -95,6 +103,17 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    private Task<Sale?> FindAsync(int shop, int id) => Db.Sales.AsNoTracking().Include(s => s.Items.Where(i => i.BoutiqueId == shop))
-        .Include(s => s.Payments).SingleOrDefaultAsync(s => s.BoutiqueId == shop && s.Id == id);
+    private async Task<Sale?> FindAsync(int shop, int id)
+    {
+        var sales = Db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop && s.Id == id);
+        if (!(await access.CurrentAsync()).Has(StaffPermission.SalesHistory))
+        {
+            // Recording a sale gives access to that seller's own document, not to other receipts.
+            var owner = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(owner)) return null;
+            sales = sales.Where(s => s.CreatedByUserId == owner);
+        }
+        return await sales.Include(s => s.Items.Where(i => i.BoutiqueId == shop))
+            .Include(s => s.Payments).SingleOrDefaultAsync(HttpContext.RequestAborted);
+    }
 }

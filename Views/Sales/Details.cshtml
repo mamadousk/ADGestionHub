@@ -1,16 +1,17 @@
 @model Sale
 @{
     ViewData["Title"] = $"Vente {Model.Number}";
+    var permissions = await StaffCtx.CurrentAsync();
     var rate = PdfReportService.HistoricalRate(Model.CdfPerUsd, Model.SecondaryCurrencyCode, Model.ExchangeRateToSecondary, Model.CurrencyCode);
     var lines = new CommercialTable(Model.Items.Select(i => new CommercialLine(i.ProductName, i.Quantity, i.UnitPrice, i.EffectiveLineTotal)), Model.CurrencyCode);
 }
 <div class="page-heading">
-    <div><p class="section-eyebrow"><a asp-action="Index">Ventes et factures</a></p><h1>Vente @Model.Number</h1><p>@(Model.CustomerName ?? "Client de passage") · @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</p></div>
-    <div class="d-flex flex-wrap gap-2"><a asp-action="Receipt" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Imprimer le document</a><a asp-action="Receipt" asp-route-id="@Model.Id" asp-route-format="pdf" class="btn btn-accent">Télécharger le PDF</a></div>
+    <div><p class="section-eyebrow">@if (permissions.Has(StaffPermission.SalesHistory)) { <a asp-action="Index">Ventes et factures</a> } else { <span>Point de vente</span> }</p><h1>Vente @Model.Number</h1><p>@(Model.CustomerName ?? "Client de passage") · @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</p></div>
+    <div class="d-flex flex-wrap gap-2"><a asp-action="Receipt" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Imprimer le document</a><a asp-action="Receipt" asp-route-id="@Model.Id" asp-route-format="pdf" class="btn btn-secondary-outline">Télécharger le PDF</a>@if (permissions.Has(StaffPermission.Sell)) { <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a> }</div>
 </div>
 @if (TempData["StockNotice"] is string alert)
 {
-    <div class="alert alert-warning d-flex flex-wrap justify-content-between gap-2" role="status"><span>@alert</span><a asp-controller="Products" asp-action="Index" asp-route-status="low" class="alert-link">Voir les alertes stock</a></div>
+    <div class="alert alert-warning d-flex flex-wrap justify-content-between gap-2" role="status"><span>@alert</span>@if (permissions.Has(StaffPermission.Catalogue)) { <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="alert-link">Voir les alertes stock</a> }</div>
 }
 @if (Model.IsCancelled) { <div class="alert alert-warning">Vente annulée. @Model.CancellationReason</div> }
 <section class="panel-card mb-3">
@@ -28,6 +29,6 @@
         @if (rate != null) { <p class="text-slate small mt-2 mb-0">Taux de la vente : @rate</p> }
     </div>
 </section>
-@if (!Model.IsCancelled && Model.Balance > 0) { <partial name="_Settle" model="@(new NewPaymentForm("Sale", Model.Id, Model.CurrencyCode, Model.Balance))" /> }
+@if (permissions.Has(StaffPermission.SalePayments) && !Model.IsCancelled && Model.Balance > 0) { <partial name="_Settle" model="@(new NewPaymentForm("Sale", Model.Id, Model.CurrencyCode, Model.Balance))" /> }
 <section class="panel-card p-3 p-md-4 mb-3"><h2 class="h6 mb-3">Historique des règlements</h2><partial name="_PaymentHistory" model="Model.Payments" /></section>
 @if (!Model.IsCancelled && Model.Payments.Count == 0 && User.IsInRole("Admin")) { <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger-outline">Annuler cette vente</a> }

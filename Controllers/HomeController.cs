@@ -7,16 +7,29 @@ using Microsoft.AspNetCore.Mvc;
 namespace AdGestionHub.Controllers;
 
 [Authorize]
-public sealed class HomeController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports) : Controller
+public sealed class HomeController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports, StaffAccess access) : Controller
 {
     [AllowAnonymous]
     public IActionResult Welcome() => User.Identity?.IsAuthenticated == true ? RedirectToAction(nameof(Index)) : View();
 
-    [Authorize(Policy = "Dashboard")]
+    [Authorize(Policy = "ShopMemberOrSuperAdmin")]
     public async Task<IActionResult> Index(DateTime? startDate, DateTime? endDate, string? currency)
     {
         if (User.IsInRole("SuperAdmin")) return RedirectToAction("Index", "SuperAdmin");
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var permissions = await access.CurrentAsync();
+        // The normal sign-in destination also serves as a safe entry point for restricted accounts.
+        // Do not load or render any dashboard figures without the corresponding permission.
+        if (!permissions.Has(StaffPermission.Dashboard))
+        {
+            if (permissions.Has(StaffPermission.Sell)) return RedirectToAction("Create", "Sales");
+            if (permissions.Has(StaffPermission.SalesHistory)) return RedirectToAction("Index", "Sales");
+            if (permissions.Has(StaffPermission.Catalogue)) return RedirectToAction("Index", "Products");
+            if (permissions.Has(StaffPermission.Clients)) return RedirectToAction("Index", "Clients");
+            if (permissions.Has(StaffPermission.Expenses)) return RedirectToAction("Index", "Expenses");
+            if (permissions.Has(StaffPermission.Reports)) return RedirectToAction("Index", "Reports");
+            return View("Workspace");
+        }
         var settings = (await tenant.GetContextAsync()).Settings;
         ReportPeriod period;
         try { period = ReportPeriod.Current(startDate, endDate); }

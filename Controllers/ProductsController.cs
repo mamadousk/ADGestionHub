@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AdGestionHub.Controllers;
 
-[Authorize(Policy = "ShopMember")]
+[Authorize(Policy = StaffAccessRules.Catalogue)]
 public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
     CommerceWriter writer, StockService stock) : Controller
 {

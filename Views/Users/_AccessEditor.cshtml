@@ -1,0 +1,49 @@
+@model StaffUserInput
+@{
+    var selected = (Model.Permissions ?? []).ToHashSet(StringComparer.Ordinal);
+    var permissions = StaffAccessRules.Features.Where(feature => selected.Contains(feature.Code))
+        .Aggregate(StaffPermission.None, (granted, feature) => granted | feature.Permission);
+}
+<section class="panel-card staff-editor-panel staff-access" aria-labelledby="staff-access-title" data-staff-access
+         data-history-code="@StaffAccessRules.SalesHistory" data-payments-code="@StaffAccessRules.SalePayments"
+         data-legacy-codes="@string.Join(" ", StaffAccessRules.Codes(StaffAccessRules.Legacy))">
+    <div class="staff-section-heading">
+        <span class="staff-symbol">@LucideIcons.Svg("shield", 21)</span>
+        <div><p class="section-eyebrow">02 · Autorisations</p><h2 id="staff-access-title">Accès dans l’application</h2></div>
+    </div>
+    <div class="staff-presets" data-staff-presets role="group" aria-label="Profils d’accès" hidden>
+        @foreach (var profile in StaffAccessRules.Profiles)
+        {
+            <button type="button" class="staff-preset" data-staff-preset="@profile.Name" data-codes="@string.Join(" ", StaffAccessRules.Codes(profile.Permissions))" aria-pressed="false">
+                <span class="staff-preset-icon">@LucideIcons.Svg(profile.Icon, 19)</span>
+                <strong>@profile.Name</strong>
+                <span>@profile.Description</span>
+            </button>
+        }
+    </div>
+    <div class="staff-access-summary" data-staff-summary role="status" hidden>
+        <span>Profil sélectionné : <strong data-staff-profile>@StaffAccessRules.ProfileName(permissions)</strong></span>
+        <span class="status-pill info" data-staff-count>@(StaffAccessRules.Codes(permissions).Count()) accès</span>
+    </div>
+    <fieldset class="staff-permission-list" aria-describedby="staff-access-help">
+        <legend>Fonctionnalités autorisées</legend>
+        <p id="staff-access-help" class="text-slate small">Cochez uniquement les fonctions utiles à cet employé. Les accès sensibles donnent de la visibilité sur les chiffres.</p>
+        <div class="staff-permission-grid">
+            @foreach (var feature in StaffAccessRules.Features)
+            {
+                var id = "permission-" + feature.Permission;
+                <label class="staff-permission" for="@id">
+                    <span class="staff-permission-icon">@LucideIcons.Svg(feature.Icon, 19)</span>
+                    <span class="staff-permission-copy">
+                        <strong id="@(id + "-name")">@feature.Name</strong>
+                        <small id="@(id + "-help")">@feature.Description</small>
+                        @if (feature.Sensitive) { <span class="staff-sensitive">Accès sensible</span> }
+                    </span>
+                    <input type="checkbox" class="form-check-input" id="@id" name="Permissions" value="@feature.Code"
+                           checked="@(selected.Contains(feature.Code))" data-staff-permission aria-labelledby="@(id + "-name")" aria-describedby="@(id + "-help")" />
+                </label>
+            }
+        </div>
+    </fieldset>
+    <p class="staff-admin-note">@LucideIcons.Svg("lock", 17) <span>La gestion des comptes, les paramètres et les actions d’administration restent réservés à l’administrateur.</span></p>
+</section>

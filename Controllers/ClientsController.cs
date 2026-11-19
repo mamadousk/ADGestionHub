@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AdGestionHub.Controllers;
 
-[Authorize(Policy = "ShopMember")]
-public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService boutiques, CommerceWriter writer) : Controller
+[Authorize(Policy = StaffAccessRules.Clients)]
+public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService boutiques, CommerceWriter writer, StaffAccess access) : Controller
 {
     public async Task<IActionResult> Index(string? search)
     {
@@ -26,6 +26,8 @@ public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService 
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
         var client = await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.BoutiqueId == shop && c.Id == id);
         if (client == null) return NotFound();
+        if (!(await access.CurrentAsync()).Has(StaffPermission.SalesHistory))
+            return View(new BusinessHistory<Client>(client, []));
         var sales = await db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop && s.ClientId == id && !s.IsCancelled)
             .Include(s => s.Payments).ToListAsync();
         List<Debt> oldDebts = User.IsInRole("Admin")

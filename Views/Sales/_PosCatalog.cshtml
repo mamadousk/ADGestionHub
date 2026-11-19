@@ -1,0 +1,38 @@
+<section class="pos-catalog panel-card" id="pos-catalog" aria-labelledby="pos-catalog-title" data-pos-catalog hidden>
+    <div class="pos-catalog-head">
+        <div><p class="section-eyebrow">Articles en stock</p><h2 id="pos-catalog-title" tabindex="-1">Catalogue</h2></div>
+        <span class="pos-result-badge" data-pos-result-count></span>
+    </div>
+    <div class="pos-mobile-nav">
+        <div><span>Ticket · <span data-pos-mobile-count>0 article</span></span><strong class="num" data-pos-mobile-total>—</strong></div>
+        <button type="button" class="btn pos-mobile-ticket" data-pos-open aria-controls="pos-ticket">@LucideIcons.Svg("shopping-bag", 18) Voir le panier</button>
+    </div>
+    <div class="pos-catalog-tools">
+        <div class="pos-search-wrap">
+            <label for="pos-search" class="visually-hidden">Rechercher un article</label>
+            @LucideIcons.Svg("search", 21)
+            <input type="search" id="pos-search" class="form-control" placeholder="Nom ou référence du produit" autocomplete="off" maxlength="200" enterkeyhint="go" aria-describedby="pos-search-help" data-pos-search />
+            <kbd aria-hidden="true">F2</kbd>
+        </div>
+        <div>
+            <label for="pos-category" class="visually-hidden">Catégorie de produits</label>
+            <select id="pos-category" class="form-select" data-pos-category><option value="">Toutes les catégories</option></select>
+        </div>
+    </div>
+    <p class="pos-search-help" id="pos-search-help"><span><kbd>F2</kbd> Rechercher</span><span><kbd>Entrée</kbd> Ajouter un résultat unique ou une référence exacte</span></p>
+    <p class="pos-notice" data-pos-catalog-message role="status" hidden></p>
+    <div class="pos-tile-grid" data-pos-grid></div>
+    <div class="pos-no-results" data-pos-no-results hidden>
+        @LucideIcons.Svg("search", 26)<strong>Aucun article trouvé</strong><span>Essayez une autre référence ou changez de catégorie.</span>
+    </div>
+    <div class="pos-catalog-more" data-pos-more-area hidden>
+        <button type="button" class="btn btn-secondary-outline" data-pos-more>Afficher d’autres articles</button>
+    </div>
+    <template data-pos-tile-template>
+        <button type="button" class="pos-tile" data-pos-tile>
+            <span class="pos-tile-top"><span class="pos-tile-icon">@LucideIcons.Svg("package", 22)</span><span class="pos-tile-stock" data-pos-stock></span></span>
+            <span class="pos-tile-copy"><strong data-pos-tile-name></strong><span data-pos-tile-ref></span></span>
+            <span class="pos-tile-bottom"><strong class="num" data-pos-tile-price></strong><span class="pos-tile-add">@LucideIcons.Svg("plus", 16)</span></span>
+        </button>
+    </template>
+</section>

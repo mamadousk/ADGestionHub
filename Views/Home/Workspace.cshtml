@@ -1,0 +1,12 @@
+@{
+    ViewData["Title"] = "Votre espace";
+}
+<div class="page-heading">
+    <div><p class="section-eyebrow">Équipe</p><h1>Votre espace</h1></div>
+</div>
+<section class="panel-card empty-panel">
+    <div class="metric-icon indigo mb-3">@LucideIcons.Svg("lock", 23)</div>
+    <h2 class="h5">Aucun accès métier attribué</h2>
+    <p class="text-slate">Votre compte est actif, mais aucune fonctionnalité ne vous a été attribuée. Contactez votre administrateur si vous pensez qu’il manque un accès.</p>
+    <a asp-area="Identity" asp-page="/Account/Manage/Index" class="btn btn-secondary-outline">Mon profil</a>
+</section>

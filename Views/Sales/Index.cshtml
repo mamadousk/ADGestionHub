@@ -2,7 +2,10 @@
 @{ ViewData["Title"] = "Ventes et factures"; }
 <div class="page-heading">
     <div><p class="section-eyebrow">Opérations</p><h1>Ventes et factures</h1><p>Suivez les ventes, leurs règlements et les factures commerciales.</p></div>
-    <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+    @if ((await StaffCtx.CurrentAsync()).Has(StaffPermission.Sell))
+    {
+        <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+    }
 </div>
 @if (Model.Count == 0)
 {

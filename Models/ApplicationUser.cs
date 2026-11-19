@@ -10,5 +10,8 @@ namespace AdGestionHub.Models
 
         public int? BoutiqueId { get; set; }
         public Boutique? Boutique { get; set; }
+
+        // Null identifies an employee predating configurable access. Zero means no business features.
+        public int? StaffAccessMask { get; set; }
     }
 }

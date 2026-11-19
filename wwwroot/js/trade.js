@@ -1,4 +1,4 @@
-// Only integer minor units are used for the preview; the server validates and recomputes each total.
+// Money used in the sale preview stays in integer minor units. The server recomputes it on save.
 (() => {
     'use strict';
     const french = new Intl.NumberFormat('fr-CD');
@@ -12,86 +12,39 @@
             ? BigInt(match[1].replace(/[ \u00a0\u202f]/g, '')) * 100n + BigInt(fraction.padEnd(2, '0'))
             : null;
     };
-    const display = (amount, currency) => `${french.format(amount / 100n)},${String(amount % 100n).padStart(2, '0')} ${currency}`;
+    const fraction = amount => String(amount % 100n).padStart(2, '0');
+    const display = (amount, currency) => `${french.format(amount / 100n)},${fraction(amount)} ${currency}`;
+    const decimalInput = amount => `${amount / 100n}.${fraction(amount)}`;
+    const quantity = value => /^\d{1,6}$/.test(value) && Number(value) >= 1 && Number(value) <= 100000 ? Number(value) : null;
+    const searchKey = value => String(value ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/\s+/g, ' ');
 
-    if (typeof module !== 'undefined' && module.exports) module.exports = { cents, display };
-    if (typeof document === 'undefined') return;
+    function quickMatch(results, query) {
+        const key = searchKey(query);
+        if (!key) return null;
+        const exact = results.filter(product => product.skuKey === key);
+        if (exact.length) return exact.length === 1 ? exact[0] : null;
+        return results.length === 1 ? results[0] : null;
+    }
 
-    document.querySelectorAll('form[data-trade]').forEach(form => {
-        const list = form.querySelector('[data-trade-lines]');
-        const template = form.querySelector('[data-line-template]');
-        const add = form.querySelector('[data-add-line]');
-        const currency = form.querySelector('[data-trade-currency]');
-        const totalView = form.querySelector('[data-trade-total]');
-        const expected = form.querySelector('[data-expected-total]');
-        const discountInput = form.querySelector('[data-trade-discount]');
-        const mode = form.querySelector('[data-payment-mode]');
-        const max = Number(list.dataset.maxLines);
-        const rows = () => Array.from(list.querySelectorAll('[data-trade-line]'));
-
-        function update() {
-            const code = currency.value;
-            const lines = rows();
-            let subtotal = 0n;
-            let valid = true;
-            for (const line of lines) {
-                const product = line.querySelector('[data-role="product"]');
-                const selected = product.selectedOptions[0];
-                const quantity = line.querySelector('[data-role="quantity"]').value;
-                const price = cents(selected?.getAttribute(`data-price-${code.toLowerCase()}`));
-                const read = line.querySelector('[data-read-price]');
-                if (read) read.textContent = price == null ? '' : `${display(price, code)} / unité`;
-                if (!product.value || !/^\d{1,6}$/.test(quantity) || BigInt(quantity) < 1n || price == null) valid = false;
-                else subtotal += BigInt(quantity) * price;
-            }
-            const discount = cents(discountInput?.value || '0');
-            const total = subtotal - (discount ?? 0n);
-            valid = valid && discount != null && total >= 0n;
-            if (totalView) totalView.textContent = valid ? display(total, code) : '—';
-            if (expected) expected.value = valid ? `${total / 100n}.${String(total % 100n).padStart(2, '0')}` : '';
-            if (mode) {
-                const partial = form.querySelector('[data-partial-payment]');
-                const method = form.querySelector('[data-payment-method]');
-                partial.hidden = mode.value !== 'Partial';
-                partial.querySelector('input').disabled = partial.hidden;
-                method.hidden = mode.value === 'Unpaid';
-                method.querySelector('select').disabled = method.hidden;
-            }
+    function paymentPreview(total, mode, deposit, tendered) {
+        if (mode === 'Unpaid') return { balance: total, change: null, error: null };
+        if (mode === 'Partial') {
+            const amount = cents(deposit);
+            return amount != null && amount > 0n && amount < total
+                ? { balance: total - amount, change: null, error: null }
+                : { balance: null, change: null, error: 'Indiquez un acompte supérieur à zéro et inférieur au total.' };
         }
-        function reindex() {
-            const lines = rows();
-            lines.forEach((line, index) => {
-                line.querySelectorAll('[data-field]').forEach(field => {
-                    field.name = `Items[${index}].${field.dataset.field}`;
-                    field.id = `line-${index}-${field.dataset.role}`;
-                });
-                line.querySelectorAll('[data-label]').forEach(label => { label.htmlFor = `line-${index}-${label.dataset.label}`; });
-                line.querySelector('[data-remove-line]').disabled = lines.length < 2;
-            });
-            add.disabled = lines.length >= max;
-            update();
-        }
-        add.addEventListener('click', () => {
-            if (rows().length >= max) return;
-            list.append(template.content.cloneNode(true));
-            reindex();
-            rows().at(-1).querySelector('select').focus();
-        });
-        list.addEventListener('click', event => {
-            const button = event.target.closest('[data-remove-line]');
-            if (!button || rows().length < 2) return;
-            button.closest('[data-trade-line]').remove();
-            reindex();
-            add.focus();
-        });
-        form.addEventListener('input', update);
-        form.addEventListener('change', update);
-        form.addEventListener('submit', event => {
-            if (form.dataset.submitted) { event.preventDefault(); return; }
-            update();
-            form.dataset.submitted = '1';
-        });
-        window.addEventListener('pageshow', () => { delete form.dataset.submitted; });
-        reindex();
-    });
+        if (mode !== 'Full') return { balance: null, change: null, error: 'Choisissez le type de règlement.' };
+        if (!tendered?.trim()) return { balance: 0n, change: null, error: null };
+        const received = cents(tendered);
+        return received != null && received >= total
+            ? { balance: 0n, change: received - total, error: null }
+            : { balance: 0n, change: null, error: received == null
+                ? 'Vérifiez la somme remise (deux décimales au maximum).'
+                : 'La somme remise ne couvre pas le total.' };
+    }
+
+    const trade = { cents, display, decimalInput, quantity, searchKey, quickMatch, paymentPreview };
+    if (typeof module !== 'undefined' && module.exports) module.exports = trade;
+    if (typeof window !== 'undefined') window.AdghTrade = trade;
 })();

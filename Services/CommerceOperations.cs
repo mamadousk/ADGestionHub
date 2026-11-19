@@ -10,7 +10,7 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
 {
     public const int MaxLines = 50;
 
-    public Task<Sale> SellAsync(int shop, SaleInput input, bool canDiscount) => writer.ExecuteAsync(shop, async () =>
+    public Task<Sale> SellAsync(int shop, SaleInput input, bool canDiscount, string? createdByUserId = null) => writer.ExecuteAsync(shop, async () =>
     {
         var settings = await writer.SettingsAsync(shop);
         var code = DocumentCurrency(input.CurrencyCode, settings);
@@ -18,6 +18,7 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         var client = await ClientAsync(shop, input.ClientId);
         var now = DateTime.Now;
         var sale = NewSale(shop, code, settings.CdfPerUsd, client?.Id, client?.Name ?? Clean(input.CustomerName), now);
+        sale.CreatedByUserId = createdByUserId;
         foreach (var line in input.Items)
         {
             var product = products[line.ProductId];

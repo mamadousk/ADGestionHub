@@ -1,0 +1,16 @@
+@model StaffUserInput
+<div>
+    <label asp-for="UserName" class="form-label"></label>
+    <input asp-for="UserName" class="form-control" autocomplete="off" />
+    <span asp-validation-for="UserName" class="text-sober-red small"></span>
+</div>
+<div>
+    <label asp-for="FullName" class="form-label">Nom complet <span class="text-slate fw-normal">(facultatif)</span></label>
+    <input asp-for="FullName" class="form-control" autocomplete="off" />
+    <span asp-validation-for="FullName" class="text-sober-red small"></span>
+</div>
+<div>
+    <label asp-for="Email" class="form-label"></label>
+    <input asp-for="Email" class="form-control" type="email" autocomplete="off" />
+    <span asp-validation-for="Email" class="text-sober-red small"></span>
+</div>

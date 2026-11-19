@@ -40,7 +40,7 @@ public sealed class PaymentsController(ApplicationDbContext db, IBoutiqueService
         return View(model);
     }
 
-    [HttpPost]
+    [HttpPost, Authorize(Policy = StaffAccessRules.SalePayments)]
     public async Task<IActionResult> Settle(string target, int id, PaymentInput model)
     {
         if (target is not ("Sale" or "Debt")) return NotFound();

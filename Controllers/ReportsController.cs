@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AdGestionHub.Controllers;
 
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = StaffAccessRules.Reports)]
 public sealed class ReportsController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports, IPdfReportService pdf) : Controller
 {
     public async Task<IActionResult> Index(DateTime? startDate, DateTime? endDate, string? currency)

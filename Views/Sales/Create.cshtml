@@ -3,55 +3,131 @@
     ViewData["Title"] = "Nouvelle vente";
     var contacts = (IReadOnlyList<ContactPick>)ViewData["TradeContacts"]!;
     var products = (IReadOnlyList<CatalogPick>)ViewData["TradeProducts"]!;
+    var settings = (StoreSettings)ViewData["TradeSettings"]!;
+    var isAdmin = User.IsInRole("Admin");
+    var permissions = await StaffCtx.CurrentAsync();
+    var canUseDirectory = permissions.Has(StaffPermission.Clients);
 }
-<div class="page-heading">
-    <div><p class="section-eyebrow">Ventes / Saisie</p><h1>Nouvelle vente</h1><p>Choisissez les articles, puis indiquez ce qui a été encaissé.</p></div>
-    <a asp-action="Index" class="btn btn-secondary-outline">Historique des ventes</a>
-</div>
-@if (products.Count == 0)
-{
-    <div class="panel-card empty-panel">
-        <div class="section-eyebrow">Première étape</div><h2 class="h5">Aucun produit en stock</h2>
-        <p class="text-slate">Ajoutez un produit avec une quantité initiale ou réapprovisionnez votre stock.</p>
-        @if (User.IsInRole("Admin")) { <a asp-controller="Products" asp-action="Create" class="btn btn-accent">Ajouter un produit</a> }
-        else { <a asp-controller="Products" asp-action="Index" class="btn btn-secondary-outline">Voir le catalogue</a> }
+<div class="pos-page">
+    <div class="page-heading pos-heading">
+        <div>
+            <p class="section-eyebrow"><span class="tiny-dot" aria-hidden="true"></span>Point de vente</p>
+            <h1>Nouvelle vente</h1>
+            <p>Trouvez vos articles, composez le panier, puis encaissez.</p>
+        </div>
+        @if (permissions.Has(StaffPermission.SalesHistory))
+        {
+            <a asp-action="Index" class="btn btn-secondary-outline">@LucideIcons.Svg("clock", 17, "me-1") Historique des ventes</a>
+        }
     </div>
+    <div asp-validation-summary="All" class="validation-banner" role="alert" data-pos-server-errors></div>
+    @if (products.Count == 0 && !Model.Items.Any(line => line.ProductId > 0))
+    {
+        <div class="panel-card empty-panel">
+            <p class="section-eyebrow">Catalogue</p><h2 class="h5">Aucun produit en stock</h2>
+            <p class="text-slate">Ajoutez un produit avec une quantité initiale ou réapprovisionnez votre stock.</p>
+            @if (isAdmin) { <a asp-controller="Products" asp-action="Create" class="btn btn-accent">Ajouter un produit</a> }
+            else if (permissions.Has(StaffPermission.Catalogue)) { <a asp-controller="Products" asp-action="Index" class="btn btn-secondary-outline">Voir le catalogue</a> }
+            else { <p class="small text-slate mb-0">Contactez votre responsable pour réapprovisionner le stock.</p> }
+        </div>
+    }
+    else
+    {
+        <form asp-action="Create" method="post" class="pos-workspace" data-pos data-maximum="@Money.MaximumText" data-max-lines="@CommerceOperations.MaxLines">
+            <partial name="_PosCatalog" />
+            <section class="pos-ticket panel-card" id="pos-ticket" aria-labelledby="pos-ticket-title">
+                <header class="pos-ticket-head">
+                    <div class="pos-ticket-icon">@LucideIcons.Svg("shopping-bag", 23)</div>
+                    <div><p>Ticket en cours</p><h2 id="pos-ticket-title" tabindex="-1">Panier</h2></div>
+                    <div class="pos-currency">
+                        <label asp-for="CurrencyCode">Devise</label>
+                        <select asp-for="CurrencyCode" class="form-select num" data-trade-currency>
+                            @foreach (var code in Money.AvailableCurrencies(settings)) { <option value="@code">@code</option> }
+                        </select>
+                    </div>
+                </header>
+                <div class="pos-ticket-body">
+                    <div class="pos-basket" data-pos-basket hidden>
+                        <div class="pos-basket-head">
+                            <span class="pos-label" data-pos-count>0 article</span>
+                            <button class="btn pos-return" type="button" data-pos-back aria-controls="pos-catalog">@LucideIcons.Svg("arrow-left", 16) Catalogue</button>
+                        </div>
+                        <div class="pos-basket-empty" data-pos-cart-empty>
+                            @LucideIcons.Svg("package", 25)
+                            <strong>Le panier est vide</strong>
+                            <span>Choisissez un produit dans le catalogue.</span>
+                        </div>
+                        <div class="pos-cart" data-pos-cart></div>
+                        <div data-pos-adjustments hidden>
+                            <div class="pos-subtotal"><span>Sous-total</span><strong class="num" data-pos-subtotal>—</strong></div>
+                            <div class="pos-subtotal"><span>Remise</span><strong class="num" data-pos-discount-value>—</strong></div>
+                        </div>
+                    </div>
+                    <div data-pos-fallback><partial name="_TradeLines" model="Model" /></div>
+                    <details class="pos-options" data-pos-options open>
+                        <summary><span class="pos-options-icon">@LucideIcons.Svg("users", 17)</span><span data-pos-client-label>Client de passage</span><span class="pos-options-action">@(isAdmin ? "Client / remise" : "Modifier")</span></summary>
+                        <div class="pos-options-body">
+                            @if (canUseDirectory)
+                            {
+                                <div>
+                                    <label asp-for="ClientId" class="form-label">Client du répertoire</label>
+                                    <select asp-for="ClientId" class="form-select">
+                                        <option value="">Client de passage</option>
+                                        @foreach (var contact in contacts) { <option value="@contact.Id">@contact.Name</option> }
+                                    </select>
+                                    <a asp-controller="Clients" asp-action="Create" target="_blank" rel="noopener" class="form-text">Ajouter un client (nouvel onglet)</a>
+                                </div>
+                            }
+                            <div><label asp-for="CustomerName" class="form-label">@(canUseDirectory ? "Ou nom du client" : "Nom du client")</label><input asp-for="CustomerName" class="form-control" maxlength="150" autocomplete="off" placeholder="Nom à inscrire sur le document" /></div>
+                            @if (isAdmin)
+                            {
+                                <div><label asp-for="Discount" class="form-label">Remise sur la vente</label><input asp-for="Discount" class="form-control num" inputmode="decimal" data-trade-discount /></div>
+                            }
+                        </div>
+                    </details>
+                    <p class="pos-rate" data-pos-rate>
+                        @if (settings.CdfPerUsd is decimal rate && rate > 0)
+                        {
+                            <span>@Money.RateLabel(rate) · taux de la vente</span>
+                        }
+                        else
+                        {
+                            <span>Une seule devise tant que le taux CDF/USD n’est pas configuré.</span>
+                            @if (isAdmin) { <a asp-controller="Settings" asp-action="Index">Configurer le taux</a> }
+                        }
+                    </p>
+                    <partial name="_InitialPayment" model="Model" />
+                </div>
+                <div class="pos-ticket-footer">
+                    <p class="pos-notice" data-pos-message aria-live="polite" hidden></p>
+                    <div class="pos-balance" data-pos-balance-row hidden><span>Reste à régler</span><strong class="num" data-pos-balance>—</strong></div>
+                    <div class="pos-total"><span>Total de la vente</span><strong class="num" data-trade-total>—</strong></div>
+                    <input type="hidden" name="ExpectedTotal" data-expected-total />
+                    <button type="submit" class="btn btn-accent pos-charge" data-pos-submit>
+                        @LucideIcons.Svg("wallet", 20)<span data-pos-submit-label>Enregistrer la vente</span>@LucideIcons.Svg("arrow-right", 19)
+                    </button>
+                    <p class="pos-save-hint">L’application n’effectue aucun débit.</p>
+                </div>
+            </section>
+            <span class="visually-hidden" role="status" data-pos-announcement></span>
+            <template data-pos-line-template>
+                <div class="pos-cart-line">
+                    <input type="hidden" data-pos-product-id />
+                    <div class="pos-line-name"><strong data-pos-name></strong><span class="num" data-pos-unit></span></div>
+                    <strong class="pos-line-total num" data-pos-line-total></strong>
+                    <div class="pos-line-qty">
+                        <button type="button" class="pos-qty-btn" data-pos-adjust="-1">@LucideIcons.Svg("minus", 16)</button>
+                        <input type="number" class="form-control num" min="1" max="100000" inputmode="numeric" required data-pos-quantity />
+                        <button type="button" class="pos-qty-btn" data-pos-adjust="1">@LucideIcons.Svg("plus", 16)</button>
+                    </div>
+                    <button type="button" class="pos-line-remove" data-pos-remove>@LucideIcons.Svg("x", 17)</button>
+                    <p class="pos-line-warning" data-pos-line-error hidden></p>
+                </div>
+            </template>
+        </form>
+    }
+</div>
+@section Scripts {
+    <script src="~/js/trade.js" asp-append-version="true"></script>
+    <script src="~/js/pos.js" asp-append-version="true"></script>
 }
-else
-{
-    <form asp-action="Create" method="post" data-trade>
-        <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
-        <section class="panel-card p-3 p-md-4 mb-3">
-            <h2 class="h6 mb-3">Client et devise</h2>
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label asp-for="ClientId" class="form-label">Client du répertoire</label>
-                    <select asp-for="ClientId" class="form-select">
-                        <option value="">Client de passage</option>
-                        @foreach (var contact in contacts) { <option value="@contact.Id">@contact.Name</option> }
-                    </select>
-                    <small class="form-text">Vente à crédit ? <a asp-controller="Clients" asp-action="Create">Ajouter un client</a>.</small>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="CustomerName" class="form-label">Ou nom du client</label>
-                    <input asp-for="CustomerName" class="form-control" placeholder="Facultatif si la vente est réglée" />
-                </div>
-                <div class="col-md-4"><partial name="_TradeCurrency" model="Model" /></div>
-            </div>
-        </section>
-        <partial name="_TradeLines" model="Model" />
-        <section class="panel-card p-3 p-md-4">
-            <h2 class="h6">Règlement</h2>
-            @if (User.IsInRole("Admin"))
-            {
-                <div class="row g-3">
-                    <div class="col-md-4"><label asp-for="Discount" class="form-label">Remise sur la vente</label><input asp-for="Discount" class="form-control num" inputmode="decimal" data-trade-discount /></div>
-                </div>
-            }
-            <partial name="_InitialPayment" model="Model" />
-            <p class="form-text mb-0">Le règlement initial est saisi dans la devise de la vente. Les règlements suivants peuvent être enregistrés en CDF ou USD si le taux est configuré.</p>
-            <div class="trade-totals"><div><span>Total de la vente</span><strong class="num" data-trade-total aria-live="polite">—</strong></div><button type="submit" class="btn btn-accent">Enregistrer la vente</button></div>
-        </section>
-    </form>
-}
-@section Scripts { <script src="~/js/trade.js" asp-append-version="true"></script> }

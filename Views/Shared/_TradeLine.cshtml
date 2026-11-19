@@ -1,28 +1,36 @@
 @model TradeLineRow
 @{
-    var products = (IEnumerable<CatalogPick>)ViewData["TradeProducts"]!;
+    var products = (IReadOnlyList<CatalogPick>)ViewData["TradeProducts"]!;
+    // Keep one full catalogue, including when the server returns a multi-line ticket for correction.
+    var choices = Model.Index == 0 || Model.Line.ProductId <= 0 ? products : products.Where(p => p.Id == Model.Line.ProductId);
+    var settings = (StoreSettings)ViewData["TradeSettings"]!;
     var prefix = $"Items[{Model.Index}]";
     var htmlId = $"line-{Model.Index}";
 }
-<div class="trade-line" data-trade-line>
+<div class="trade-line pos-fallback-line" data-trade-line>
     <div class="trade-item">
-        <label class="form-label" for="@($"{htmlId}-product")" data-label="product">Produit</label>
-        <select id="@($"{htmlId}-product")" name="@($"{prefix}.ProductId")" class="form-select" data-field="ProductId" data-role="product" required>
+        <label class="form-label" for="@($"{htmlId}-product")">Produit</label>
+        <select id="@($"{htmlId}-product")" name="@($"{prefix}.ProductId")" class="form-select" data-role="product" required>
             <option value="">Sélectionner un produit</option>
-            @foreach (var product in products)
+            @if (Model.Line.ProductId > 0 && !products.Any(p => p.Id == Model.Line.ProductId))
             {
+                <option value="@Model.Line.ProductId" selected>Produit indisponible</option>
+            }
+            @foreach (var product in choices)
+            {
+                var label = product.Prices.TryGetValue(settings.PrimaryCurrencyCode, out var price)
+                    ? $"{product.Name} · {Money.Display(price, settings.PrimaryCurrencyCode)} · stock : {product.Stock}"
+                    : $"{product.Name} · stock : {product.Stock}";
                 <option value="@product.Id" selected="@(product.Id == Model.Line.ProductId)"
+                        data-name="@product.Name" data-sku="@product.Sku" data-category="@product.Category"
+                        data-stock="@product.Stock" data-low="@product.StockAlertThreshold"
                         data-price-cdf="@(product.Prices.TryGetValue("CDF", out var cdf) ? Money.Input(cdf) : null)"
-                        data-price-usd="@(product.Prices.TryGetValue("USD", out var usd) ? Money.Input(usd) : null)">
-                    @product.Name @(string.IsNullOrWhiteSpace(product.Sku) ? "" : $"· {product.Sku}") · stock : @product.Stock
-                </option>
+                        data-price-usd="@(product.Prices.TryGetValue("USD", out var usd) ? Money.Input(usd) : null)">@label</option>
             }
         </select>
-        <small class="form-text num" data-read-price></small>
     </div>
     <div>
-        <label class="form-label" for="@($"{htmlId}-quantity")" data-label="quantity">Quantité</label>
-        <input id="@($"{htmlId}-quantity")" name="@($"{prefix}.Quantity")" class="form-control num" type="number" inputmode="numeric" min="1" max="100000" value="@Model.Line.Quantity" data-field="Quantity" data-role="quantity" required />
+        <label class="form-label" for="@($"{htmlId}-quantity")">Quantité</label>
+        <input id="@($"{htmlId}-quantity")" name="@($"{prefix}.Quantity")" class="form-control num" type="number" inputmode="numeric" min="1" max="100000" value="@Model.Line.Quantity" data-role="quantity" required />
     </div>
-    <button type="button" class="btn btn-secondary-outline trade-remove" data-remove-line aria-label="Retirer cette ligne" title="Retirer cette ligne">@LucideIcons.Svg("x", 17)</button>
 </div>

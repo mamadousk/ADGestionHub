@@ -29,6 +29,7 @@ try
     Console.WriteLine("Scénarios métier SQLite réussis.");
 
     VerifyPopupHtml();
+    VerifyStaffAccess();
 
     var target = new SqlConnectionStringBuilder(sqlServer ?? "Server=localhost;Integrated Security=True")
     {
@@ -42,6 +43,10 @@ try
     var popupUpgrade = server.GetService<IMigrator>().GenerateScript(fromMigration: onboarding, options: MigrationsSqlGenerationOptions.Idempotent);
     Check(popupUpgrade.Contains("CREATE TABLE [PublicPopups]", StringComparison.Ordinal)
         && !popupUpgrade.Contains("GlobalNotifications", StringComparison.Ordinal), "migration additive sans reprise publique des annonces existantes");
+    const string popups = "20261118223000_PublicPopups";
+    var staffUpgrade = server.GetService<IMigrator>().GenerateScript(fromMigration: popups, options: MigrationsSqlGenerationOptions.Idempotent);
+    Check(staffUpgrade.Contains("[StaffAccessMask] int NULL", StringComparison.Ordinal)
+        && staffUpgrade.Contains("[CreatedByUserId] nvarchar(450) NULL", StringComparison.Ordinal), "migration additive des accès et de l’auteur d’une vente");
     CheckSnapshot(server);
     if (sqlServer != null)
     {
@@ -67,6 +72,8 @@ try
             var oldPurchase = await server.Purchases.AsNoTracking().Include(p => p.Items).Include(p => p.Payments).SingleAsync();
             Check(oldPurchase.Balance == 7.36m && oldPurchase.Items.Single().Quantity == 4 && oldPurchase.ReceivedAt == null, "achat et règlement historiques inchangés");
             var existingUser = await server.Users.AsNoTracking().SingleAsync();
+            Check(existingUser.StaffAccessMask == null && (await server.Sales.AsNoTracking().SingleAsync()).CreatedByUserId == null,
+                "l’accès préexistant est préservé et aucun auteur de vente historique n’est inventé");
             server.TermsAcceptances.Add(new TermsAcceptance { UserId = existingUser.Id, Version = LegalPublication.TermsVersion, AcceptedAtUtc = DateTimeOffset.UtcNow });
             await server.SaveChangesAsync();
             Check(await server.TermsAcceptances.CountAsync() == 1, "stockage d'une preuve d'acceptation sur le schéma migré");
@@ -89,6 +96,25 @@ catch (Exception error)
     throw;
 }
 finally { directory.Delete(recursive: true); }
+
+static void VerifyStaffAccess()
+{
+    Equal(StaffAccessRules.Legacy, StaffAccessRules.FromStored(null), "accès des salariés existants");
+    Check(!StaffAccessRules.Legacy.Has(StaffPermission.Reports), "pas de nouveaux rapports donnés aux comptes historiques");
+    Equal(StaffPermission.None, StaffAccessRules.FromStored(0), "révocation de tous les accès sans basculer sur le profil historique");
+    Equal(StaffPermission.None, StaffAccessRules.FromStored(1 << 15), "masque inconnu : aucun accès");
+    Equal(StaffPermission.None, StaffAccessRules.FromStored((int)StaffPermission.SalePayments), "règlements sans historique : aucun accès");
+    Check(StaffAccessRules.TryParse([StaffAccessRules.Sell], out var cashier) && cashier == StaffAccessRules.Cashier,
+        "la caisse seule ne comprend ni historique ni chiffre d’affaires");
+    Check(!StaffAccessRules.TryParse([StaffAccessRules.Sell, StaffAccessRules.SaleDocuments], out _),
+        "une politique interne ne peut pas être attribuée via le formulaire");
+    Check(!StaffAccessRules.TryParse([StaffAccessRules.Sell, StaffAccessRules.Sell], out _), "une permission ne peut pas être soumise deux fois");
+    Check(StaffAccessRules.TryParse([], out var none) && none == StaffPermission.None, "un compte peut être créé sans accès métier");
+    Check(!StaffAccessRules.TryParse([StaffAccessRules.SalePayments], out _)
+        && StaffAccessRules.TryParse([StaffAccessRules.SalesHistory, StaffAccessRules.SalePayments], out _), "dépendance des règlements vérifiée côté serveur");
+    Check(StaffAccessRules.Profiles.All(profile => StaffAccessRules.TryParse(StaffAccessRules.Codes(profile.Permissions).ToList(), out var parsed)
+        && parsed == profile.Permissions), "tous les profils proposés peuvent être enregistrés");
+}
 
 static void VerifyPopupHtml()
 {
@@ -213,7 +239,9 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     {
         ClientId = client.Id, Discount = 300m, PaymentMode = "Partial", InitialPayment = 1400m,
         PaymentMethod = "M-Pesa", Items = [Line(rice, 2), Line(salt, 1)]
-    }, canDiscount: true);
+    }, canDiscount: true, createdByUserId: "employe-recette");
+    Equal<string?>("employe-recette", (await db.Sales.AsNoTracking().SingleAsync(s => s.Id == sale.Id)).CreatedByUserId,
+        "l’auteur est enregistré sur la vente avec son stock et ses règlements");
     Equal(6000m, sale.FinalPrice, "total net de la remise");
     Equal(4600m, sale.Balance, "solde de vente initial");
     Equal(3, await Quantity(rice), "décrément de stock");

@@ -1,69 +1,39 @@
-@model AdGestionHub.Models.ViewModels.EditUserViewModel
+@model EditUserViewModel
 @{
-    ViewData["Title"] = L.T("Modifier l'utilisateur", "Edit Staff Account");
+    ViewData["Title"] = "Modifier les accès";
 }
-
-<div class="row justify-content-center">
-    <div class="col-lg-7">
-        <div class="panel-card p-4">
-            <h1 class="h5 mb-1">@ViewData["Title"] — @Model.UserName</h1>
-            <p class="text-slate small mb-4">@L.T("Mettez à jour les informations ou réinitialisez le mot de passe.", "Update account information or reset password.")</p>
-
-            <form asp-action="Edit" method="post">
-                <input type="hidden" asp-for="Id" />
-                <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3"></div>
-
-                <div class="row g-3 mb-3">
-                    <div class="col-md-6">
-                        <label asp-for="UserName" class="form-label">@L.T("Identifiant", "Username")</label>
-                        <input asp-for="UserName" class="form-control" />
-                        <span asp-validation-for="UserName" class="text-sober-red small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="FullName" class="form-label">@L.T("Nom complet", "Full Name")</label>
-                        <input asp-for="FullName" class="form-control" />
-                        <span asp-validation-for="FullName" class="text-sober-red small"></span>
-                    </div>
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <label asp-for="Email" class="form-label">Email</label>
-                        <input asp-for="Email" class="form-control" />
-                        <span asp-validation-for="Email" class="text-sober-red small"></span>
-                    </div>
-                    <div class="col-md-6">
-                        <label asp-for="Role" class="form-label">@L.T("Rôle", "Role")</label>
-                        <select asp-for="Role" class="form-select" asp-items="@(new SelectList(ViewBag.Roles))"></select>
-                        <span asp-validation-for="Role" class="text-sober-red small"></span>
-                    </div>
-                </div>
-
-                <div class="border-top pt-3 mb-4">
-                    <div class="fw-semibold small mb-2">@L.T("Réinitialiser le mot de passe (optionnel)", "Reset Password (optional)")</div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="NewPassword" class="form-label">@L.T("Nouveau mot de passe", "New password")</label>
-                            <input asp-for="NewPassword" class="form-control" />
-                            <span asp-validation-for="NewPassword" class="text-sober-red small"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="ConfirmNewPassword" class="form-label">@L.T("Confirmer", "Confirm")</label>
-                            <input asp-for="ConfirmNewPassword" class="form-control" />
-                            <span asp-validation-for="ConfirmNewPassword" class="text-sober-red small"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="d-flex justify-content-end gap-2 pt-3 border-top">
-                    <a asp-action="Index" class="btn btn-secondary-outline">@L["Action.Cancel"]</a>
-                    <button type="submit" class="btn btn-accent">@L["Action.Save"]</button>
-                </div>
-            </form>
-        </div>
+<div class="staff-page">
+    <div class="page-heading staff-heading">
+        <div><p class="section-eyebrow"><span class="tiny-dot" aria-hidden="true"></span> Équipe et accès</p><h1>Modifier les accès</h1><p>@Model.UserName · Les nouveaux accès s’appliquent à la prochaine requête, sans nouvelle connexion.</p></div>
+        <a asp-action="Index" class="btn btn-secondary-outline">@LucideIcons.Svg("arrow-left", 17, "me-1") Retour à l’équipe</a>
     </div>
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post">
+        <input type="hidden" asp-for="Id" />
+        <div asp-validation-summary="All" class="validation-banner" role="alert"></div>
+        <div class="staff-editor-grid">
+            <section class="panel-card staff-editor-panel staff-identity" aria-labelledby="staff-account-title">
+                <div class="staff-section-heading">
+                    <span class="staff-symbol">@LucideIcons.Svg("user-check", 21)</span>
+                    <div><p class="section-eyebrow">01 · Compte</p><h2 id="staff-account-title">Informations du compte</h2></div>
+                </div>
+                <div class="staff-fields"><partial name="_AccountFields" model="Model" /></div>
+                <details class="staff-password-fields">
+                    <summary>Réinitialiser le mot de passe</summary>
+                    <div class="staff-fields mt-3">
+                        <div><label asp-for="NewPassword" class="form-label"></label><input asp-for="NewPassword" class="form-control" autocomplete="new-password" /><span asp-validation-for="NewPassword" class="text-sober-red small"></span></div>
+                        <div><label asp-for="ConfirmNewPassword" class="form-label"></label><input asp-for="ConfirmNewPassword" class="form-control" autocomplete="new-password" /><span asp-validation-for="ConfirmNewPassword" class="text-sober-red small"></span></div>
+                    </div>
+                </details>
+            </section>
+            <partial name="_AccessEditor" model="Model" />
+        </div>
+        <div class="staff-form-actions">
+            <a asp-action="Index" class="btn btn-secondary-outline">Annuler</a>
+            <button type="submit" class="btn btn-accent">@LucideIcons.Svg("check", 17, "me-1") Enregistrer les accès</button>
+        </div>
+    </form>
 </div>
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/staff-access.js" asp-append-version="true"></script>
 }

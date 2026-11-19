@@ -1,6 +1,7 @@
 @model BusinessReport
 @{
     ViewData["Title"] = "Rapports";
+    var permissions = await StaffCtx.CurrentAsync();
     string Display(decimal value) => Money.Display(value, Model.Currency);
     var from = Model.Period.Start.ToString("yyyy-MM-dd");
     var to = Model.Period.End.ToString("yyyy-MM-dd");
@@ -9,7 +10,7 @@
     var exported = new[] { ("pdf", "PDF"), ("xlsx", "Excel"), ("csv", "CSV") };
 }
 <div class="page-heading">
-    <div><p class="section-eyebrow">Pilotage</p><h1>Rapports d’activité</h1><p>Consultez et exportez les mêmes chiffres que sur le tableau de bord.</p></div>
+    <div><p class="section-eyebrow">Pilotage</p><h1>Rapports d’activité</h1><p>Consultez et exportez les chiffres de l’entreprise sur une période.</p></div>
     <div class="d-flex flex-wrap gap-2">
         @foreach (var (format, label) in exported) { <a asp-action="Export" asp-route-format="@format" asp-route-startDate="@from" asp-route-endDate="@to" asp-route-currency="@Model.Currency" class="btn @(format == "pdf" ? "btn-accent" : "btn-secondary-outline")">@label</a> }
     </div>
@@ -26,7 +27,7 @@
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th>Vente</th><th>Client</th><th class="text-end">Total</th></tr></thead><tbody>
                 @foreach (var sale in Model.Sales)
-                { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Display(sale.FinalPrice)</td></tr> }
+                { <tr><td>@if (permissions.Has(StaffPermission.SalesHistory)) { <a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a> } else { <span>@sale.Number</span> }<div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Display(sale.FinalPrice)</td></tr> }
             </tbody></table></div>
         }
     </section>
@@ -46,7 +47,7 @@
         else
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th>Produit</th><th class="text-end">Stock</th><th class="text-end">Valeur</th></tr></thead><tbody>
-                @foreach (var product in Model.Stock) { <tr><td><a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">@product.Name</a>@if (product.IsLow) { <div class="text-slate small">Sous le seuil</div> }</td><td class="text-end">@product.Quantity</td><td class="text-end text-nowrap">@Money.Display(product.Value, Model.Settings.PrimaryCurrencyCode)</td></tr> }
+                @foreach (var product in Model.Stock) { <tr><td>@if (permissions.Has(StaffPermission.Catalogue)) { <a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">@product.Name</a> } else { <span>@product.Name</span> }@if (product.IsLow) { <div class="text-slate small">Sous le seuil</div> }</td><td class="text-end">@product.Quantity</td><td class="text-end text-nowrap">@Money.Display(product.Value, Model.Settings.PrimaryCurrencyCode)</td></tr> }
             </tbody></table></div>
         }
     </section>
@@ -75,7 +76,7 @@
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th>Dépense</th><th>Catégorie</th><th class="text-end">Montant</th></tr></thead><tbody>
                 @foreach (var expense in Model.Expenses)
-                { <tr><td><a asp-controller="Expenses" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a><div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div></td><td>@expense.Category</td><td class="text-end text-nowrap">@Display(expense.Amount)</td></tr> }
+                { <tr><td>@if (permissions.Has(StaffPermission.Expenses)) { <a asp-controller="Expenses" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a> } else { <span>@expense.Description</span> }<div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div></td><td>@expense.Category</td><td class="text-end text-nowrap">@Display(expense.Amount)</td></tr> }
             </tbody></table></div>
         }
     </section>
