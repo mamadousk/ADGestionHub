@@ -2,6 +2,7 @@ using AdGestionHub.Data;
 using AdGestionHub.Middlewares;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,6 +40,8 @@ builder.Services.AddScoped<ITenantContextService, TenantContextService>();
 builder.Services.AddScoped<CommerceWriter>();
 builder.Services.AddScoped<StockService>();
 builder.Services.AddScoped<CommerceOperations>();
+builder.Services.AddScoped<StaffAccess>();
+builder.Services.AddScoped<IAuthorizationHandler, StaffAccessHandler>();
 builder.Services.AddScoped<BusinessReportService>();
 builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 
@@ -152,8 +155,9 @@ builder.Services.AddHsts(options =>
 // --- POLITIQUES D'AUTORISATION ---
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("ShopMember", policy => policy.RequireRole("Admin", "Employé"));
-    options.AddPolicy("Dashboard", policy => policy.RequireRole("Admin", "Employé", "SuperAdmin"));
+    options.AddPolicy("ShopMember", policy => policy.RequireRole("Admin", StaffAccessRules.EmployeeRole));
+    options.AddPolicy("ShopMemberOrSuperAdmin", policy => policy.RequireRole("Admin", StaffAccessRules.EmployeeRole, "SuperAdmin"));
+    StaffAccessRules.AddPolicies(options);
 
     options.AddPolicy("SuperAdminOnly", policy =>
         policy.RequireRole("SuperAdmin"));
@@ -165,13 +169,10 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser());
 
     options.AddPolicy("ManageUsers", policy =>
-        policy.RequireRole("Admin", "SuperAdmin"));
+        policy.RequireRole("Admin"));
 
     options.AddPolicy("ManageShopSettings", policy =>
         policy.RequireRole("Admin", "SuperAdmin"));
-
-    options.AddPolicy("ViewDashboard", policy =>
-        policy.RequireAuthenticatedUser());
 
     options.AddPolicy("ManageGlobalNotifications", policy =>
         policy.RequireRole("SuperAdmin"));
@@ -207,10 +208,12 @@ await using (var scope = app.Services.CreateAsyncScope())
             await db.StoreLogos.AnyAsync();
             await db.Boutiques.AnyAsync(b => b.SetupPending);
             await db.PublicPopups.AnyAsync();
+            await db.Users.AnyAsync(u => u.StaffAccessMask != null);
+            await db.Sales.AnyAsync(s => s.CreatedByUserId != null);
         }
         catch (Microsoft.Data.Sqlite.SqliteException ex)
         {
-            throw new InvalidOperationException("Schéma SQLite de développement incompatible. Configurez un nouveau fichier SQLite pour la V1 ; ne supprimez pas une base contenant des données utiles.", ex);
+            throw new InvalidOperationException("Schéma SQLite de développement incompatible. Configurez un nouveau fichier SQLite jetable pour cette version ; ne supprimez pas une base contenant des données utiles.", ex);
         }
     }
     else if (app.Configuration.GetValue("Database:ApplyMigrations", true))

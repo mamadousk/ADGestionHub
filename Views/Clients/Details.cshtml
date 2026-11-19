@@ -5,7 +5,10 @@
         @if (Model.Contact.Address != null) { <p>@Model.Contact.Address</p> }</div>
     <a asp-action="Edit" asp-route-id="@Model.Contact.Id" class="btn btn-secondary-outline">Modifier la fiche</a>
 </div>
-<partial name="_ContactBalances" model="Model.Documents" />
+@if ((await StaffCtx.CurrentAsync()).Has(StaffPermission.SalesHistory))
+{
+    <partial name="_ContactBalances" model="Model.Documents" />
+}
 @if (Model.Documents.Count == 0 && User.IsInRole("Admin"))
 {
     <form asp-action="Delete" asp-route-id="@Model.Contact.Id" method="post" onsubmit="return confirm('Supprimer cette fiche client ?')"><button type="submit" class="btn btn-danger-outline">Supprimer la fiche</button></form>

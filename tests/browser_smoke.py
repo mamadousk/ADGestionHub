@@ -108,7 +108,31 @@ def assert_profile_navigation(page, active_id):
     assert min(ratios) >= 4.5, ratios
 
 
-def run_browser(base, cookies, product, server_pdf):
+def assert_staff_editor(page, base):
+    for width in (320, 390, 1440):
+        page.set_viewport_size({'width': width, 'height': 900})
+        assert page.goto(base + '/Users/Create').ok
+        expect(page.get_by_role('heading', name='Nouvel employé')).to_be_visible()
+        expect(page.locator('[data-staff-preset]')).to_have_count(3)
+        expect(page.locator('[data-staff-profile]')).to_have_text('Caisse uniquement')
+        expect(page.get_by_role('checkbox', name='Réaliser des ventes')).to_be_checked()
+        expect(page.get_by_role('checkbox', name='Règlements sur ventes')).to_be_disabled()
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+    lead = page.locator('[data-staff-preset="Responsable des ventes"]')
+    lead.focus()
+    page.keyboard.press('Enter')
+    expect(lead).to_have_attribute('aria-pressed', 'true')
+    expect(page.get_by_role('checkbox', name='Tableau de bord')).to_be_checked()
+    expect(page.get_by_role('checkbox', name='Rapports et exports')).not_to_be_checked()
+    page.get_by_role('checkbox', name='Historique des ventes').uncheck()
+    expect(page.get_by_role('checkbox', name='Règlements sur ventes')).not_to_be_checked()
+    expect(page.get_by_role('checkbox', name='Règlements sur ventes')).to_be_disabled()
+    expect(page.locator('[data-staff-profile]')).to_have_text('Sur mesure')
+    page.locator('[data-staff-preset="Caisse uniquement"]').click()
+    assert page.locator('[data-staff-access]').evaluate("el => new FormData(el.closest('form')).getAll('Permissions')") == ['staff.sale.create']
+
+
+def run_browser(base, cookies, product, second_product, server_pdf):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel=os.environ.get('ADGH_SMOKE_BROWSER_CHANNEL'))
         try:
@@ -129,6 +153,7 @@ def run_browser(base, cookies, product, server_pdf):
             sidebar_logo = page.locator('.sidebar-heading .brand-logo')
             expect(sidebar_logo).to_have_js_property('naturalWidth', 865)
             expect(sidebar_logo).to_have_attribute('src', re.compile(r'/images/brand/logo-inverse\.webp'))
+            assert_staff_editor(page, base)
             for width in (1440, 390, 320):
                 page.set_viewport_size({'width': width, 'height': 900})
                 assert page.goto(base + '/Identity/Account/Manage').ok
@@ -347,24 +372,64 @@ def run_browser(base, cookies, product, server_pdf):
             expect(menu).to_have_attribute('aria-expanded', 'false')
             page.set_viewport_size({'width': 390, 'height': 844})
             expect(sidebar).to_be_hidden()
-            expect(page.locator('#line-0-product')).to_be_visible()
-            page.locator('#line-0-product').select_option(str(product))
-            page.locator('#line-0-quantity').fill('2')
-            page.locator('[data-add-line]').click()
-            page.locator('#line-1-product').select_option(str(product))
+            expect(page.locator('#pos-catalog')).to_be_visible()
+            expect(page.locator('#pos-ticket')).to_be_hidden()
+            search = page.get_by_role('searchbox', name='Rechercher un article')
+            page.keyboard.press('F2')
+            expect(search).to_be_focused()
+            search.fill('riz-p')
+            search.press('Enter')
+            expect(search).to_have_value('')
+            expect(page.locator('[data-pos-mobile-count]')).to_have_text('1 article')
+            page.get_by_role('button', name='Ajouter Riz Pilote', exact=True).click()
+            page.locator('[data-pos-category]').select_option('entretien')
+            search.fill('savon MENAGER')
+            expect(page.locator('[data-pos-tile]')).to_have_count(1)
+            soap = page.get_by_role('button', name='Ajouter Savon ménager', exact=True)
+            soap.click()
+            expect(soap).to_be_disabled()  # the only unit is already in the basket
+            expect(page.locator('[data-pos-mobile-count]')).to_have_text('3 articles')
+            page.get_by_role('button', name='Voir le panier', exact=True).click()
+            expect(page.locator('#pos-ticket-title')).to_be_focused()
+            expect(page.locator('.pos-cart-line')).to_have_count(2)
+            assert page.evaluate("Array.from(new FormData(document.querySelector('[data-pos]')).entries())"
+                                 ".filter(([key]) => key.endsWith('.ProductId')).map(([, value]) => value)") == [str(product), str(second_product)]
+            rice_qty = page.get_by_role('spinbutton', name='Quantité : Riz Pilote')
+            expect(rice_qty).to_have_value('2')
+            rice_qty.fill('7')
+            expect(page.locator('[data-pos-message]')).to_contain_text('Il reste 6 en stock')
+            expect(page.locator('[data-pos-submit]')).to_be_disabled()
+            rice_qty.fill('2')
             page.locator('[data-trade-currency]').select_option('USD')
-            expect(page.locator('[data-trade-total]')).to_have_text('2,13 USD')
+            expect(page.locator('[data-trade-total]')).to_have_text('1,78 USD')
             page.locator('[data-trade-currency]').select_option('CDF')
+            page.locator('[data-pos-options] summary').click()
             page.locator('[data-trade-discount]').fill('1,25')
-            expect(page.locator('[data-expected-total]')).to_have_value('6000.25')
-            page.locator('[data-payment-mode]').select_option('Partial')
+            expect(page.locator('[data-expected-total]')).to_have_value('4999.75')
+            page.get_by_text('À crédit', exact=True).click()
+            expect(page.locator('[data-pos-submit]')).to_be_disabled()
+            expect(page.locator('[data-pos-message]')).to_contain_text('Indiquez un client')
+            page.locator('#CustomerName').fill('Client Caisse')
+            page.get_by_text('Acompte', exact=True).click()
             expect(page.locator('[data-partial-payment]')).to_be_visible()
-            page.locator('[data-payment-mode]').select_option('Full')
+            page.locator('#InitialPayment').fill('1500,00')
+            expect(page.locator('[data-pos-balance]')).to_have_text(re.compile(r'3\s499,75 CDF'))
+            page.get_by_text('Comptant', exact=True).click()
             expect(page.locator('[data-partial-payment]')).to_be_hidden()
-            page.get_by_role('button', name='Enregistrer la vente', exact=True).click()
+            page.locator('[data-pos-cash] summary').click()
+            page.locator('[data-pos-tendered]').fill('5 000,00')
+            expect(page.locator('[data-pos-change]')).to_have_text('0,25 CDF')
+            expect(page.locator('[data-expected-total]')).to_have_value('4999.75')
+            page.get_by_role('button', name='Encaisser', exact=True).click()
             expect(page.locator('main')).to_contain_text('Reste à régler')
             invoice = int(urlparse(page.url).path.rsplit('/', 1)[-1])
             expect(page.locator('main')).to_contain_text('non normalisé DGI')
+            expect(page.locator('main')).to_contain_text('Savon ménager')
+            expect(page.locator('main')).to_contain_text('4 999,75 CDF')
+            page.locator('main').get_by_role('link', name='Nouvelle vente', exact=True).click()
+            expect(page.locator('#pos-catalog')).to_be_visible()
+            expect(page.locator('[data-pos-mobile-count]')).to_have_text('0 article')
+            expect(soap).to_have_count(0)
             page.goto(base + f'/Sales/Receipt/{invoice}')
             expect(page.get_by_role('button', name='Imprimer', exact=True)).to_be_visible()
             logo = page.locator('.receipt-logo')
@@ -378,7 +443,7 @@ def run_browser(base, cookies, product, server_pdf):
             assert_receipt_pdf(server_pdf)
             assert not failures, failures
             print('Chromium : marges de la vitrine et de la configuration, liens légaux, contraste clavier, '
-                  'onboarding, menu mobile et graphique, vente multiligne et logo/attribution dans les deux PDF validés.')
+                  'onboarding, clavier et caisse tactile, stock, remise, devises, acompte, monnaie et PDF validés.')
         finally:
             browser.close()
 

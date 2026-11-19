@@ -31,6 +31,9 @@
     var isAdmin = User.IsInRole("Admin");
     var publicShell = !isAuthenticated || ViewData["PublicShell"] is true;
     var marketing = ViewData["Marketing"] is true;
+    var permissions = !publicShell && !isSuperAdmin ? await StaffCtx.CurrentAsync() : StaffPermission.None;
+    bool Can(StaffPermission permission) => permissions.Has(permission);
+    var operations = permissions & (StaffPermission.Dashboard | StaffPermission.Sell | StaffPermission.SalesHistory | StaffPermission.Catalogue | StaffPermission.Clients);
 
     TenantFiscalContext? fiscalCtx = null;
     if (!publicShell && !isSuperAdmin)
@@ -118,55 +121,76 @@
                     }
                     else
                     {
-                        <div class="sidebar-section-label">@L.T("Opérations", "Operations")</div>
-                        <a class="sidebar-link @(ctrl == "Home" ? "active" : "")" asp-area="" asp-controller="Home" asp-action="Index">
-                            @LucideIcons.Svg("layout-dashboard", 17)
-                            <span>@L["Nav.Dashboard"]</span>
-                        </a>
-                        <a class="sidebar-link @(ctrl == "Sales" && act == "Create" ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Create">
-                            @LucideIcons.Svg("shopping-bag", 17)
-                            <span>Nouvelle vente</span>
-                        </a>
-                        <a class="sidebar-link @(ctrl == "Sales" && act != "Create" ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Index">
-                            @LucideIcons.Svg("receipt", 17)
-                            <span>Ventes et factures</span>
-                        </a>
-                        <a class="sidebar-link @(ctrl == "Products" ? "active" : "")" asp-area="" asp-controller="Products" asp-action="Index">
-                            @LucideIcons.Svg("package", 17)
-                            <span>@L["Nav.Products"]</span>
-                        </a>
-                        <a class="sidebar-link @(ctrl == "Clients" ? "active" : "")" asp-area="" asp-controller="Clients" asp-action="Index">
-                            @LucideIcons.Svg("users", 17)
-                            <span>@L["Nav.Clients"]</span>
-                        </a>
-                        <div class="sidebar-section-label mt-2">Trésorerie</div>
-                        <a class="sidebar-link @(ctrl == "Expenses" ? "active" : "")" asp-area="" asp-controller="Expenses" asp-action="Index">
-                            @LucideIcons.Svg("wallet", 17)
-                            <span>@L["Nav.Expenses"]</span>
-                        </a>
-
-                        @if (isAdmin)
+                        if (operations != StaffPermission.None)
+                        {
+                            <div class="sidebar-section-label">@L.T("Opérations", "Operations")</div>
+                        }
+                        if (Can(StaffPermission.Dashboard))
+                        {
+                            <a class="sidebar-link @(ctrl == "Home" ? "active" : "")" asp-area="" asp-controller="Home" asp-action="Index">
+                                @LucideIcons.Svg("layout-dashboard", 17)<span>@L["Nav.Dashboard"]</span>
+                            </a>
+                        }
+                        if (Can(StaffPermission.Sell))
+                        {
+                            <a class="sidebar-link @(ctrl == "Sales" && (act == "Create" || !Can(StaffPermission.SalesHistory)) ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Create">
+                                @LucideIcons.Svg("shopping-bag", 17)<span>Nouvelle vente</span>
+                            </a>
+                        }
+                        if (Can(StaffPermission.SalesHistory))
+                        {
+                            <a class="sidebar-link @(ctrl == "Sales" && act != "Create" ? "active" : "")" asp-area="" asp-controller="Sales" asp-action="Index">
+                                @LucideIcons.Svg("receipt", 17)<span>Ventes et factures</span>
+                            </a>
+                        }
+                        if (Can(StaffPermission.Catalogue))
+                        {
+                            <a class="sidebar-link @(ctrl == "Products" ? "active" : "")" asp-area="" asp-controller="Products" asp-action="Index">
+                                @LucideIcons.Svg("package", 17)<span>@L["Nav.Products"]</span>
+                            </a>
+                        }
+                        if (Can(StaffPermission.Clients))
+                        {
+                            <a class="sidebar-link @(ctrl == "Clients" ? "active" : "")" asp-area="" asp-controller="Clients" asp-action="Index">
+                                @LucideIcons.Svg("users", 17)<span>@L["Nav.Clients"]</span>
+                            </a>
+                        }
+                        if (Can(StaffPermission.Expenses) || isAdmin)
+                        {
+                            <div class="sidebar-section-label mt-2">Trésorerie</div>
+                        }
+                        if (Can(StaffPermission.Expenses))
+                        {
+                            <a class="sidebar-link @(ctrl == "Expenses" ? "active" : "")" asp-area="" asp-controller="Expenses" asp-action="Index">
+                                @LucideIcons.Svg("wallet", 17)<span>@L["Nav.Expenses"]</span>
+                            </a>
+                        }
+                        if (isAdmin)
                         {
                             <a class="sidebar-link @(ctrl == "Payments" ? "active" : "")" asp-area="" asp-controller="Payments" asp-action="Index">
-                                @LucideIcons.Svg("wallet", 17)
-                                <span>Encaissements et règlements</span>
+                                @LucideIcons.Svg("wallet", 17)<span>Encaissements et règlements</span>
                             </a>
                             <a class="sidebar-link @(ctrl == "Debts" ? "active" : "")" asp-area="" asp-controller="Debts" asp-action="Index">
-                                @LucideIcons.Svg("clock", 17)
-                                <span>Créances clients</span>
+                                @LucideIcons.Svg("clock", 17)<span>Créances clients</span>
                             </a>
+                        }
+                        if (Can(StaffPermission.Reports) || isAdmin)
+                        {
                             <div class="sidebar-section-label mt-2">Pilotage</div>
+                        }
+                        if (Can(StaffPermission.Reports))
+                        {
                             <a class="sidebar-link @(ctrl == "Reports" ? "active" : "")" asp-area="" asp-controller="Reports" asp-action="Index">
-                                @LucideIcons.Svg("bar-chart-3", 17)
-                                <span>@L["Nav.Reports"]</span>
+                                @LucideIcons.Svg("bar-chart-3", 17)<span>@L["Nav.Reports"]</span>
                             </a>
+                        }
+                        if (isAdmin)
+                        {
                             <a class="sidebar-link @(ctrl == "Users" ? "active" : "")" asp-area="" asp-controller="Users" asp-action="Index">
-                                @LucideIcons.Svg("user-check", 17)
-                                <span>@L["Nav.Staff"]</span>
+                                @LucideIcons.Svg("user-check", 17)<span>@L["Nav.Staff"]</span>
                             </a>
                             <a class="sidebar-link @(ctrl == "Settings" ? "active" : "")" asp-area="" asp-controller="Settings" asp-action="Index">
-                                @LucideIcons.Svg("settings", 17)
-                                <span>@L["Nav.Settings"]</span>
+                                @LucideIcons.Svg("settings", 17)<span>@L["Nav.Settings"]</span>
                             </a>
                         }
                     }
@@ -188,7 +212,7 @@
                             @LucideIcons.Svg("menu", 18)
                         </button>
                         <span class="fw-bold" style="font-size:0.98rem; letter-spacing:-0.02em;">@ViewData["Title"]</span>
-                        @if (!isSuperAdmin)
+                        @if (Can(StaffPermission.Catalogue))
                         {
                             <form method="get" asp-area="" asp-controller="Products" asp-action="Index" class="topbar-search d-none d-md-flex" role="search">
                                 @LucideIcons.Svg("search", 15)

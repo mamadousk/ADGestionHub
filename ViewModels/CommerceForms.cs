@@ -88,7 +88,8 @@ public sealed record DocumentBalance(int Id, string Number, DateTime Date, strin
 
 public sealed record NewPaymentForm(string Action, int Id, string Currency, decimal Balance);
 
-public sealed record CatalogPick(int Id, string Name, string? Sku, int Stock, IReadOnlyDictionary<string, decimal> Prices);
+public sealed record CatalogPick(int Id, string Name, string? Sku, string? Category, int Stock, int StockAlertThreshold,
+    IReadOnlyDictionary<string, decimal> Prices);
 public sealed record ContactPick(int Id, string Name);
 public sealed record TradeLineRow(TradeLineInput Line, int Index);
 public sealed record CommercialLine(string Name, int Quantity, decimal Price, decimal Total);

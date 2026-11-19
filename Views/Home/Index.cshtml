@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = "Tableau de bord";
     var admin = User.IsInRole("Admin");
+    var permissions = await StaffCtx.CurrentAsync();
+    var canViewStock = permissions.Has(StaffPermission.Catalogue);
     var low = Model.Stock.Where(p => p.IsLow).OrderBy(p => p.Quantity).ToList();
     string Format(decimal amount) => Money.Display(amount, Model.Currency);
     var stats = new List<(string Label, string Value, string Icon, string Info, string Tone)>
@@ -16,13 +18,16 @@
         stats.Add(("Dépenses", Format(Model.Expensed), "wallet", "Charges courantes sur la période", "orange"));
         stats.Add(("Valeur du stock", Money.Display(Model.StockValue, Model.Settings.PrimaryCurrencyCode), "package", $"{Model.StockUnits} unité(s) · coût catalogue actuel", "green"));
     }
-    else { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green")); }
+    else if (canViewStock) { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green")); }
     var trend = Model.Trend();
     var peak = trend.Max(p => p.Total);
 }
 <div class="page-heading dash-heading">
     <div><p class="section-eyebrow"><span class="tiny-dot"></span> Vue d’ensemble</p><h1>Tableau de bord</h1><p>Voici l’activité de <strong>@Model.Settings.StoreName</strong> sur la période sélectionnée.</p></div>
-    <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+    @if (permissions.Has(StaffPermission.Sell))
+    {
+        <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+    }
 </div>
 @if (admin && (Model.Stock.Count == 0 || Model.Settings.CdfPerUsd == null))
 {
@@ -43,7 +48,7 @@
         </article>
     }
 </div>
-<div class="dashboard-columns mb-4">
+<div class="@(canViewStock ? "dashboard-columns " : "")mb-4">
     <section class="panel-card p-3 p-md-4">
         <div class="d-flex flex-wrap justify-content-between gap-2 align-items-start"><div><h2 class="h6 mb-1">Évolution des ventes</h2><p class="text-slate small">Montants des ventes par intervalle · @Model.Currency</p></div><span class="status-pill">@Model.Period.Start.ToString("dd/MM") – @Model.Period.End.ToString("dd/MM")</span></div>
         @if (peak <= 0)
@@ -73,24 +78,30 @@
             </details>
         }
     </section>
-    <section class="panel-card p-3 p-md-4">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2"><div><h2 class="h6 mb-1">Alertes stock</h2><p class="text-slate small">Quantités actuelles, hors filtre de période</p></div><span class="status-pill @(low.Count > 0 ? "warning" : "success")">@low.Count</span></div>
-        @if (low.Count == 0) { <p class="text-slate small mb-3">Aucun article sous son seuil d’alerte.</p> }
-        @foreach (var product in low.Take(5))
-        {
-            <div class="quick-line"><a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">@product.Name</a><span class="status-pill @(product.Quantity == 0 ? "danger" : "warning") num">@product.Quantity en stock</span></div>
-        }
-        <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-secondary-outline btn-sm mt-3">Voir le stock</a>
-    </section>
-</div>
-<section class="panel-card mb-2">
-    <div class="p-3 p-md-4 d-flex flex-wrap justify-content-between gap-2 align-items-center"><div><h2 class="h6 mb-1">Dernières ventes de la période</h2><p class="text-slate small mb-0">Ventes enregistrées en @Model.Currency</p></div><a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">Toutes les ventes</a></div>
-    @if (Model.Sales.Count == 0) { <p class="text-slate px-3 px-md-4 pb-4 mb-0">Aucune vente à afficher.</p> }
-    else
+    @if (canViewStock)
     {
-        <div class="table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th></tr></thead><tbody>
-            @foreach (var sale in Model.Sales.Take(5))
-            { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Format(sale.FinalPrice)</td></tr> }
-        </tbody></table></div>
+        <section class="panel-card p-3 p-md-4">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2"><div><h2 class="h6 mb-1">Alertes stock</h2><p class="text-slate small">Quantités actuelles, hors filtre de période</p></div><span class="status-pill @(low.Count > 0 ? "warning" : "success")">@low.Count</span></div>
+            @if (low.Count == 0) { <p class="text-slate small mb-3">Aucun article sous son seuil d’alerte.</p> }
+            @foreach (var product in low.Take(5))
+            {
+                <div class="quick-line"><a asp-controller="Products" asp-action="Details" asp-route-id="@product.Id">@product.Name</a><span class="status-pill @(product.Quantity == 0 ? "danger" : "warning") num">@product.Quantity en stock</span></div>
+            }
+            <a asp-controller="Products" asp-action="Index" asp-route-status="low" class="btn btn-secondary-outline btn-sm mt-3">Voir le stock</a>
+        </section>
     }
-</section>
+</div>
+@if (permissions.Has(StaffPermission.SalesHistory))
+{
+    <section class="panel-card mb-2">
+        <div class="p-3 p-md-4 d-flex flex-wrap justify-content-between gap-2 align-items-center"><div><h2 class="h6 mb-1">Dernières ventes de la période</h2><p class="text-slate small mb-0">Ventes enregistrées en @Model.Currency</p></div><a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">Toutes les ventes</a></div>
+        @if (Model.Sales.Count == 0) { <p class="text-slate px-3 px-md-4 pb-4 mb-0">Aucune vente à afficher.</p> }
+        else
+        {
+            <div class="table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th></tr></thead><tbody>
+                @foreach (var sale in Model.Sales.Take(5))
+                { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Format(sale.FinalPrice)</td></tr> }
+            </tbody></table></div>
+        }
+    </section>
+}

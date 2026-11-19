@@ -41,7 +41,7 @@ class Browser:
 
     def request(self, path, form=None, expected=200, file=None):
         headers = {}
-        body = None if form is None else urlencode(form).encode()
+        body = None if form is None else urlencode(form, doseq=True).encode()
         if file:
             boundary = uuid4().hex
             chunks = []
@@ -61,8 +61,9 @@ class Browser:
             payload = response.read()
             self.last_url = urlparse(response.geturl())
             self.last_disposition = response.headers.get('Content-Disposition')
+            self.last_status = response.code
             final = self.last_url.path
-            if response.code != expected:
+            if response.code not in (expected if isinstance(expected, tuple) else (expected,)):
                 raise AssertionError(f'{path}: HTTP {response.code}, attendu {expected}; arrivée {final}\n{payload[:500]!r}')
             return final, payload, response.headers.get_content_type()
 
@@ -92,6 +93,15 @@ LOGIN_2FA = '/Identity/Account/LoginWith2fa'
 RECOVERY = '/Identity/Account/LoginWithRecoveryCode'
 HOME = ('/Home', '/Home/Index')
 REPORTS = ('/Reports', '/Reports/Index')
+SELL = 'staff.sale.create'
+HISTORY = 'staff.sale.history'
+CATALOGUE = 'staff.catalogue'
+CLIENTS = 'staff.clients'
+SETTLE = 'staff.sale.payments'
+EXPENSES = 'staff.expenses'
+DASHBOARD = 'staff.dashboard'
+EXPORTS = 'staff.reports'
+STAFF_LEGACY = [SELL, HISTORY, CATALOGUE, CLIENTS, SETTLE, EXPENSES, DASHBOARD]
 PRIVACY = '/Infos/Confidentialite'
 PRIVACY_ACCENTED = quote('/Infos/Confidentialité')
 SETTINGS = {'StoreName': 'Pilote Marchand A', 'PrimaryCurrencyCode': 'CDF', 'CdfPerUsd': '2800,125678',
@@ -259,6 +269,129 @@ def verify_session_navigation(base, email, password, sale):
     check_html(visitor.post(target(RECOVERY, pdf), {'Input.RecoveryCode': recovery_code}), (printable,))
 
 
+def verify_staff_access(base, db_file, owner, other_company, password, product, client, sale):
+    def denied(browser, path, form=None, source='/Sales/Create'):
+        if form is None:
+            final, body, _ = browser.request(path, expected=(200, 403))
+        else:
+            final, body, _ = browser.post(path, form, source=source, expected=(200, 403))
+        assert browser.last_status == 403 or final.endswith('/AccessDenied'), final
+        assert not browser.last_disposition and b'%PDF-' not in body
+
+    username = 'caisse' + uuid4().hex[:12]
+    profile = {'UserName': username, 'Email': f'{username}@example.test', 'FullName': 'Caissière de recette'}
+    create = {**profile, 'Password': password, 'ConfirmPassword': password, 'Permissions': [SELL]}
+    _, html, _ = owner.request('/Users/Create')
+    checked = re.findall(r'<input[^>]*name="Permissions"[^>]*checked[^>]*>', small_text(html), re.I)
+    assert len(checked) == 1 and f'value="{SELL}"' in checked[0], checked
+    # Only whitelisted features and the Employee role can be assigned.
+    for invalid, message in (
+        ({'Role': 'Admin'}, 'Seul le rôle Employé'),
+        ({'Role': 'SuperAdmin'}, 'Seul le rôle Employé'),
+        ({'Permissions': [SELL, 'ManageUsers']}, 'Vérifiez les accès sélectionnés'),
+        ({'Permissions': [SETTLE]}, 'les règlements nécessitent l’historique'),
+    ):
+        path, body, _ = owner.post('/Users/Create', {**create, **invalid})
+        assert path == '/Users/Create' and message in small_text(body), path
+    path, directory, _ = owner.post('/Users/Create', create)
+    assert path in ('/Users', '/Users/Index') and 'Caisse uniquement' in small_text(directory)
+    with sqlite3.connect(db_file) as db:
+        employee, access = db.execute('SELECT Id, StaffAccessMask FROM AspNetUsers WHERE UserName = ?', (username,)).fetchone()
+        assert access == 1
+    edit_url = f'/Users/Edit/{employee}'
+    other_company.request(edit_url, expected=404)
+    other_company.post(edit_url, {'Id': employee, **profile, 'Permissions': STAFF_LEGACY}, source='/Users/Create', expected=404)
+
+    cashier = Browser(base)
+    path, terms, _ = cashier.post(LOGIN, {'Input.Email': username, 'Input.Password': password})
+    assert path == TERMS
+    version = re.search(r'name="version" value="([^"]+)"', terms.decode())[1]
+    path, pos, _ = cashier.post(TERMS, {'version': version, 'acceptTerms': 'true'})
+    assert path == '/Sales/Create'
+    # No financial figures or inaccessible module links in the sale interface, including its directory picker.
+    pos = small_text(pos)
+    assert 'data-pos-grid' in pos and 'Chiffre d’affaires' not in pos and 'Historique des ventes' not in pos
+    assert 'Client confidentiel A' not in pos and 'name="ClientId"' not in pos and 'data-trade-discount' not in pos
+    nav = re.search(r'<nav class="sidebar-nav"[^>]*>(.*?)</nav>', pos, re.S)[1]
+    assert re.findall(r'href="([^"]+)"', nav) == ['/Sales/Create'], nav
+    assert cashier.request('/Home/Index?currency=CDF')[0] == '/Sales/Create'
+    for path in ('/Sales', '/Reports', '/Products', '/Clients', '/Expenses', '/Payments', '/Debts', '/Settings', '/Users',
+                 '/Reports/Export?format=pdf', '/Reports/Export?format=xlsx', '/Reports/Export?format=csv'):
+        denied(cashier, path)
+    for path in (f'/Sales/Details/{sale}', f'/Sales/Receipt/{sale}', f'/Sales/Receipt/{sale}?format=pdf'):
+        cashier.request(path, expected=404)
+    denied(cashier, edit_url, {**profile, 'Id': employee, 'Permissions': STAFF_LEGACY})
+
+    order = {'CurrencyCode': 'CDF', 'Items[0].ProductId': product, 'Items[0].Quantity': '1',
+             'PaymentMode': 'Partial', 'InitialPayment': '500', 'PaymentMethod': 'Espèces',
+             'CustomerName': 'Client de caisse', 'ExpectedTotal': '2000.50'}
+    denied(cashier, '/Sales/Create', {**order, 'ClientId': client})
+    path, ticket, _ = cashier.post('/Sales/Create', order)
+    own_sale = id_from(path, 'Sales')
+    assert 'Client de caisse' in small_text(ticket) and 'Imprimer le document' in small_text(ticket)
+    assert 'Enregistrer le règlement' not in small_text(ticket) and 'Annuler cette vente' not in small_text(ticket)
+    denied(cashier, f'/Sales/Delete/{own_sale}', {'reason': 'Annulation non autorisée'})
+    own_receipt = f'/Sales/Receipt/{own_sale}'
+    assert 'Client de caisse' in small_text(cashier.request(own_receipt)[1])
+    assert cashier.request(own_receipt + '?format=pdf')[1].startswith(b'%PDF-')
+    other_company.request(own_receipt, expected=404)
+    settle = f'/Payments/Settle/{own_sale}?target=Sale'
+    payment = {'Amount': '100', 'CurrencyCode': 'CDF', 'Method': 'Espèces'}
+    denied(cashier, settle, payment)
+    with sqlite3.connect(db_file) as db:
+        assert db.execute('SELECT CreatedByUserId FROM Sales WHERE Id = ?', (own_sale,)).fetchone() == (employee,)
+        assert db.execute('SELECT COUNT(*) FROM Payments WHERE SaleId = ?', (own_sale,)).fetchone() == (1,)
+
+    # All changes are exercised in the same authenticated session, without a new login.
+    def grant(permissions):
+        path, _, _ = owner.post(edit_url, {**profile, 'Id': employee, 'Permissions': permissions})
+        assert path in ('/Users', '/Users/Index'), path
+
+    grant([SELL, CATALOGUE, CLIENTS])
+    assert 'name="ClientId"' in small_text(cashier.request('/Sales/Create')[1])
+    client_page = small_text(cashier.request(f'/Clients/Details/{client}')[1])
+    assert 'Client confidentiel A' in client_page and 'Historique des opérations' not in client_page and '4 000,00 CDF' not in client_page
+    _, stock, _ = cashier.request(f'/Products/Details/{product}')
+    assert 'Prix de vente' in small_text(stock) and 'Prix d’achat' not in small_text(stock)
+    denied(cashier, '/Products/Create')
+    denied(cashier, '/Reports/Export?format=csv')
+    assert cashier.request('/Home/Index')[0] == '/Sales/Create'
+
+    details = f'/Sales/Details/{own_sale}'
+    grant([HISTORY, DASHBOARD])
+    dashboard = small_text(cashier.request('/Home/Index')[1])
+    assert 'Chiffre d’affaires' in dashboard and 'Alertes stock' not in dashboard
+    assert cashier.request(f'/Sales/Receipt/{sale}?format=pdf')[2] == 'application/pdf'
+    denied(cashier, settle, payment, source=details)
+    denied(cashier, '/Reports/Export?format=csv')
+
+    grant([HISTORY, SETTLE, DASHBOARD, EXPORTS])
+    assert cashier.request('/Reports/Export?format=csv')[2] == 'text/csv'
+    assert 'Enregistrer le règlement' in small_text(cashier.request(details)[1])
+    denied(cashier, '/Sales/Create')
+    denied(cashier, '/Sales/Create', order, source=details)
+    path, _, _ = cashier.post(settle, payment, source=details)
+    assert path == details
+    with sqlite3.connect(db_file) as db:
+        assert db.execute('SELECT COUNT(*) FROM Payments WHERE SaleId = ?', (own_sale,)).fetchone() == (2,)
+
+    grant([])
+    path, workspace, _ = cashier.request('/Home/Index')
+    assert path in HOME and 'Aucun accès métier attribué' in small_text(workspace)
+    denied(cashier, own_receipt)
+    denied(cashier, '/Reports/Export?format=csv')
+    with sqlite3.connect(db_file) as db:
+        assert db.execute('SELECT StaffAccessMask FROM AspNetUsers WHERE Id = ?', (employee,)).fetchone() == (0,)
+        assert db.execute('SELECT COUNT(*) FROM Sales WHERE CreatedByUserId = ?', (employee,)).fetchone() == (1,)
+    path, _, _ = owner.post(f'/Users/Delete/{employee}', {'id': employee})
+    assert path in ('/Users', '/Users/Index')
+    assert owner.request(own_receipt + '?format=pdf')[2] == 'application/pdf'
+    with sqlite3.connect(db_file) as db:
+        assert db.execute('SELECT 1 FROM AspNetUsers WHERE Id = ?', (employee,)).fetchone() is None
+        assert db.execute('SELECT CreatedByUserId FROM Sales WHERE Id = ?', (own_sale,)).fetchone() == (employee,)
+    print('Accès employé : caisse et reçu personnel, restrictions serveur, isolation, droits personnalisés, révocation et conservation des ventes.')
+
+
 def verify_broadcasts(base, db_file, customer, other_company, staff, public, superadmin):
     manage = '/SuperAdmin/ManagePopups'
     save = '/SuperAdmin/SavePopup'
@@ -413,7 +546,14 @@ def run(base, db_file, superadmin):
     client = id_from(path, 'Clients')
     _, sale_page, _ = a.request('/Sales/Create')
     assert 'name="Items[0].ProductId"' in small_text(sale_page)
+    assert 'data-pos-grid' in small_text(sale_page) and 'data-pos-quantity' in small_text(sale_page)
     assert any(f'data-price-cdf="{price}"' in small_text(sale_page) for price in ('2000.5', '2000.50'))
+    invalid_path, invalid_sale, _ = a.post('/Sales/Create', {
+        'CurrencyCode': 'CDF', 'Items[0].ProductId': product, 'Items[0].Quantity': '2',
+        'PaymentMode': 'Full', 'PaymentMethod': 'Espèces', 'ExpectedTotal': '1.00',
+    })
+    assert invalid_path == '/Sales/Create' and 'Le total a changé' in small_text(invalid_sale)
+    assert re.search(r'name="Items\[0\].Quantity"[^>]*value="2"', small_text(invalid_sale))
     path, payload, _ = a.post('/Sales/Create', {
         'ClientId': client, 'CurrencyCode': 'CDF', 'Items[0].ProductId': product, 'Items[0].Quantity': '2',
         'Discount': '1,00', 'PaymentMode': 'Partial', 'InitialPayment': '1000', 'PaymentMethod': 'Bon test',
@@ -483,8 +623,11 @@ def run(base, db_file, superadmin):
 
     username = 'vendeur' + uuid4().hex[:12]
     path, _, _ = a.post('/Users/Create', {'UserName': username, 'Email': f'{username}@example.test',
-                                        'Password': password, 'ConfirmPassword': password, 'Role': 'Employé'})
+                                        'Password': password, 'ConfirmPassword': password, 'Role': 'Employé', 'Permissions': STAFF_LEGACY})
     assert path in ('/Users', '/Users/Index'), path
+    with sqlite3.connect(db_file) as db:
+        # Simulate a real employee predating the permission migration.
+        db.execute('UPDATE AspNetUsers SET StaffAccessMask = NULL WHERE UserName = ?', (username,))
     path, payload, _ = staff.post('/Identity/Account/Login', {'Input.Email': username, 'Input.Password': password})
     assert path == TERMS and staff.request(f'/Sales/Receipt/{sale}')[0] == TERMS
     version = re.search(r'name="version" value="([^"]+)"', payload.decode())[1]
@@ -492,6 +635,10 @@ def run(base, db_file, superadmin):
     assert path in ('/Home', '/Home/Index') and 'Pilote Marchand A' in small_text(payload)
     _, html, _ = staff.request(f'/Sales/Receipt/{sale}')
     assert receipt_logo(html) == logo_a
+    _, staff_pos, _ = staff.request('/Sales/Create')
+    assert 'data-name="Riz Pilote"' in small_text(staff_pos) and 'data-trade-discount' not in small_text(staff_pos)
+    _, other_pos, _ = b.request('/Sales/Create')
+    assert 'Aucun produit en stock' in small_text(other_pos) and 'Riz Pilote' not in small_text(other_pos)
     # MVC uses a cookie challenge and redirects a forbidden user to the AccessDenied Razor page.
     for restricted in ('/Reports/Index', '/Settings/Setup', '/Settings'):
         try:
@@ -512,14 +659,23 @@ def run(base, db_file, superadmin):
     assert username not in small_text(audit)
     if os.environ.get('ADGH_SMOKE_BROWSER') == '1':
         from browser_smoke import run_browser
+        second_path, _, _ = a.post('/Products/Create', {
+            'Name': 'Savon ménager', 'PurchasePrice': '600,00', 'SalePrice': '1000,00',
+            'StockQuantity': '1', 'Sku': 'SAV-P', 'Category': 'Entretien', 'CatalogCurrencyCode': 'CDF',
+        })
+        second_product = id_from(second_path, 'Products')
         _, server_pdf, _ = a.request(f'/Sales/Receipt/{sale}?format=pdf')
-        run_browser(base, a.cookies, product, server_pdf)
+        run_browser(base, a.cookies, product, second_product, server_pdf)
+        with sqlite3.connect(db_file) as db:
+            assert db.execute('SELECT StockQuantity FROM Products WHERE Id = ?', (product,)).fetchone() == (4,)
+            assert db.execute('SELECT StockQuantity FROM Products WHERE Id = ?', (second_product,)).fetchone() == (0,)
 
     a.post('/Settings/Edit', {**SETTINGS, 'RemoveLogo': 'true'}, source='/Settings')
     _, html, _ = a.request(f'/Sales/Receipt/{sale}')
     assert receipt_logo(html) is None and 'Généré par AdGestionHub' in small_text(html)
     _, _, mime = a.request(f'/Sales/Receipt/{sale}?format=pdf')
     assert mime == 'application/pdf'
+    verify_staff_access(base, db_file, a, b, password, product, client, sale)
     verify_session_navigation(base, email_a, password, sale)
     verify_broadcasts(base, db_file, a, b, staff, public, superadmin)
     print('Parcours HTTP : connexion, déconnexion, double authentification, CGU, configuration, logo, ventes, rapports et isolation réussis.')

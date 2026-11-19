@@ -86,6 +86,10 @@ namespace AdGestionHub.Models
         public int BoutiqueId { get; set; }
         public virtual Boutique? Boutique { get; set; }
 
+        // Not a foreign key: deleting a staff account must not delete or rewrite its sales.
+        [MaxLength(450)]
+        public string? CreatedByUserId { get; set; }
+
         public virtual ICollection<SaleItem> Items { get; set; } = new List<SaleItem>();
 
         [NotMapped]

@@ -1,7 +1,8 @@
 @model IReadOnlyList<Client>
 @{
     ViewData["Title"] = "Clients";
+    var showHistory = (await StaffCtx.CurrentAsync()).Has(StaffPermission.SalesHistory);
     var rows = Model.Select(c => new ContactRow(c.Id, c.Name, c.Phone, c.Email, c.Address)).ToList();
 }
-<div class="page-heading"><div><p class="section-eyebrow">Répertoire</p><h1>Clients</h1><p>Les coordonnées, les opérations et les montants à recevoir au même endroit.</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouveau client</a></div>
+<div class="page-heading"><div><p class="section-eyebrow">Répertoire</p><h1>Clients</h1><p>@(showHistory ? "Les coordonnées, les opérations et les montants à recevoir au même endroit." : "Consultez et mettez à jour les coordonnées des clients.")</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouveau client</a></div>
 <partial name="_ContactDirectory" model="rows" />
