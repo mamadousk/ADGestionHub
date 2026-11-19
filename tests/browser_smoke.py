@@ -240,7 +240,11 @@ def run_popup_browser(base, cookies, title, replacement_title, publish_replaceme
             visitor.keyboard.press('Tab')
             expect(message).to_be_focused()
             visitor.keyboard.press('End')
-            visitor.wait_for_function('document.querySelector("#publicPopup .modal-body").scrollTop > 0')
+            # Unlike wait_for_function, this does not require eval inside the page's CSP.
+            assert message.evaluate('''node => node.scrollTop > 0 || new Promise(resolve => {
+                node.addEventListener('scroll', () => resolve(node.scrollTop > 0), { once: true });
+                setTimeout(() => resolve(node.scrollTop > 0), 2000);
+            })'''), 'Le corps du pop-up ne défile pas au clavier.'
             cross.click()
             closed(visitor)
             expect(visitor.locator('#contenu')).to_be_focused()
