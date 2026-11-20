@@ -6,28 +6,42 @@
     var canViewStock = permissions.Has(StaffPermission.Catalogue);
     var low = Model.Stock.Where(p => p.IsLow).OrderBy(p => p.Quantity).ToList();
     string Format(decimal amount) => Money.Display(amount, Model.Currency);
-    var stats = new List<(string Label, string Value, string Icon, string Info, string Tone)>
+    var stats = new List<(string Label, string Value, string Icon, string Info, string Tone, string? Currency, string? DetailAmount)>
     {
-        ("Chiffre d’affaires", Format(Model.Revenue), "bar-chart-3", "Ventes hors taxes historiques", "indigo"),
-        ("Total des ventes", Format(Model.Invoiced), "receipt", $"{Model.Sales.Count} vente(s) sur la période", "orange")
+        ("Chiffre d’affaires", Format(Model.Revenue), "bar-chart-3", "Ventes hors taxes historiques", "indigo", Model.Currency, null),
+        ("Total des ventes", Format(Model.Invoiced), "receipt", $"{Model.Sales.Count} vente(s) sur la période", "orange", Model.Currency, null)
     };
     if (admin)
     {
-        stats.Add(("Recettes encaissées", Format(Model.Received), "wallet", $"Dont ventes : {Format(Model.SalesReceipts)}", "green"));
-        stats.Add(("Créances clients", Format(Model.Receivables), "clock", "Reste à recevoir à la fin de période", "amber"));
-        stats.Add(("Dépenses", Format(Model.Expensed), "wallet", "Charges courantes sur la période", "orange"));
-        stats.Add(("Valeur du stock", Money.Display(Model.StockValue, Model.Settings.PrimaryCurrencyCode), "package", $"{Model.StockUnits} unité(s) · coût catalogue actuel", "green"));
+        stats.Add(("Recettes encaissées", Format(Model.Received), "wallet", "Dont ventes :", "green", Model.Currency, Format(Model.SalesReceipts)));
+        stats.Add(("Créances clients", Format(Model.Receivables), "clock", "Reste à recevoir à la fin de période", "amber", Model.Currency, null));
+        stats.Add(("Dépenses", Format(Model.Expensed), "wallet", "Charges courantes sur la période", "orange", Model.Currency, null));
+        var stockCurrency = Model.Settings.PrimaryCurrencyCode;
+        stats.Add(("Valeur du stock", Money.Display(Model.StockValue, stockCurrency), "package", $"{Model.StockUnits} unité(s) · coût catalogue actuel", "green", stockCurrency, null));
     }
-    else if (canViewStock) { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green")); }
+    else if (canViewStock) { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green", null, null)); }
+    if (ViewData["ProfitSummary"] is ProfitSummary profit)
+    {
+        var info = !profit.HasMissingCosts ? "Après remises, hors taxes et charges"
+            : profit.Total.HasValue ? "Total partiel : coûts d’achat manquants" : "Coûts d’achat non historisés";
+        stats.Add(("Bénéfice", profit.Total is decimal total ? Format(total) : "—", "bar-chart-3", info, "green", profit.Total.HasValue ? Model.Currency : null, null));
+    }
     var trend = Model.Trend();
     var peak = trend.Max(p => p.Total);
 }
 <div class="page-heading dash-heading">
     <div><p class="section-eyebrow"><span class="tiny-dot"></span> Vue d’ensemble</p><h1>Tableau de bord</h1><p>Voici l’activité de <strong>@Model.Settings.StoreName</strong> sur la période sélectionnée.</p></div>
-    @if (permissions.Has(StaffPermission.Sell))
-    {
-        <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
-    }
+    <div class="d-flex flex-wrap align-items-end gap-2">
+        <button type="button" class="btn btn-secondary-outline dashboard-amount-toggle" data-dashboard-amount-toggle
+                aria-label="Masquer les montants" title="Masquer les montants" hidden>
+            <span data-dashboard-eye>@LucideIcons.Svg("eye", 18)</span>
+            <span data-dashboard-eye-off hidden>@LucideIcons.Svg("eye-off", 18)</span>
+        </button>
+        @if (permissions.Has(StaffPermission.Sell))
+        {
+            <a asp-controller="Sales" asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a>
+        }
+    </div>
 </div>
 @if (admin && (Model.Stock.Count == 0 || Model.Settings.CdfPerUsd == null))
 {
@@ -44,7 +58,14 @@
     {
         <article class="panel-card metric-tile">
             <div class="metric-title"><span class="metric-icon @item.Tone">@LucideIcons.Svg(item.Icon, 17)</span><h2>@item.Label</h2></div>
-            <strong class="metric-value num">@item.Value</strong><small>@item.Info</small>
+            @if (item.Currency != null)
+            {
+                <strong class="metric-value num" data-dashboard-amount="@item.Currency">@item.Value</strong>
+            }
+            else { <strong class="metric-value num">@item.Value</strong> }
+            <small>@item.Info
+                @if (item.DetailAmount is string detail) { <span data-dashboard-amount="@Model.Currency">@detail</span> }
+            </small>
         </article>
     }
 </div>
@@ -61,7 +82,7 @@
                 @foreach (var point in trend)
                 {
                     var height = (100m * point.Total / peak).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-                    <div class="trend-slot" title="@point.Label : @Format(point.Total)"><div class="trend-track"><div class="trend-fill" style="height:@(height)%"></div></div><small>@point.Label</small><span class="visually-hidden">@Format(point.Total)</span></div>
+                    <div class="trend-slot" title="@point.Label : @Format(point.Total)" data-dashboard-tooltip="@point.Label : •••• @Model.Currency"><div class="trend-track"><div class="trend-fill" style="height:@(height)%"></div></div><small>@point.Label</small><span class="visually-hidden" data-dashboard-amount="@Model.Currency">@Format(point.Total)</span></div>
                 }
             </div>
             <details class="mt-2 small">
@@ -71,7 +92,7 @@
                     <tbody>
                         @foreach (var point in trend)
                         {
-                            <tr><th scope="row">@point.Label</th><td class="text-end num">@Format(point.Total)</td></tr>
+                            <tr><th scope="row">@point.Label</th><td class="text-end num" data-dashboard-amount="@Model.Currency">@Format(point.Total)</td></tr>
                         }
                     </tbody>
                 </table>
@@ -100,8 +121,11 @@
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th></tr></thead><tbody>
                 @foreach (var sale in Model.Sales.Take(5))
-                { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Format(sale.FinalPrice)</td></tr> }
+                { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap" data-dashboard-amount="@Model.Currency">@Format(sale.FinalPrice)</td></tr> }
             </tbody></table></div>
         }
     </section>
+}
+@section Scripts {
+    <script src="~/js/dashboard-amounts.js" asp-append-version="true"></script>
 }

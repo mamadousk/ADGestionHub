@@ -6,6 +6,8 @@
     const presets = [...editor.querySelectorAll('[data-staff-preset]')];
     const history = inputs.find(input => input.value === editor.dataset.historyCode);
     const payments = inputs.find(input => input.value === editor.dataset.paymentsCode);
+    const dashboard = inputs.find(input => input.value === editor.dataset.dashboardCode);
+    const profit = inputs.find(input => input.value === editor.dataset.profitCode);
     const names = editor.querySelector('[data-staff-profile]');
     const count = editor.querySelector('[data-staff-count]');
     const codesOf = codes => new Set(codes.split(/\s+/).filter(Boolean));
@@ -16,6 +18,8 @@
     function refresh() {
         payments.disabled = !history.checked;
         if (payments.disabled) payments.checked = false;
+        profit.disabled = !history.checked && !dashboard.checked;
+        if (profit.disabled) profit.checked = false;
         const selected = new Set(inputs.filter(input => input.checked).map(input => input.value));
         const profile = profiles.find(option => equals(option.codes, selected));
         for (const option of profiles) option.button.setAttribute('aria-pressed', String(option === profile));

@@ -17,8 +17,12 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
     public async Task<IActionResult> Index()
     {
         if (await ShopAsync() is not int shop) return Forbid();
-        return View(await Db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop).Include(s => s.Payments)
-            .OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync());
+        var showProfit = (await access.CurrentAsync()).Has(StaffPermission.Profit);
+        IQueryable<Sale> query = Db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop).Include(s => s.Payments);
+        if (showProfit) query = query.Include(s => s.Items.Where(i => i.BoutiqueId == shop)).AsSplitQuery();
+        var sales = await query.OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync(HttpContext.RequestAborted);
+        if (showProfit) ViewData["SaleProfits"] = sales.ToDictionary(s => s.Id, SaleProfit.ForSale);
+        return View(sales);
     }
 
     [HttpGet, Authorize(Policy = StaffAccessRules.Sell)]
@@ -63,7 +67,10 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
     {
         if (await ShopAsync() is not int shop) return Forbid();
         var sale = await FindAsync(shop, id);
-        return sale == null ? NotFound() : View(sale);
+        if (sale == null) return NotFound();
+        if ((await access.CurrentAsync()).Has(StaffPermission.SalesHistory | StaffPermission.Profit))
+            ViewData["SaleProfit"] = SaleProfit.ForSale(sale);
+        return View(sale);
     }
 
     [Authorize(Policy = StaffAccessRules.SaleDocuments)]

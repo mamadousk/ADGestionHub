@@ -9,7 +9,11 @@
 <div class="page-heading">
     <div><p class="section-eyebrow"><a asp-action="Index">Produits et stocks</a></p><h1>@Model.Name</h1><p>@(Model.Sku ?? "Sans référence") · @(Model.Category ?? "Sans catégorie")</p></div>
     <div class="d-flex flex-wrap gap-2">
-        @if (admin && !Model.IsArchived) { <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Modifier</a> }
+        @if (admin && !Model.IsArchived)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Modifier</a>
+            <a asp-action="Create" class="btn btn-secondary-outline">@LucideIcons.Svg("plus", 17, "me-1") Ajouter un autre produit</a>
+        }
         @if (canSell && !Model.IsArchived && Model.StockQuantity > 0) { <a asp-controller="Sales" asp-action="Create" asp-route-productId="@Model.Id" class="btn btn-accent">Nouvelle vente</a> }
     </div>
 </div>

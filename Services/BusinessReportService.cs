@@ -7,11 +7,12 @@ namespace AdGestionHub.Services;
 
 public sealed class BusinessReportService(ApplicationDbContext db)
 {
-    public async Task<BusinessReport> BuildAsync(int shop, StoreSettings settings, ReportPeriod period, string currency, bool finance)
+    public async Task<BusinessReport> BuildAsync(int shop, StoreSettings settings, ReportPeriod period, string currency, bool finance, bool includeSaleItems = true)
     {
         var until = period.Until;
-        var sales = await SalesUntil(shop, until, currency).Where(s => s.SaleDate >= period.Start)
-            .Include(s => s.Items.Where(i => i.BoutiqueId == shop)).OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync();
+        var salesQuery = SalesUntil(shop, until, currency).Where(s => s.SaleDate >= period.Start);
+        if (includeSaleItems) salesQuery = salesQuery.Include(s => s.Items.Where(i => i.BoutiqueId == shop));
+        var sales = await salesQuery.OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync();
         var stock = await db.Products.AsNoTracking().Where(p => p.BoutiqueId == shop && !p.IsArchived).OrderBy(p => p.Name)
             .Select(p => new StockRow(p.Id, p.Name, p.Sku, p.StockQuantity, p.StockAlertThreshold, finance ? p.PurchasePrice : 0m)).ToListAsync();
         if (!finance) return new(period, currency, settings, sales, [], [], [], stock, []);

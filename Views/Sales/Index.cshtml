@@ -1,5 +1,8 @@
 @model IReadOnlyList<Sale>
-@{ ViewData["Title"] = "Ventes et factures"; }
+@{
+    ViewData["Title"] = "Ventes et factures";
+    var profits = ViewData["SaleProfits"] as IReadOnlyDictionary<int, decimal?>;
+}
 <div class="page-heading">
     <div><p class="section-eyebrow">Opérations</p><h1>Ventes et factures</h1><p>Suivez les ventes, leurs règlements et les factures commerciales.</p></div>
     @if ((await StaffCtx.CurrentAsync()).Has(StaffPermission.Sell))
@@ -14,13 +17,21 @@
 else
 {
     <div class="panel-card table-responsive"><table class="table table-ledger">
-        <thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th><th scope="col" class="text-end">Reste dû</th><th scope="col">Règlement</th></tr></thead>
+        <thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th>
+            @if (profits != null) { <th scope="col" class="text-end">Bénéfice</th> }
+            <th scope="col" class="text-end">Reste dû</th><th scope="col">Règlement</th></tr></thead>
         <tbody>
         @foreach (var sale in Model)
         {
             var badge = sale.IsCancelled ? "danger" : sale.Balance == 0 ? "success" : "warning";
             <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy HH:mm")</div></td>
-                <td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Money.Display(sale.FinalPrice, sale.CurrencyCode)</td><td class="text-end text-nowrap">@Money.Display(sale.Balance, sale.CurrencyCode)</td><td><span class="status-pill @badge">@sale.PaymentStatus</span></td></tr>
+                <td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Money.Display(sale.FinalPrice, sale.CurrencyCode)</td>
+                @if (profits != null)
+                {
+                    var profit = profits[sale.Id];
+                    <td class="text-end text-nowrap" title="@(profit == null ? (sale.IsCancelled ? "Vente annulée" : "Coût d’achat non disponible") : null)">@(profit is decimal amount ? Money.Display(amount, sale.CurrencyCode) : "—")</td>
+                }
+                <td class="text-end text-nowrap">@Money.Display(sale.Balance, sale.CurrencyCode)</td><td><span class="status-pill @badge">@sale.PaymentStatus</span></td></tr>
         }
         </tbody>
     </table></div>

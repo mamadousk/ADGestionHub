@@ -38,8 +38,11 @@ public sealed class HomeController(IBoutiqueService boutiques, ITenantContextSer
             ModelState.AddModelError("", error.Message);
             period = ReportPeriod.Current(null, null);
         }
-        return View(await reports.BuildAsync(shop, settings, period,
-            Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode, User.IsInRole("Admin")));
+        var showProfit = permissions.Has(StaffPermission.Profit);
+        var dashboard = await reports.BuildAsync(shop, settings, period,
+            Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode, User.IsInRole("Admin"), includeSaleItems: showProfit);
+        if (showProfit) ViewData["ProfitSummary"] = SaleProfit.ForPeriod(dashboard.Sales);
+        return View(dashboard);
     }
 
     [AllowAnonymous]

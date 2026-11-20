@@ -165,7 +165,7 @@ public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqu
         if (model.Role != StaffAccessRules.EmployeeRole)
             ModelState.AddModelError(nameof(model.Role), "Seul le rôle Employé peut être attribué ici.");
         if (!StaffAccessRules.TryParse(model.Permissions, out var permissions))
-            ModelState.AddModelError(nameof(model.Permissions), "Vérifiez les accès sélectionnés : les règlements nécessitent l’historique des ventes.");
+            ModelState.AddModelError(nameof(model.Permissions), "Vérifiez les accès sélectionnés : les règlements nécessitent l’historique des ventes ; les bénéfices nécessitent le tableau de bord ou l’historique des ventes.");
         return permissions;
     }
 

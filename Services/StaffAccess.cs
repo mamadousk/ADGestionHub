@@ -18,7 +18,8 @@ public enum StaffPermission
     SalePayments = 1 << 4,
     Expenses = 1 << 5,
     Dashboard = 1 << 6,
-    Reports = 1 << 7
+    Reports = 1 << 7,
+    Profit = 1 << 8
 }
 
 public sealed record StaffFeature(string Code, StaffPermission Permission, string Name, string Description, string Icon, bool Sensitive = false);
@@ -36,6 +37,7 @@ public static class StaffAccessRules
     public const string Expenses = "staff.expenses";
     public const string Dashboard = "staff.dashboard";
     public const string Reports = "staff.reports";
+    public const string Profit = "staff.profit";
 
     public const StaffPermission Cashier = StaffPermission.Sell;
     public const StaffPermission SalesAndStock = Cashier | StaffPermission.Catalogue | StaffPermission.Clients;
@@ -43,7 +45,7 @@ public static class StaffAccessRules
     // Frozen to the original employee access; future preset changes must not alter migrated accounts.
     public const StaffPermission Legacy = StaffPermission.Sell | StaffPermission.SalesHistory | StaffPermission.Catalogue
         | StaffPermission.Clients | StaffPermission.SalePayments | StaffPermission.Expenses | StaffPermission.Dashboard;
-    public const StaffPermission All = Legacy | StaffPermission.Reports;
+    public const StaffPermission All = Legacy | StaffPermission.Reports | StaffPermission.Profit;
 
     public static IReadOnlyList<StaffFeature> Features { get; } = Array.AsReadOnly(new StaffFeature[]
     {
@@ -54,7 +56,8 @@ public static class StaffAccessRules
         new(SalePayments, StaffPermission.SalePayments, "Règlements sur ventes", "Enregistrer un versement après la vente. Nécessite l’historique des ventes.", "wallet"),
         new(Expenses, StaffPermission.Expenses, "Dépenses", "Saisir et consulter les dépenses, sans les corriger ni les supprimer.", "wallet", true),
         new(Dashboard, StaffPermission.Dashboard, "Tableau de bord", "Voir le chiffre d’affaires et les tendances des ventes de l’entreprise.", "layout-dashboard", true),
-        new(Reports, StaffPermission.Reports, "Rapports et exports", "Consulter et exporter les chiffres, dont les dépenses, créances et coûts de stock.", "bar-chart-3", true)
+        new(Reports, StaffPermission.Reports, "Rapports et exports", "Consulter et exporter les chiffres, dont les dépenses, créances et coûts de stock.", "bar-chart-3", true),
+        new(Profit, StaffPermission.Profit, "Voir les bénéfices", "Voir le bénéfice dans les rubriques autorisées. Nécessite le tableau de bord ou l’historique des ventes.", "bar-chart-3", true)
     });
 
     public static IReadOnlyList<StaffProfile> Profiles { get; } = Array.AsReadOnly(new StaffProfile[]
@@ -108,7 +111,8 @@ public static class StaffAccessRules
     }
 
     private static bool IsValid(StaffPermission permissions) => (permissions & ~All) == 0
-        && (!permissions.Has(StaffPermission.SalePayments) || permissions.Has(StaffPermission.SalesHistory));
+        && (!permissions.Has(StaffPermission.SalePayments) || permissions.Has(StaffPermission.SalesHistory))
+        && (!permissions.Has(StaffPermission.Profit) || (permissions & (StaffPermission.Dashboard | StaffPermission.SalesHistory)) != StaffPermission.None);
 }
 
 // Scoped to one HTTP request. Never use an access mask from a sign-in cookie or from form data.
