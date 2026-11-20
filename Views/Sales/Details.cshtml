@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = $"Vente {Model.Number}";
     var permissions = await StaffCtx.CurrentAsync();
+    var profit = ViewData["SaleProfit"] as decimal?;
     var rate = PdfReportService.HistoricalRate(Model.CdfPerUsd, Model.SecondaryCurrencyCode, Model.ExchangeRateToSecondary, Model.CurrencyCode);
     var lines = new CommercialTable(Model.Items.Select(i => new CommercialLine(i.ProductName, i.Quantity, i.UnitPrice, i.EffectiveLineTotal)), Model.CurrencyCode);
 }
@@ -21,6 +22,10 @@
         @if (Model.Discount != 0) { <div><span>Sous-total</span><b>@Money.Display(Model.SubtotalNet, Model.CurrencyCode)</b></div><div><span>Remise</span><b>@Money.Display(Model.Discount, Model.CurrencyCode)</b></div> }
         @if (Model.TaxAmount != 0) { <div><span>Taxe historique</span><b>@Money.Display(Model.TaxAmount, Model.CurrencyCode)</b></div> }
         <div><span>Total de la vente</span><b>@Money.Display(Model.FinalPrice, Model.CurrencyCode)</b></div>
+        @if (ViewData.ContainsKey("SaleProfit"))
+        {
+            <div><span>Bénéfice</span><b title="@(profit == null ? (Model.IsCancelled ? "Vente annulée" : "Coût d’achat non disponible") : null)">@(profit is decimal amount ? Money.Display(amount, Model.CurrencyCode) : "—")</b></div>
+        }
         @if (!Model.IsCancelled)
         {
             <div><span>Déjà réglé</span><b>@Money.Display(Model.Paid, Model.CurrencyCode)</b></div>

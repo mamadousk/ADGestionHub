@@ -16,6 +16,7 @@ def assert_receipt_pdf(data):
     assert reader.pages
     text = ' '.join(' '.join(page.extract_text().split()) for page in reader.pages)
     assert 'Généré par AdGestionHub' in text and 'non normalisé DGI' in text, text[:500]
+    assert 'Bénéfice' not in text
     assert any(len(page.images) for page in reader.pages), 'logo absent du PDF'
 
 
@@ -108,6 +109,39 @@ def assert_profile_navigation(page, active_id):
     assert min(ratios) >= 4.5, ratios
 
 
+def assert_dashboard_amounts(page, base):
+    for width, height in ((320, 760), (390, 844), (1440, 900)):
+        page.set_viewport_size({'width': width, 'height': height})
+        assert page.goto(base + '/Home/Index').ok
+        toggle = page.locator('[data-dashboard-amount-toggle]')
+        amounts = page.locator('[data-dashboard-amount]')
+        tooltips = page.locator('[data-dashboard-tooltip]')
+        labels = page.locator('.metric-title h2, .trend-slot small, .metric-tile small:not(:has([data-dashboard-amount])), .quick-line .status-pill')
+        profit = page.locator('.metric-tile').filter(has=page.get_by_role('heading', name='Bénéfice', exact=True))
+        expect(profit.locator('.metric-value')).to_have_text(re.compile(r'2\s199,30 CDF'))
+        expect(toggle).to_have_attribute('aria-label', 'Masquer les montants')
+        expect(toggle.locator('[data-dashboard-eye]')).to_be_visible()
+        page.get_by_text('Voir les montants du graphique', exact=True).click()
+        original_amounts = amounts.all_text_contents()
+        original_tooltips = tooltips.evaluate_all('nodes => nodes.map(node => node.title)')
+        original_labels = labels.all_text_contents()
+        assert len(original_amounts) > 7 and original_tooltips
+        toggle.focus()
+        page.keyboard.press('Space')
+        expect(toggle).to_have_attribute('aria-label', 'Afficher les montants')
+        expect(toggle.locator('[data-dashboard-eye-off]')).to_be_visible()
+        expect(profit.locator('.metric-value')).to_have_text('•••• CDF')
+        assert amounts.evaluate_all('nodes => nodes.every(node => node.textContent === `•••• ${node.dataset.dashboardAmount}`)')
+        assert tooltips.evaluate_all('nodes => nodes.every(node => node.title === node.dataset.dashboardTooltip)')
+        assert labels.all_text_contents() == original_labels
+        assert page.locator('.trend-fill').evaluate_all('nodes => nodes.some(node => node.getBoundingClientRect().height > 0)')
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+        toggle.click()
+        expect(toggle).to_have_attribute('aria-label', 'Masquer les montants')
+        assert amounts.all_text_contents() == original_amounts
+        assert tooltips.evaluate_all('nodes => nodes.map(node => node.title)') == original_tooltips
+
+
 def assert_staff_editor(page, base):
     for width in (320, 390, 1440):
         page.set_viewport_size({'width': width, 'height': 900})
@@ -117,6 +151,7 @@ def assert_staff_editor(page, base):
         expect(page.locator('[data-staff-profile]')).to_have_text('Caisse uniquement')
         expect(page.get_by_role('checkbox', name='Réaliser des ventes')).to_be_checked()
         expect(page.get_by_role('checkbox', name='Règlements sur ventes')).to_be_disabled()
+        expect(page.get_by_role('checkbox', name='Voir les bénéfices')).to_be_disabled()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
     lead = page.locator('[data-staff-preset="Responsable des ventes"]')
     lead.focus()
@@ -124,10 +159,18 @@ def assert_staff_editor(page, base):
     expect(lead).to_have_attribute('aria-pressed', 'true')
     expect(page.get_by_role('checkbox', name='Tableau de bord')).to_be_checked()
     expect(page.get_by_role('checkbox', name='Rapports et exports')).not_to_be_checked()
+    profit = page.get_by_role('checkbox', name='Voir les bénéfices')
+    expect(profit).to_be_enabled()
+    expect(profit).not_to_be_checked()
+    profit.check()
     page.get_by_role('checkbox', name='Historique des ventes').uncheck()
     expect(page.get_by_role('checkbox', name='Règlements sur ventes')).not_to_be_checked()
     expect(page.get_by_role('checkbox', name='Règlements sur ventes')).to_be_disabled()
+    expect(profit).to_be_checked()  # still allowed on the dashboard
     expect(page.locator('[data-staff-profile]')).to_have_text('Sur mesure')
+    page.get_by_role('checkbox', name='Tableau de bord').uncheck()
+    expect(profit).not_to_be_checked()
+    expect(profit).to_be_disabled()
     page.locator('[data-staff-preset="Caisse uniquement"]').click()
     assert page.locator('[data-staff-access]').evaluate("el => new FormData(el.closest('form')).getAll('Permissions')") == ['staff.sale.create']
 
@@ -153,6 +196,13 @@ def run_browser(base, cookies, product, second_product, server_pdf):
             sidebar_logo = page.locator('.sidebar-heading .brand-logo')
             expect(sidebar_logo).to_have_js_property('naturalWidth', 865)
             expect(sidebar_logo).to_have_attribute('src', re.compile(r'/images/brand/logo-inverse\.webp'))
+            assert_dashboard_amounts(page, base)
+            page.set_viewport_size({'width': 390, 'height': 844})
+            assert page.goto(base + f'/Products/Details/{second_product}').ok
+            page.get_by_role('link', name='Ajouter un autre produit', exact=True).click()
+            page.wait_for_url('**/Products/Create')
+            expect(page.get_by_role('heading', name='Nouveau produit', exact=True)).to_be_visible()
+            expect(page.locator('#Name')).to_have_value('')
             assert_staff_editor(page, base)
             for width in (1440, 390, 320):
                 page.set_viewport_size({'width': width, 'height': 900})

@@ -1333,6 +1333,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 .panel-card .table-ledger { margin-bottom:0; }
 .table-ledger td { overflow-wrap:anywhere; }
 
+.dashboard-amount-toggle { width:44px; height:44px; padding:0; }
 .metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 214px),1fr)); gap:1rem; }
 .metric-tile { padding:1rem 1.1rem; display:flex; flex-direction:column; gap:.45rem; }
 .metric-title { display:flex; align-items:center; gap:.65rem; }

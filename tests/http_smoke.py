@@ -101,6 +101,7 @@ SETTLE = 'staff.sale.payments'
 EXPENSES = 'staff.expenses'
 DASHBOARD = 'staff.dashboard'
 EXPORTS = 'staff.reports'
+PROFIT = 'staff.profit'
 STAFF_LEGACY = [SELL, HISTORY, CATALOGUE, CLIENTS, SETTLE, EXPENSES, DASHBOARD]
 PRIVACY = '/Infos/Confidentialite'
 PRIVACY_ACCENTED = quote('/Infos/Confidentialité')
@@ -290,6 +291,7 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
         ({'Role': 'SuperAdmin'}, 'Seul le rôle Employé'),
         ({'Permissions': [SELL, 'ManageUsers']}, 'Vérifiez les accès sélectionnés'),
         ({'Permissions': [SETTLE]}, 'les règlements nécessitent l’historique'),
+        ({'Permissions': [SELL, PROFIT]}, 'les bénéfices nécessitent le tableau de bord ou l’historique'),
     ):
         path, body, _ = owner.post('/Users/Create', {**create, **invalid})
         assert path == '/Users/Create' and message in small_text(body), path
@@ -332,6 +334,7 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     own_sale = id_from(path, 'Sales')
     assert 'Client de caisse' in small_text(ticket) and 'Imprimer le document' in small_text(ticket)
     assert 'Enregistrer le règlement' not in small_text(ticket) and 'Annuler cette vente' not in small_text(ticket)
+    assert 'Bénéfice' not in small_text(ticket)
     denied(cashier, f'/Sales/Delete/{own_sale}', {'reason': 'Annulation non autorisée'})
     own_receipt = f'/Sales/Receipt/{own_sale}'
     assert 'Client de caisse' in small_text(cashier.request(own_receipt)[1])
@@ -355,6 +358,7 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     assert 'Client confidentiel A' in client_page and 'Historique des opérations' not in client_page and '4 000,00 CDF' not in client_page
     _, stock, _ = cashier.request(f'/Products/Details/{product}')
     assert 'Prix de vente' in small_text(stock) and 'Prix d’achat' not in small_text(stock)
+    assert 'Ajouter un autre produit' not in small_text(stock)
     denied(cashier, '/Products/Create')
     denied(cashier, '/Reports/Export?format=csv')
     assert cashier.request('/Home/Index')[0] == '/Sales/Create'
@@ -363,11 +367,26 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     grant([HISTORY, DASHBOARD])
     dashboard = small_text(cashier.request('/Home/Index')[1])
     assert 'Chiffre d’affaires' in dashboard and 'Alertes stock' not in dashboard
+    for route in ('/Home/Index', '/Sales/Index', f'/Sales/Details/{sale}'):
+        assert 'Bénéfice' not in small_text(cashier.request(route + '?profit=true')[1]), route
     assert cashier.request(f'/Sales/Receipt/{sale}?format=pdf')[2] == 'application/pdf'
     denied(cashier, settle, payment, source=details)
     denied(cashier, '/Reports/Export?format=csv')
 
+    grant([SELL, DASHBOARD, PROFIT])
+    assert '<h2>Bénéfice</h2>' in small_text(cashier.request('/Home/Index')[1])
+    denied(cashier, '/Sales/Index')
+    assert 'Bénéfice' not in small_text(cashier.request(details)[1])
+
+    grant([HISTORY, DASHBOARD, PROFIT])
+    for route in ('/Sales/Index', f'/Sales/Details/{sale}'):
+        text = small_text(cashier.request(route)[1])
+        assert 'Bénéfice' in text and '2 199,30 CDF' in text, route
+    assert 'Bénéfice' not in small_text(cashier.request(own_receipt)[1])
+
     grant([HISTORY, SETTLE, DASHBOARD, EXPORTS])
+    for route in ('/Home/Index', '/Sales/Index', f'/Sales/Details/{sale}'):
+        assert 'Bénéfice' not in small_text(cashier.request(route)[1]), route
     assert cashier.request('/Reports/Export?format=csv')[2] == 'text/csv'
     assert 'Enregistrer le règlement' in small_text(cashier.request(details)[1])
     denied(cashier, '/Sales/Create')
@@ -539,11 +558,11 @@ def run(base, db_file, superadmin):
     assert_privacy(public, PRIVACY_ACCENTED)
     assert_privacy(public, '/Home/Privacy')
     email_a = checkout(a, password, 'Pilote Marchand A', configure=True)
-    path, _, _ = a.post('/Products/Create', {
-        'Name': 'Riz Pilote', 'PurchasePrice': '900,35', 'SalePrice': '2000,50', 'StockQuantity': '8',
-        'Sku': 'RIZ-P', 'Category': 'Épicerie', 'StockAlertThreshold': '3', 'CatalogCurrencyCode': 'CDF',
-    })
+    product_fields = {'Name': 'Riz Pilote', 'PurchasePrice': '900,35', 'SalePrice': '2000,50', 'StockQuantity': '8',
+                      'Sku': 'RIZ-P', 'Category': 'Épicerie', 'StockAlertThreshold': '3', 'CatalogCurrencyCode': 'CDF'}
+    path, product_page, _ = a.post('/Products/Create', product_fields)
     product = id_from(path, 'Products')
+    assert 'Ajouter un autre produit' in small_text(product_page) and 'href="/Products/Create"' in small_text(product_page)
     path, _, _ = a.post('/Clients/Create', {'Name': 'Client confidentiel A', 'Email': 'client@example.test'})
     client = id_from(path, 'Clients')
     _, sale_page, _ = a.request('/Sales/Create')
@@ -562,7 +581,15 @@ def run(base, db_file, superadmin):
         'ExpectedTotal': '4000.00',
     })
     sale = id_from(path, 'Sales')
-    assert '3 000,00 CDF' in small_text(payload)
+    sale_detail = small_text(payload)
+    assert '3 000,00 CDF' in sale_detail
+    assert '<span>Bénéfice</span>' in sale_detail and '2 199,30 CDF' in sale_detail
+    # Updating the catalogue after the sale must not rewrite the historical unit cost.
+    changed, _, _ = a.post(f'/Products/Edit/{product}', {**product_fields, 'PurchasePrice': '1200,35'})
+    assert changed == f'/Products/Details/{product}'
+    for route in ('/Sales/Index', f'/Sales/Details/{sale}'):
+        text = small_text(a.request(route)[1])
+        assert 'Bénéfice' in text and '2 199,30 CDF' in text, route
     a.request(f'/Payments/Settle/{sale}?target=Sale', {'Amount': '3000'}, expected=400)
     _, payload, _ = a.post(f'/Payments/Settle/{sale}?target=Sale', {
         'CurrencyCode': 'CDF', 'Amount': '1000', 'Method': 'Mobile Money',
@@ -571,7 +598,11 @@ def run(base, db_file, superadmin):
     _, payload, _ = a.request(f'/Products/Details/{product}')
     assert 'Stock initial' in small_text(payload) and 'Stock après' in small_text(payload)
     _, payload, _ = a.request('/Home/Index')
-    assert '4 000,00 CDF' in small_text(payload) and '2 000,00 CDF' in small_text(payload)
+    dashboard = small_text(payload)
+    assert '4 000,00 CDF' in dashboard and '2 000,00 CDF' in dashboard
+    assert '<h2>Bénéfice</h2>' in dashboard and '2 199,30 CDF' in dashboard
+    assert 'data-dashboard-amount-toggle' in dashboard and '•••• CDF</strong>' not in dashboard
+    assert '2 199,30 CDF' not in small_text(a.request('/Home/Index?currency=USD')[1])
     for path, signature, mime in (
         (f'/Sales/Receipt/{sale}?format=pdf', b'%PDF-', 'application/pdf'),
         ('/Reports/Export?format=pdf', b'%PDF-', 'application/pdf'),
@@ -582,6 +613,7 @@ def run(base, db_file, superadmin):
         assert data.startswith(signature) and kind == mime, (path, kind)
     _, payload, _ = a.request(f'/Sales/Receipt/{sale}')
     assert 'non normalisé DGI' in small_text(payload) and 'Généré par AdGestionHub' in small_text(payload)
+    assert 'Bénéfice' not in small_text(payload)
     logo_a = receipt_logo(payload)
     assert logo_a and 'Merci pour votre passage.' in small_text(payload)
     a.post('/Expenses/Create', {'Description': 'Transport test', 'Amount': '2,35', 'CurrencyCode': 'USD',
@@ -613,6 +645,7 @@ def run(base, db_file, superadmin):
         assert 'Pilote Marchand A' in small_text(unchanged) and receipt_logo(unchanged) == logo_a
 
     email_b = checkout(b, password, 'Pilote Marchand B', configure=False)
+    assert '2 199,30 CDF' not in small_text(b.request('/Home/Index')[1])
     for path in (f'/Sales/Details/{sale}', f'/Sales/Receipt/{sale}', f'/Sales/Receipt/{sale}?format=pdf', f'/Products/Details/{product}', f'/Clients/Details/{client}'):
         b.request(path, expected=404)
     _, updated_b, _ = b.post('/Settings/Edit', {'StoreName': 'Pilote Marchand B', 'PrimaryCurrencyCode': 'CDF'},

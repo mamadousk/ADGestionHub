@@ -30,6 +30,7 @@ try
 
     VerifyPopupHtml();
     VerifyStaffAccess();
+    VerifyProfit();
 
     var target = new SqlConnectionStringBuilder(sqlServer ?? "Server=localhost;Integrated Security=True")
     {
@@ -101,6 +102,12 @@ static void VerifyStaffAccess()
 {
     Equal(StaffAccessRules.Legacy, StaffAccessRules.FromStored(null), "accès des salariés existants");
     Check(!StaffAccessRules.Legacy.Has(StaffPermission.Reports), "pas de nouveaux rapports donnés aux comptes historiques");
+    Check(!StaffAccessRules.Legacy.Has(StaffPermission.Profit)
+        && StaffAccessRules.Profiles.All(profile => !profile.Permissions.Has(StaffPermission.Profit)), "le bénéfice n’est jamais délégué par défaut");
+    Check(!StaffAccessRules.TryParse([StaffAccessRules.Sell, StaffAccessRules.Profit], out _)
+        && StaffAccessRules.TryParse([StaffAccessRules.Dashboard, StaffAccessRules.Profit], out _)
+        && StaffAccessRules.TryParse([StaffAccessRules.SalesHistory, StaffAccessRules.Profit], out _), "le droit Bénéfice nécessite une rubrique autorisée");
+    Check(StaffAccessRules.All.Has(StaffPermission.Profit), "l’administrateur dispose du droit Bénéfice");
     Equal(StaffPermission.None, StaffAccessRules.FromStored(0), "révocation de tous les accès sans basculer sur le profil historique");
     Equal(StaffPermission.None, StaffAccessRules.FromStored(1 << 15), "masque inconnu : aucun accès");
     Equal(StaffPermission.None, StaffAccessRules.FromStored((int)StaffPermission.SalePayments), "règlements sans historique : aucun accès");
@@ -114,6 +121,35 @@ static void VerifyStaffAccess()
         && StaffAccessRules.TryParse([StaffAccessRules.SalesHistory, StaffAccessRules.SalePayments], out _), "dépendance des règlements vérifiée côté serveur");
     Check(StaffAccessRules.Profiles.All(profile => StaffAccessRules.TryParse(StaffAccessRules.Codes(profile.Permissions).ToList(), out var parsed)
         && parsed == profile.Permissions), "tous les profils proposés peuvent être enregistrés");
+}
+
+static void VerifyProfit()
+{
+    var sale = new Sale
+    {
+        CurrencyCode = "USD", FinalPrice = 200m,
+        Items = [new SaleItem { Quantity = 10, UnitPrice = 20m, UnitCost = 10m, LineNet = 200m }]
+    };
+    Equal<decimal?>(100m, SaleProfit.ForSale(sale), "10 articles à 10 USD de bénéfice unitaire");
+    sale.Discount = 20m;
+    sale.TaxAmount = 18m;
+    sale.FinalPrice = 198m;
+    Equal<decimal?>(80m, SaleProfit.ForSale(sale), "la remise n’est déduite qu’une fois et la taxe est exclue");
+    sale.FinalPrice = 90m;
+    sale.TaxAmount = 0m;
+    Equal<decimal?>(-10m, SaleProfit.ForSale(sale), "une vente à perte apparaît en négatif");
+
+    var zeroCost = new Sale { FinalPrice = 50m, Items = [new SaleItem { Quantity = 1, UnitPrice = 50m, LineNet = 50m }] };
+    Equal<decimal?>(50m, SaleProfit.ForSale(zeroCost), "le coût nul d’une ligne historisée est valide");
+    zeroCost.IsCancelled = true;
+    Equal<decimal?>(null, SaleProfit.ForSale(zeroCost), "une vente annulée ne réalise pas de bénéfice");
+
+    var oldSale = new Sale { FinalPrice = 50m, Items = [new SaleItem { Quantity = 1, UnitPrice = 50m }] };
+    Equal<decimal?>(null, SaleProfit.ForSale(oldSale), "le coût manquant d’une ancienne ligne ne devient pas zéro");
+    var summary = SaleProfit.ForPeriod([sale, zeroCost, oldSale]);
+    Check(summary.Total == -10m && summary.HasMissingCosts, "total connu hors annulations, signalé partiel");
+    Equal<decimal?>(null, SaleProfit.ForPeriod([oldSale]).Total, "pas de montant si aucun coût n’est connu");
+    Check(SaleProfit.ForPeriod([]) == new ProfitSummary(0m, false), "aucune vente donne un bénéfice nul");
 }
 
 static void VerifyPopupHtml()
@@ -249,6 +285,7 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     var moment = new ReportPeriod(today, today);
     BusinessReport cdf = await reports.BuildAsync(a.Id, settings, moment, "CDF", finance: true);
     Equal(6000m, cdf.Invoiced, "vente comptée une fois dans le tableau de bord");
+    Equal<decimal?>(3400m, SaleProfit.ForPeriod(cdf.Sales).Total, "bénéfice multiligne sur les quantités vendues après remise, indépendant de l’encaissement");
     Equal(1400m, cdf.Received, "paiement distinct du total des ventes");
     Equal(4600m, cdf.Receivables, "créance client issue de la vente");
     Equal(2L, cdf.TopProducts.First().Units, "classement des produits vendus");
@@ -325,11 +362,16 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
         ClientId = client.Id, CurrencyCode = "USD", PaymentMode = "Unpaid", Items = [Line(rice, 1)], ExpectedTotal = .93m
     }, canDiscount: true);
     Equal(.93m, second.Balance, "prix converti au centime avant multiplication");
+    Equal<decimal?>(.56m, SaleProfit.ForSale(second), "prix et coût instantanés tous deux exprimés dans la devise de vente");
+    Equal<decimal?>(.56m, SaleProfit.ForPeriod((await reports.BuildAsync(a.Id, settings, moment, "USD", finance: false)).Sales).Total,
+        "bénéfice filtré dans la devise de la vente, hors montants en CDF");
     Equal("FAC-00421", second.Number, "numérotation existante préservée malgré un compteur à reprendre");
     Equal<decimal?>(3000m, second.CdfPerUsd, "taux enregistré sur la vente en USD");
     Equal(2, await Quantity(rice), "stock décrémenté lors de la vente");
     Check(await operations.CancelSaleAsync(a.Id, second.Id, "Erreur documentée"), "annulation d'une vente non réglée");
     Equal(3, await Quantity(rice), "stock restauré à l'annulation");
+    Equal<decimal?>(0m, SaleProfit.ForPeriod((await reports.BuildAsync(a.Id, settings, moment, "USD", finance: false)).Sales).Total,
+        "l’annulation retire le bénéfice du tableau de bord");
     Equal(6, await db.SystemLogs.CountAsync(l => l.BoutiqueId == a.Id), "audit des opérations validées, sans doublon ni écriture pour les actions refusées");
 
     var pdf = new PdfReportService();
