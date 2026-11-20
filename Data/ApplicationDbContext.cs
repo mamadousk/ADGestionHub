@@ -157,6 +157,8 @@ namespace AdGestionHub.Data
             modelBuilder.Entity<Debt>().HasIndex(d => new { d.BoutiqueId, d.IsArchived, d.IsPaid });
             modelBuilder.Entity<EInvoicingOptIn>().HasIndex(o => new { o.BoutiqueId, o.CountryCode });
             modelBuilder.Entity<SystemLog>().HasIndex(sl => sl.BoutiqueId);
+            modelBuilder.Entity<SystemLog>().HasIndex(sl => new { sl.BoutiqueId, sl.ActorUserId, sl.DateOccurred });
+            modelBuilder.Entity<SystemLog>().HasIndex(sl => new { sl.BoutiqueId, sl.Subject, sl.SubjectId });
             modelBuilder.Entity<ErrorLog>().HasIndex(el => el.BoutiqueId);
             modelBuilder.Entity<WaitingListPro>().HasIndex(w => w.Email).IsUnique();
             ConfigureCommerce(modelBuilder);

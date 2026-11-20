@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO.Compression;
+using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -48,6 +49,10 @@ try
     var staffUpgrade = server.GetService<IMigrator>().GenerateScript(fromMigration: popups, options: MigrationsSqlGenerationOptions.Idempotent);
     Check(staffUpgrade.Contains("[StaffAccessMask] int NULL", StringComparison.Ordinal)
         && staffUpgrade.Contains("[CreatedByUserId] nvarchar(450) NULL", StringComparison.Ordinal), "migration additive des accès et de l’auteur d’une vente");
+    const string staff = "20261118233000_StaffPermissions";
+    var operationUpgrade = server.GetService<IMigrator>().GenerateScript(fromMigration: staff, options: MigrationsSqlGenerationOptions.Idempotent);
+    Check(operationUpgrade.Contains("[ActorUserId] nvarchar(450) NULL", StringComparison.Ordinal)
+        && operationUpgrade.Contains("[IX_SystemLogs_BoutiqueId_ActorUserId_DateOccurred]", StringComparison.Ordinal), "migration additive du journal des opérations");
     CheckSnapshot(server);
     if (sqlServer != null)
     {
@@ -83,7 +88,10 @@ try
             Equal<decimal?>(2500m, imported.CdfPerUsd, "taux historique inversé depuis la devise du document");
             Equal<decimal?>(2500m, (await server.Sales.AsNoTracking().SingleAsync()).CdfPerUsd, "taux repris sur la vente");
             Equal<decimal?>(2700m, (await server.Quotes.AsNoTracking().SingleAsync()).CdfPerUsd, "taux distinct repris sur le devis");
-            Equal(7, (await server.StockMovements.AsNoTracking().SingleAsync()).QuantityAfter, "reprise du stock initial");
+            var importedStock = await server.StockMovements.AsNoTracking().SingleAsync();
+            Equal(7, importedStock.QuantityAfter, "reprise du stock initial");
+            Check(imported.CreatedByUserId == null && importedStock.CreatedByUserId == null,
+                "les anciennes écritures sans preuve d’auteur ne sont pas réattribuées");
             await RunAsync(sqlOptions);
             Console.WriteLine("Migration de la version précédente et scénarios SQL Server réussis.");
         }
@@ -106,7 +114,8 @@ static void VerifyStaffAccess()
         && StaffAccessRules.Profiles.All(profile => !profile.Permissions.Has(StaffPermission.Profit)), "le bénéfice n’est jamais délégué par défaut");
     Check(!StaffAccessRules.TryParse([StaffAccessRules.Sell, StaffAccessRules.Profit], out _)
         && StaffAccessRules.TryParse([StaffAccessRules.Dashboard, StaffAccessRules.Profit], out _)
-        && StaffAccessRules.TryParse([StaffAccessRules.SalesHistory, StaffAccessRules.Profit], out _), "le droit Bénéfice nécessite une rubrique autorisée");
+        && StaffAccessRules.TryParse([StaffAccessRules.SalesHistory, StaffAccessRules.Profit], out _)
+        && StaffAccessRules.TryParse([StaffAccessRules.Reports, StaffAccessRules.Profit], out _), "le droit Bénéfice nécessite une rubrique autorisée");
     Check(StaffAccessRules.All.Has(StaffPermission.Profit), "l’administrateur dispose du droit Bénéfice");
     Equal(StaffPermission.None, StaffAccessRules.FromStored(0), "révocation de tous les accès sans basculer sur le profil historique");
     Equal(StaffPermission.None, StaffAccessRules.FromStored(1 << 15), "masque inconnu : aucun accès");
@@ -248,6 +257,7 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     var stock = new StockService(db);
     var operations = new CommerceOperations(db, writer, stock);
     var reports = new BusinessReportService(db);
+    var journal = new OperationJournal(db);
     var today = DateTime.Today;
     var a = new Boutique { Nom = "Commerce pilote A", Email = "a@example.test" };
     var b = new Boutique { Nom = "Commerce pilote B", Email = "b@example.test" };
@@ -262,8 +272,16 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     var rice = new Product { BoutiqueId = a.Id, Name = "Riz", SalePrice = 2800m, PurchasePrice = 1100m };
     var salt = new Product { BoutiqueId = a.Id, Name = "Sel", SalePrice = 700m, PurchasePrice = 400m };
     var foreign = new Product { BoutiqueId = b.Id, Name = "Stock B", SalePrice = 99m, StockQuantity = 10 };
-    db.AddRange(settings, client, otherClient, supplier, rice, salt, foreign);
+    var employee = new ApplicationUser { BoutiqueId = a.Id, UserName = "caisse-recette", FullName = "Prénom Recette" };
+    db.AddRange(settings, client, otherClient, supplier, rice, salt, foreign, employee);
     await db.SaveChangesAsync();
+    http.HttpContext = new DefaultHttpContext
+    {
+        User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, employee.Id), new Claim(ClaimTypes.Name, "ancien-identifiant")
+        }, "Recette"))
+    };
     await writer.ExecuteAsync(a.Id, async () =>
     {
         await stock.ApplyAsync(a.Id, rice, 5, "Stock initial", null, DateTime.Now);
@@ -275,17 +293,25 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     {
         ClientId = client.Id, Discount = 300m, PaymentMode = "Partial", InitialPayment = 1400m,
         PaymentMethod = "M-Pesa", Items = [Line(rice, 2), Line(salt, 1)]
-    }, canDiscount: true, createdByUserId: "employe-recette");
-    Equal<string?>("employe-recette", (await db.Sales.AsNoTracking().SingleAsync(s => s.Id == sale.Id)).CreatedByUserId,
-        "l’auteur est enregistré sur la vente avec son stock et ses règlements");
+    }, canDiscount: true);
+    Equal<string?>(employee.Id, (await db.Sales.AsNoTracking().SingleAsync(s => s.Id == sale.Id)).CreatedByUserId,
+        "l’auteur authentifié est enregistré sur la vente");
+    Equal<string?>(employee.Id, sale.Payments.Single().CreatedByUserId, "le règlement initial garde son auteur");
+    Equal(2, await db.StockMovements.CountAsync(m => m.BoutiqueId == a.Id && m.Reference == sale.Number && m.CreatedByUserId == employee.Id),
+        "les deux lignes de stock gardent l’auteur de la vente");
+    var saleAudit = await db.SystemLogs.AsNoTracking().SingleAsync(l => l.BoutiqueId == a.Id && l.Subject == OperationSubject.Sale && l.SubjectId == sale.Id);
+    Check(saleAudit.ActorUserId == employee.Id && saleAudit.ActorName == employee.FullName && saleAudit.UserEmail == employee.UserName,
+        "le journal utilise le compte de la boutique plutôt que l’ancien identifiant du cookie");
     Equal(6000m, sale.FinalPrice, "total net de la remise");
     Equal(4600m, sale.Balance, "solde de vente initial");
     Equal(3, await Quantity(rice), "décrément de stock");
     Equal(0, await Quantity(salt), "rupture à zéro");
     var moment = new ReportPeriod(today, today);
-    BusinessReport cdf = await reports.BuildAsync(a.Id, settings, moment, "CDF", finance: true);
+    BusinessReport cdf = await reports.BuildAsync(a.Id, settings, moment, "CDF", finance: true, includeProfit: true);
     Equal(6000m, cdf.Invoiced, "vente comptée une fois dans le tableau de bord");
-    Equal<decimal?>(3400m, SaleProfit.ForPeriod(cdf.Sales).Total, "bénéfice multiligne sur les quantités vendues après remise, indépendant de l’encaissement");
+    Equal<decimal?>(3400m, cdf.Profit?.Total, "bénéfice multiligne sur les quantités vendues après remise, indépendant de l’encaissement");
+    Check(ReportExport.Rows(cdf).Any(row => row[3] is string label && label.StartsWith("Bénéfice") && row[5] is decimal amount && amount == 3400m),
+        "les exports internes autorisés reprennent le bénéfice du rapport");
     Equal(1400m, cdf.Received, "paiement distinct du total des ventes");
     Equal(4600m, cdf.Receivables, "créance client issue de la vente");
     Equal(2L, cdf.TopProducts.First().Units, "classement des produits vendus");
@@ -299,7 +325,9 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     await Throws<CommerceNotFoundException>(() => operations.RecordPaymentAsync(b.Id, "Sale", sale.Id, PaymentOf(1m)));
     Equal(3, await Quantity(rice), "échec multi-lignes : tout le stock est restauré par rollback");
     Equal(10, await Quantity(foreign), "stock isolé");
-    Equal(4, await db.StockMovements.CountAsync(m => m.BoutiqueId == a.Id), "aucun historique sur une vente rejetée");
+    Equal(4, await db.StockMovements.CountAsync(m => m.BoutiqueId == a.Id), "aucun mouvement sur une vente rejetée");
+    var history = await journal.HistoryAsync(a.Id, employee.Id, today, today.AddDays(1), 1, default);
+    Check(history.Entries.Single().SaleId == sale.Id && !history.HasNext, "la vente apparaît une seule fois, sans les tentatives refusées");
 
     var earlier = today.AddDays(-1).AddHours(10);
     await db.Sales.Where(s => s.Id == sale.Id).ExecuteUpdateAsync(s => s
@@ -363,8 +391,14 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     }, canDiscount: true);
     Equal(.93m, second.Balance, "prix converti au centime avant multiplication");
     Equal<decimal?>(.56m, SaleProfit.ForSale(second), "prix et coût instantanés tous deux exprimés dans la devise de vente");
-    Equal<decimal?>(.56m, SaleProfit.ForPeriod((await reports.BuildAsync(a.Id, settings, moment, "USD", finance: false)).Sales).Total,
+    Equal<decimal?>(.56m, (await reports.BuildAsync(a.Id, settings, moment, "USD", finance: false, includeProfit: true)).Profit?.Total,
         "bénéfice filtré dans la devise de la vente, hors montants en CDF");
+    var bothDays = new ReportPeriod(earlier.Date, today);
+    var operationsInPeriod = await reports.ActivityAsync(a.Id, bothDays, default);
+    Check(operationsInPeriod.Sales.Select(s => s.CurrencyCode).SequenceEqual(new[] { "USD", "CDF" })
+        && operationsInPeriod.Receipts.All(p => p.PurchaseId == null), "liste d’activité commune aux devises, sans archives fournisseurs");
+    Check((await reports.SaleActivityAsync(a.Id, moment, 5, default)).Single().Id == second.Id
+        && (await reports.SaleActivityAsync(b.Id, bothDays, 5, default)).Count == 0, "dernières ventes bornées par la période et la boutique");
     Equal("FAC-00421", second.Number, "numérotation existante préservée malgré un compteur à reprendre");
     Equal<decimal?>(3000m, second.CdfPerUsd, "taux enregistré sur la vente en USD");
     Equal(2, await Quantity(rice), "stock décrémenté lors de la vente");
@@ -373,6 +407,10 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
     Equal<decimal?>(0m, SaleProfit.ForPeriod((await reports.BuildAsync(a.Id, settings, moment, "USD", finance: false)).Sales).Total,
         "l’annulation retire le bénéfice du tableau de bord");
     Equal(6, await db.SystemLogs.CountAsync(l => l.BoutiqueId == a.Id), "audit des opérations validées, sans doublon ni écriture pour les actions refusées");
+    Check((await reports.SaleActivityAsync(a.Id, moment, 5, default)).Single().IsCancelled, "une annulation reste identifiable dans l’activité");
+    Check(ReportExport.Rows(usd).All(row => row[3] is not string label || !label.StartsWith("Bénéfice")), "les exports sans droit bénéfice ne l’incluent pas");
+    await VerifyHistoryAsync(db, journal, a.Id, b.Id, employee, today);
+    http.HttpContext = null;
 
     var pdf = new PdfReportService();
     var png = await VerifyLogoAsync();
@@ -398,6 +436,34 @@ static async Task RunAsync(DbContextOptions<ApplicationDbContext> options)
         row.CdfPerUsd = rate;
         return rate;
     });
+}
+
+static async Task VerifyHistoryAsync(ApplicationDbContext db, OperationJournal journal, int shop, int otherShop, ApplicationUser employee, DateTime today)
+{
+    Check((await journal.AuthorsAsync(otherShop, [employee.Id], default)).Count == 0,
+        "une recherche d’auteur ne résout pas le compte d’une autre entreprise");
+    var earlier = today.AddDays(-60);
+    var oldSale = new Sale { BoutiqueId = shop, CreatedByUserId = employee.Id, SaleDate = earlier.AddHours(9), DocumentNumber = "HIST-A" };
+    db.AddRange(oldSale,
+        new Expense { BoutiqueId = shop, UserId = employee.Id, Date = earlier, Description = "Frais historiques", Amount = 2m },
+        new SystemLog { BoutiqueId = shop, UserEmail = employee.UserName, DateOccurred = earlier, ErrorMessage = "[AUDIT] Sans identifiant fiable" },
+        new SystemLog { BoutiqueId = shop, ActorUserId = employee.Id, DateOccurred = earlier, ErrorMessage = "Erreur technique" },
+        new SystemLog { BoutiqueId = otherShop, ActorUserId = employee.Id, DateOccurred = earlier, ErrorMessage = "[AUDIT] Autre entreprise" });
+    await db.SaveChangesAsync();
+    var old = await journal.HistoryAsync(shop, employee.Id, earlier, earlier.AddDays(1), 1, default);
+    Check(old.Entries.Count == 2 && old.Entries[0].SaleId == oldSale.Id && old.Entries[1].Title == "Dépense enregistrée",
+        "historique ancien par ID uniquement, hors journaux techniques et autres entreprises");
+
+    var time = earlier.AddDays(1).AddHours(9);
+    db.SystemLogs.AddRange(Enumerable.Range(1, OperationJournal.PageSize + 1).Select(i => new SystemLog
+    {
+        BoutiqueId = shop, ActorUserId = employee.Id, DateOccurred = time, ErrorMessage = $"[AUDIT] Opération {i}"
+    }));
+    await db.SaveChangesAsync();
+    var firstPage = await journal.HistoryAsync(shop, employee.Id, time.Date, time.Date.AddDays(1), 1, default);
+    var nextPage = await journal.HistoryAsync(shop, employee.Id, time.Date, time.Date.AddDays(1), 2, default);
+    Check(firstPage.Entries.Count == OperationJournal.PageSize && firstPage.HasNext && !nextPage.HasNext
+        && firstPage.Entries.All(row => row.Title != nextPage.Entries.Single().Title), "pagination stable à date et heure identiques");
 }
 
 static async Task<byte[]> VerifyLogoAsync()

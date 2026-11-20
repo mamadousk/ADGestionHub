@@ -4,6 +4,8 @@
     var admin = User.IsInRole("Admin");
     var permissions = await StaffCtx.CurrentAsync();
     var canViewStock = permissions.Has(StaffPermission.Catalogue);
+    var recent = ViewData["RecentSales"] as IReadOnlyList<Sale> ?? Array.Empty<Sale>();
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
     var low = Model.Stock.Where(p => p.IsLow).OrderBy(p => p.Quantity).ToList();
     string Format(decimal amount) => Money.Display(amount, Model.Currency);
     var stats = new List<(string Label, string Value, string Icon, string Info, string Tone, string? Currency, string? DetailAmount)>
@@ -20,11 +22,9 @@
         stats.Add(("Valeur du stock", Money.Display(Model.StockValue, stockCurrency), "package", $"{Model.StockUnits} unité(s) · coût catalogue actuel", "green", stockCurrency, null));
     }
     else if (canViewStock) { stats.Add(("Stock disponible", $"{Model.StockUnits} unité(s)", "package", $"{low.Count} article(s) sous le seuil", "green", null, null)); }
-    if (ViewData["ProfitSummary"] is ProfitSummary profit)
+    if (Model.Profit is { } profit)
     {
-        var info = !profit.HasMissingCosts ? "Après remises, hors taxes et charges"
-            : profit.Total.HasValue ? "Total partiel : coûts d’achat manquants" : "Coûts d’achat non historisés";
-        stats.Add(("Bénéfice", profit.Total is decimal total ? Format(total) : "—", "bar-chart-3", info, "green", profit.Total.HasValue ? Model.Currency : null, null));
+        stats.Add(("Bénéfice", profit.Total is decimal total ? Format(total) : "—", "bar-chart-3", profit.Note, "green", profit.Total.HasValue ? Model.Currency : null, null));
     }
     var trend = Model.Trend();
     var peak = trend.Max(p => p.Total);
@@ -115,13 +115,24 @@
 @if (permissions.Has(StaffPermission.SalesHistory))
 {
     <section class="panel-card mb-2">
-        <div class="p-3 p-md-4 d-flex flex-wrap justify-content-between gap-2 align-items-center"><div><h2 class="h6 mb-1">Dernières ventes de la période</h2><p class="text-slate small mb-0">Ventes enregistrées en @Model.Currency</p></div><a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">Toutes les ventes</a></div>
-        @if (Model.Sales.Count == 0) { <p class="text-slate px-3 px-md-4 pb-4 mb-0">Aucune vente à afficher.</p> }
+        <div class="p-3 p-md-4 d-flex flex-wrap justify-content-between gap-2 align-items-center"><div><h2 class="h6 mb-1">Dernières ventes de la période</h2><p class="text-slate small mb-0">Toutes devises · totaux de la période en @Model.Currency</p></div><a asp-controller="Sales" asp-action="Index" class="btn btn-secondary-outline btn-sm">Toutes les ventes</a></div>
+        @if (recent.Count == 0) { <p class="text-slate px-3 px-md-4 pb-4 mb-0">Aucune vente à afficher.</p> }
         else
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Vente</th><th scope="col">Client</th><th scope="col" class="text-end">Total</th></tr></thead><tbody>
-                @foreach (var sale in Model.Sales.Take(5))
-                { <tr><td><a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap" data-dashboard-amount="@Model.Currency">@Format(sale.FinalPrice)</td></tr> }
+                @foreach (var sale in recent)
+                {
+                    <tr>
+                        <td>
+                            <a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id" class="fw-semibold">@sale.Number</a>
+                            <div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div>
+                            <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(sale.CreatedByUserId ?? string.Empty))" />
+                            @if (sale.IsCancelled) { <span class="status-pill danger">Annulée</span> }
+                        </td>
+                        <td>@(sale.CustomerName ?? "Client de passage")</td>
+                        <td class="text-end text-nowrap" data-dashboard-amount="@sale.CurrencyCode">@Money.Display(sale.FinalPrice, sale.CurrencyCode)</td>
+                    </tr>
+                }
             </tbody></table></div>
         }
     </section>

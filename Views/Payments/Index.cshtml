@@ -1,5 +1,8 @@
 @model IReadOnlyList<Payment>
-@{ ViewData["Title"] = "Mouvements financiers"; }
+@{
+    ViewData["Title"] = "Mouvements financiers";
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
+}
 <div class="page-heading">
     <div><p class="section-eyebrow">Trésorerie</p><h1>Mouvements financiers</h1><p>Chaque règlement est affiché à la date et dans la devise du versement.</p></div>
     <div class="d-flex flex-wrap gap-2"><a asp-controller="Expenses" asp-action="Index" class="btn btn-secondary-outline">Voir les dépenses</a><a asp-action="Create" class="btn btn-accent">Nouvel encaissement</a></div>
@@ -19,6 +22,7 @@ else
                 else if (payment.DebtId is int debtId) { <a asp-controller="Debts" asp-action="Details" asp-route-id="@debtId">Créance manuelle</a> }
                 else { <strong>Recette diverse</strong> }
                 @if (payment.Description != null) { <div class="text-slate small">@payment.Description</div> }
+                <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(payment.CreatedByUserId ?? string.Empty))" />
             </td><td>@PaymentMeans.Display(payment.Method) @if (payment.CdfPerUsd is decimal rate) { <div class="small text-slate">@Money.RateLabel(rate)</div> }</td>
             <td class="text-end text-nowrap fw-semibold @(payment.PurchaseId.HasValue ? "text-sober-red" : "text-forest")">@(payment.PurchaseId.HasValue ? "−" : "+") @Money.Display(payment.Amount, payment.CurrencyCode)</td></tr>
         }

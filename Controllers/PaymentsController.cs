@@ -9,14 +9,16 @@ namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = "ShopMember")]
 public sealed class PaymentsController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
-    CommerceOperations commerce) : Controller
+    CommerceOperations commerce, OperationJournal journal) : Controller
 {
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Index()
     {
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
-        return View(await db.Payments.AsNoTracking().Where(p => p.BoutiqueId == shop)
-            .OrderByDescending(p => p.RecordedAt).ThenByDescending(p => p.Id).ToListAsync());
+        var payments = await db.Payments.AsNoTracking().Where(p => p.BoutiqueId == shop)
+            .OrderByDescending(p => p.RecordedAt).ThenByDescending(p => p.Id).ToListAsync();
+        ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, payments.Select(p => p.CreatedByUserId), HttpContext.RequestAborted);
+        return View(payments);
     }
 
     [HttpGet, Authorize(Roles = "Admin")]

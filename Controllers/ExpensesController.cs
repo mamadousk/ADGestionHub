@@ -11,19 +11,23 @@ namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = StaffAccessRules.Expenses)]
 public sealed class ExpensesController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
-    CommerceWriter writer) : Controller
+    CommerceWriter writer, OperationJournal journal) : Controller
 {
     public async Task<IActionResult> Index()
     {
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
-        return View(await db.Expenses.AsNoTracking().Where(e => e.BoutiqueId == shop).OrderByDescending(e => e.Date).ToListAsync());
+        var expenses = await db.Expenses.AsNoTracking().Where(e => e.BoutiqueId == shop).OrderByDescending(e => e.Date).ToListAsync();
+        if (User.IsInRole("Admin")) ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, expenses.Select(e => e.UserId), HttpContext.RequestAborted);
+        return View(expenses);
     }
 
     public async Task<IActionResult> Details(int id)
     {
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
         var expense = await FindAsync(shop, id);
-        return expense == null ? NotFound() : View(expense);
+        if (expense == null) return NotFound();
+        if (User.IsInRole("Admin")) ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, [expense.UserId], HttpContext.RequestAborted);
+        return View(expense);
     }
 
     [HttpGet]
@@ -61,7 +65,7 @@ public sealed class ExpensesController(ApplicationDbContext db, IBoutiqueService
             await writer.ExecuteAsync(shop, async () =>
             {
                 var expense = await db.Expenses.SingleOrDefaultAsync(e => e.BoutiqueId == shop && e.Id == id) ?? throw new CommerceNotFoundException();
-                writer.Audit(shop, $"Suppression de la dépense #{id}", $"{expense.Description} | {Money.Display(expense.Amount, expense.CurrencyCode)} | {expense.Date:dd/MM/yyyy}");
+                await writer.AuditAsync(shop, $"Suppression de la dépense #{id}", $"{expense.Description} | {Money.Display(expense.Amount, expense.CurrencyCode)} | {expense.Date:dd/MM/yyyy}");
                 db.Expenses.Remove(expense);
                 return true;
             });
@@ -111,8 +115,11 @@ public sealed class ExpensesController(ApplicationDbContext db, IBoutiqueService
                     row.Category = model.Category.Trim();
                     row.Amount = Money.Amount(model.Amount, currency);
                     row.PaymentMethod = row.PaymentMethod == model.PaymentMethod ? row.PaymentMethod : PaymentMeans.Validate(model.PaymentMethod, settings);
-                    writer.Audit(shop, id.HasValue ? $"Dépense #{id} corrigée" : "Dépense enregistrée",
-                        $"{before} | {row.Description} | {Money.Display(row.Amount, currency)} | {row.Date:dd/MM/yyyy}");
+                    if (!id.HasValue) await db.SaveChangesAsync();
+                    var details = $"{row.Description} · {Money.Display(row.Amount, currency)} · Date de la dépense : {row.Date:dd/MM/yyyy}";
+                    await writer.AuditAsync(shop, id.HasValue ? $"Dépense #{id} corrigée" : "Dépense enregistrée",
+                        before == null ? details : $"{before} · {details}",
+                        id.HasValue ? null : OperationSubject.Expense, id.HasValue ? null : row.Id);
                     return row;
                 });
                 TempData["SuccessMessage"] = "Dépense enregistrée.";

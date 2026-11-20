@@ -11,7 +11,7 @@ namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = "ShopMember")]
 public sealed class SalesController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
-    CommerceOperations commerce, IPdfReportService pdf, StaffAccess access) : TradeController(db, boutiques, tenant)
+    CommerceOperations commerce, IPdfReportService pdf, StaffAccess access, OperationJournal journal) : TradeController(db, boutiques, tenant)
 {
     [Authorize(Policy = StaffAccessRules.SalesHistory)]
     public async Task<IActionResult> Index()
@@ -22,6 +22,7 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         if (showProfit) query = query.Include(s => s.Items.Where(i => i.BoutiqueId == shop)).AsSplitQuery();
         var sales = await query.OrderByDescending(s => s.SaleDate).ThenByDescending(s => s.Id).ToListAsync(HttpContext.RequestAborted);
         if (showProfit) ViewData["SaleProfits"] = sales.ToDictionary(s => s.Id, SaleProfit.ForSale);
+        if (User.IsInRole("Admin")) ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, sales.Select(s => s.CreatedByUserId), HttpContext.RequestAborted);
         return View(sales);
     }
 
@@ -43,13 +44,12 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         if (await ShopAsync() is not int shop) return Forbid();
         var canUseDirectory = (await access.CurrentAsync()).Has(StaffPermission.Clients);
         if (model.ClientId.HasValue && !canUseDirectory) return Forbid();
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId)) return Forbid();
+        if (string.IsNullOrEmpty(User.FindFirstValue(ClaimTypes.NameIdentifier))) return Forbid();
         if (ModelState.IsValid)
         {
             try
             {
-                var sale = await commerce.SellAsync(shop, model, User.IsInRole("Admin"), userId);
+                var sale = await commerce.SellAsync(shop, model, User.IsInRole("Admin"));
                 TempData["SuccessMessage"] = $"Vente {sale.Number} enregistrée. Le stock a été mis à jour.";
                 if (sale.StockWarnings > 0)
                     TempData["StockNotice"] = $"{sale.StockWarnings} produit(s) de cette vente sont au seuil d’alerte ou en dessous.";
@@ -70,6 +70,8 @@ public sealed class SalesController(ApplicationDbContext db, IBoutiqueService bo
         if (sale == null) return NotFound();
         if ((await access.CurrentAsync()).Has(StaffPermission.SalesHistory | StaffPermission.Profit))
             ViewData["SaleProfit"] = SaleProfit.ForSale(sale);
+        if (User.IsInRole("Admin"))
+            ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, sale.Payments.Select(p => p.CreatedByUserId).Append(sale.CreatedByUserId), HttpContext.RequestAborted);
         return View(sale);
     }
 

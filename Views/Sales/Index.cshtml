@@ -1,6 +1,7 @@
 @model IReadOnlyList<Sale>
 @{
     ViewData["Title"] = "Ventes et factures";
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
     var profits = ViewData["SaleProfits"] as IReadOnlyDictionary<int, decimal?>;
 }
 <div class="page-heading">
@@ -24,7 +25,8 @@ else
         @foreach (var sale in Model)
         {
             var badge = sale.IsCancelled ? "danger" : sale.Balance == 0 ? "success" : "warning";
-            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy HH:mm")</div></td>
+            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a><div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy HH:mm")</div>
+                <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(sale.CreatedByUserId ?? string.Empty))" /></td>
                 <td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Money.Display(sale.FinalPrice, sale.CurrencyCode)</td>
                 @if (profits != null)
                 {

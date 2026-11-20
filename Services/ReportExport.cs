@@ -17,6 +17,8 @@ public static class ReportExport
         yield return ["Période", IsoDate(report.Period.Start), "", $"{report.Settings.StoreName} · jusqu'au {report.Period.End:dd/MM/yyyy}", c, null, null, null, null];
         yield return ["Synthèse", null, null, "Chiffre d'affaires", c, report.Revenue, null, null, report.Sales.Count];
         yield return ["Synthèse", null, null, "Total des ventes", c, report.Invoiced, null, null, null];
+        if (report.Profit is { } profit)
+            yield return ["Synthèse", null, null, $"Bénéfice · {profit.Note}", c, profit.Total, null, null, null];
         yield return ["Synthèse", null, null, "Dépenses", c, report.Expensed, null, null, null];
         yield return ["Synthèse", null, null, "Recettes encaissées", c, report.Received, null, null, null];
         yield return ["Synthèse", null, null, "Règlements sur ventes (inclus dans les recettes)", c, report.SalesReceipts, null, null, null];

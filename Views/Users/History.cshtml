@@ -1,0 +1,68 @@
+@model StaffActivityPage
+@{
+    ViewData["Title"] = "Historique de l’employé";
+    var name = Model.Employee.FullName ?? Model.Employee.UserName;
+    var from = Model.From?.ToString("yyyy-MM-dd");
+    var to = Model.To?.ToString("yyyy-MM-dd");
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+}
+<div class="page-heading">
+    <div>
+        <p class="section-eyebrow"><a asp-action="Index">Équipe et accès</a></p>
+        <h1>Historique · @name</h1>
+        <p class="operation-author">@Model.Employee.UserName · @Model.Employee.Email</p>
+    </div>
+</div>
+<form asp-action="History" asp-route-id="@Model.Employee.Id" method="get" class="panel-card filter-panel mb-3">
+    <div><label for="activityStart" class="form-label">Du</label><input id="activityStart" name="startDate" type="date" class="form-control" value="@from" max="@today" /></div>
+    <div><label for="activityEnd" class="form-label">Au</label><input id="activityEnd" name="endDate" type="date" class="form-control" value="@to" max="@today" /></div>
+    <button type="submit" class="btn btn-secondary-outline">Appliquer</button>
+    <a asp-action="History" asp-route-id="@Model.Employee.Id" class="btn btn-link">Toutes les dates</a>
+</form>
+<div asp-validation-summary="All" class="validation-banner" role="alert"></div>
+@if (ViewData.ModelState.IsValid)
+{
+    if (Model.Entries.Count == 0)
+    {
+        <div class="panel-card empty-panel"><h2 class="h5 mb-0">Aucune opération à afficher</h2></div>
+    }
+    else
+    {
+        <div class="panel-card table-responsive">
+            <table class="table table-ledger">
+                <caption class="visually-hidden">Opérations de @name</caption>
+                <thead><tr><th scope="col">Date</th><th scope="col">Opération</th></tr></thead>
+                <tbody>
+                    @foreach (var entry in Model.Entries)
+                    {
+                        <tr>
+                            <td class="text-nowrap">@entry.Date.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>
+                                @if (entry.SaleId is int saleId) { <a asp-controller="Sales" asp-action="Details" asp-route-id="@saleId" class="fw-semibold">@entry.Title</a> }
+                                else { <strong>@entry.Title</strong> }
+                                @if (entry.Details != null) { <div class="text-slate small">@entry.Details</div> }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    if (Model.PageNumber > 1 || Model.HasNext)
+    {
+        <nav aria-label="Pages de l’historique" class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+            @if (Model.PageNumber > 1)
+            {
+                <a asp-action="History" asp-route-id="@Model.Employee.Id" asp-route-startDate="@from" asp-route-endDate="@to"
+                   asp-route-pageNumber="@(Model.PageNumber - 1)" class="btn btn-secondary-outline">Précédent</a>
+            }
+            <span class="text-slate small">Page @Model.PageNumber</span>
+            @if (Model.HasNext)
+            {
+                <a asp-action="History" asp-route-id="@Model.Employee.Id" asp-route-startDate="@from" asp-route-endDate="@to"
+                   asp-route-pageNumber="@(Model.PageNumber + 1)" class="btn btn-secondary-outline">Suivant</a>
+            }
+        </nav>
+    }
+    <p class="text-slate small mt-3">Les anciennes écritures sans auteur vérifiable ne sont pas incluses.</p>
+}

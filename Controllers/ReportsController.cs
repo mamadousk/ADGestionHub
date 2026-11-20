@@ -6,7 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = StaffAccessRules.Reports)]
-public sealed class ReportsController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports, IPdfReportService pdf) : Controller
+public sealed class ReportsController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports,
+    IPdfReportService pdf, StaffAccess access, OperationJournal journal) : Controller
 {
     public async Task<IActionResult> Index(DateTime? startDate, DateTime? endDate, string? currency)
     {
@@ -18,7 +19,16 @@ public sealed class ReportsController(IBoutiqueService boutiques, ITenantContext
             ModelState.AddModelError("", error.Message);
             period = ReportPeriod.Current(null, null);
         }
-        return View(await BuildAsync(shop, period, currency));
+        var report = await BuildAsync(shop, period, currency);
+        var operations = await reports.ActivityAsync(shop, period, HttpContext.RequestAborted);
+        ViewData["PeriodOperations"] = operations;
+        if (User.IsInRole("Admin"))
+        {
+            var ids = operations.Sales.Select(s => s.CreatedByUserId).Concat(operations.Expenses.Select(e => (string?)e.UserId))
+                .Concat(operations.Receipts.Select(p => p.CreatedByUserId)).Concat(report.Outstanding.Select(b => b.CreatedByUserId));
+            ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, ids, HttpContext.RequestAborted);
+        }
+        return View(report);
     }
 
     [HttpGet]
@@ -42,6 +52,8 @@ public sealed class ReportsController(IBoutiqueService boutiques, ITenantContext
     private async Task<BusinessReport> BuildAsync(int shop, ReportPeriod period, string? currency)
     {
         var settings = (await tenant.GetContextAsync()).Settings;
-        return await reports.BuildAsync(shop, settings, period, Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode, finance: true);
+        var showProfit = (await access.CurrentAsync()).Has(StaffPermission.Profit);
+        return await reports.BuildAsync(shop, settings, period, Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode,
+            finance: true, includeProfit: showProfit);
     }
 }

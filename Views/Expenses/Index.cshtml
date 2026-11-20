@@ -1,5 +1,8 @@
 @model IReadOnlyList<Expense>
-@{ ViewData["Title"] = "Dépenses"; }
+@{
+    ViewData["Title"] = "Dépenses";
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
+}
 <div class="page-heading"><div><p class="section-eyebrow">Trésorerie</p><h1>Dépenses</h1><p>Retrouvez vos charges courantes par date et par devise.</p></div><a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle dépense</a></div>
 @if (Model.Count == 0)
 {
@@ -10,7 +13,8 @@ else
     <div class="panel-card table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Dépense</th><th scope="col">Catégorie</th><th scope="col">Moyen</th><th scope="col" class="text-end">Montant</th></tr></thead><tbody>
         @foreach (var expense in Model)
         {
-            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a><div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div></td><td>@expense.Category</td><td>@PaymentMeans.Display(expense.PaymentMethod)</td><td class="text-end text-nowrap">@Money.Display(expense.Amount, expense.CurrencyCode)</td></tr>
+            <tr><td><a class="fw-semibold" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a><div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div>
+                <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(expense.UserId))" /></td><td>@expense.Category</td><td>@PaymentMeans.Display(expense.PaymentMethod)</td><td class="text-end text-nowrap">@Money.Display(expense.Amount, expense.CurrencyCode)</td></tr>
         }
     </tbody></table></div>
 }

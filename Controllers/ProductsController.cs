@@ -10,7 +10,7 @@ namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = StaffAccessRules.Catalogue)]
 public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService boutiques, ITenantContextService tenant,
-    CommerceWriter writer, StockService stock) : Controller
+    CommerceWriter writer, StockService stock, OperationJournal journal) : Controller
 {
     public async Task<IActionResult> Index(string? search, string? status)
     {
@@ -36,8 +36,10 @@ public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
         var product = await Products(shop).AsNoTracking().SingleOrDefaultAsync(p => p.Id == id);
         if (product == null) return NotFound();
-        ViewData["StockMovements"] = await db.StockMovements.AsNoTracking().Where(m => m.BoutiqueId == shop && m.ProductId == id)
+        var movements = await db.StockMovements.AsNoTracking().Where(m => m.BoutiqueId == shop && m.ProductId == id)
             .OrderByDescending(m => m.RecordedAt).ThenByDescending(m => m.Id).ToListAsync();
+        ViewData["StockMovements"] = movements;
+        if (User.IsInRole("Admin")) ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, movements.Select(m => m.CreatedByUserId), HttpContext.RequestAborted);
         return View(product);
     }
 
@@ -84,8 +86,8 @@ public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService
                 var product = await Products(shop).AsNoTracking().SingleOrDefaultAsync(p => p.Id == id && !p.IsArchived)
                     ?? throw new CommerceNotFoundException();
                 var delta = model.IsEntry ? model.Quantity : -model.Quantity;
-                await stock.ApplyAsync(shop, product, delta, "Ajustement manuel", model.Reason.Trim(), DateTime.Now);
-                writer.Audit(shop, $"Ajustement stock du produit #{id} : {delta:+0;-0}", model.Reason.Trim());
+                await stock.ApplyAsync(shop, product, delta, "Ajustement manuel", model.Reason.Trim(), DateTime.Now, actorUserId: writer.ActorUserId);
+                await writer.AuditAsync(shop, $"Ajustement stock du produit #{id} : {delta:+0;-0}", model.Reason.Trim());
                 return true;
             });
             TempData["SuccessMessage"] = "Mouvement de stock enregistré.";
@@ -106,7 +108,7 @@ public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService
                 var product = await Products(shop).SingleOrDefaultAsync(p => p.Id == id) ?? throw new CommerceNotFoundException();
                 if (product.StockQuantity != 0) throw new CommerceRuleException("Ramenez le stock à zéro avant d'archiver cet article.");
                 product.IsArchived = true;
-                writer.Audit(shop, $"Archivage du produit #{id}", product.Name);
+                await writer.AuditAsync(shop, $"Archivage du produit #{id}", product.Name);
                 return true;
             });
             TempData["SuccessMessage"] = "Produit retiré du catalogue. Son historique reste consultable.";
@@ -127,7 +129,7 @@ public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService
             {
                 var product = await Products(shop).SingleOrDefaultAsync(p => p.Id == id) ?? throw new CommerceNotFoundException();
                 product.IsArchived = false;
-                writer.Audit(shop, $"Réactivation du produit #{id}", product.Name);
+                await writer.AuditAsync(shop, $"Réactivation du produit #{id}", product.Name);
                 return true;
             });
             TempData["SuccessMessage"] = "Produit réactivé.";
@@ -164,8 +166,8 @@ public sealed class ProductsController(ApplicationDbContext db, IBoutiqueService
                     if (!id.HasValue) db.Products.Add(product);
                     await db.SaveChangesAsync();
                     if (!id.HasValue && model.StockQuantity > 0)
-                        await stock.ApplyAsync(shop, product, model.StockQuantity, "Stock initial", null, DateTime.Now);
-                    writer.Audit(shop, $"Catalogue : produit #{product.Id} {(id.HasValue ? "modifié" : "ajouté")}", product.Name);
+                        await stock.ApplyAsync(shop, product, model.StockQuantity, "Stock initial", null, DateTime.Now, actorUserId: writer.ActorUserId);
+                    await writer.AuditAsync(shop, $"Catalogue : produit #{product.Id} {(id.HasValue ? "modifié" : "ajouté")}", product.Name);
                     return product.Id;
                 });
                 TempData["SuccessMessage"] = id.HasValue ? "Produit mis à jour." : "Produit ajouté. Vous pouvez maintenant enregistrer une vente.";

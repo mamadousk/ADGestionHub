@@ -10,7 +10,7 @@ else
     <div class="panel-card table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Date</th><th scope="col">Opération</th><th scope="col">Compte</th></tr></thead><tbody>
         @foreach (var entry in Model)
         {
-            <tr><td class="text-nowrap">@entry.DateOccurred.ToString("dd/MM/yyyy HH:mm")</td><td><strong>@entry.ErrorMessage.Substring(8)</strong>@if (entry.StackTrace != null) { <div class="text-slate small">@entry.StackTrace</div> }</td><td>@(entry.UserEmail ?? "Système")</td></tr>
+            <tr><td class="text-nowrap">@entry.DateOccurred.ToString("dd/MM/yyyy HH:mm")</td><td><strong>@entry.ErrorMessage.Substring(SystemLog.AuditPrefix.Length)</strong>@if (entry.StackTrace != null) { <div class="text-slate small">@entry.StackTrace</div> }</td><td class="operation-author">@(new OperationAuthor(entry.ActorName, entry.UserEmail ?? "Système").Caption)</td></tr>
         }
     </tbody></table></div>
 }

@@ -2,7 +2,11 @@ using AdGestionHub.Models;
 
 namespace AdGestionHub.Services;
 
-public sealed record ProfitSummary(decimal? Total, bool HasMissingCosts);
+public sealed record ProfitSummary(decimal? Total, bool HasMissingCosts)
+{
+    public string Note => !HasMissingCosts ? "Après remises, hors taxes et charges"
+        : Total.HasValue ? "Total partiel : coûts d’achat manquants" : "Coûts d’achat non historisés";
+}
 
 public static class SaleProfit
 {

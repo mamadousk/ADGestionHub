@@ -41,7 +41,7 @@ public sealed class SettingsController(ApplicationDbContext db, IBoutiqueService
     public async Task<IActionResult> Audit()
     {
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
-        return View(await db.SystemLogs.AsNoTracking().Where(l => l.BoutiqueId == shop && l.ErrorMessage.StartsWith("[AUDIT] "))
+        return View(await db.SystemLogs.AsNoTracking().Where(l => l.BoutiqueId == shop && l.ErrorMessage.StartsWith(SystemLog.AuditPrefix))
             .OrderByDescending(l => l.DateOccurred).ThenByDescending(l => l.Id).Take(100).ToListAsync());
     }
 
@@ -129,7 +129,7 @@ public sealed class SettingsController(ApplicationDbContext db, IBoutiqueService
                             details.Add("Logo supprimé");
                         }
                     }
-                    writer.Audit(shop.Id, "Paramètres de l'entreprise modifiés", details.Count == 0 ? null : string.Join(" · ", details));
+                    await writer.AuditAsync(shop.Id, "Paramètres de l'entreprise modifiés", details.Count == 0 ? null : string.Join(" · ", details));
                     return true;
                 });
                 if (!saved) return RedirectToAction("Index", "Home");

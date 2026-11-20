@@ -26,10 +26,14 @@ public sealed record StockRow(int Id, string Name, string? Sku, int Quantity, in
 public sealed record TopProduct(string Name, long Units);
 public sealed record SalesPoint(string Label, decimal Total);
 
+public sealed record PeriodOperations(IReadOnlyList<Sale> Sales, IReadOnlyList<Expense> Expenses, IReadOnlyList<Payment> Receipts);
+
 public sealed record BusinessReport(ReportPeriod Period, string Currency, StoreSettings Settings,
     IReadOnlyList<Sale> Sales, IReadOnlyList<Purchase> Purchases, IReadOnlyList<Expense> Expenses,
     IReadOnlyList<Payment> Payments, IReadOnlyList<StockRow> Stock, IReadOnlyList<DocumentBalance> Outstanding)
 {
+    // Filled only when the caller has the separate permission for profits.
+    public ProfitSummary? Profit { get; init; }
     public decimal Invoiced => Sales.Sum(s => s.FinalPrice);
     public decimal Revenue => Invoiced - Sales.Sum(s => s.TaxAmount);
     public decimal Purchased => Purchases.Sum(p => p.Total);

@@ -9,7 +9,7 @@ public sealed class StockService(ApplicationDbContext db)
     public const int MaximumStock = 10_000_000;
 
     public async Task<int> ApplyAsync(int shop, Product product, int delta, string kind, string? reference, DateTime date,
-        bool restoreArchived = false)
+        bool restoreArchived = false, string? actorUserId = null)
     {
         if (db.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Un mouvement doit faire partie d'une transaction de stock.");
@@ -35,7 +35,7 @@ public sealed class StockService(ApplicationDbContext db)
         db.StockMovements.Add(new StockMovement
         {
             BoutiqueId = shop, ProductId = product.Id, Delta = delta, QuantityAfter = after,
-            Kind = kind, Reference = reference, RecordedAt = date
+            Kind = kind, Reference = reference, RecordedAt = date, CreatedByUserId = actorUserId
         });
         return after;
     }

@@ -171,6 +171,13 @@ def assert_staff_editor(page, base):
     page.get_by_role('checkbox', name='Tableau de bord').uncheck()
     expect(profit).not_to_be_checked()
     expect(profit).to_be_disabled()
+    page.get_by_role('checkbox', name='Rapports et exports').check()
+    expect(profit).to_be_enabled()
+    expect(profit).not_to_be_checked()
+    profit.check()
+    page.get_by_role('checkbox', name='Rapports et exports').uncheck()
+    expect(profit).to_be_disabled()
+    expect(profit).not_to_be_checked()
     page.locator('[data-staff-preset="Caisse uniquement"]').click()
     assert page.locator('[data-staff-access]').evaluate("el => new FormData(el.closest('form')).getAll('Permissions')") == ['staff.sale.create']
 
@@ -494,6 +501,49 @@ def run_browser(base, cookies, product, second_product, server_pdf):
             assert not failures, failures
             print('Chromium : marges de la vitrine et de la configuration, liens légaux, contraste clavier, '
                   'onboarding, clavier et caisse tactile, stock, remise, devises, acompte, monnaie et PDF validés.')
+        finally:
+            browser.close()
+
+
+def run_staff_activity_browser(base, cookies, employee_name, history_url, today, usd_sale):
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel=os.environ.get('ADGH_SMOKE_BROWSER_CHANNEL'))
+        try:
+            context = browser.new_context(locale='fr-CD')
+            context.route('**/*', lambda route: route.continue_() if route.request.url.startswith(base + '/') else route.abort())
+            context.add_cookies([{'name': cookie.name, 'value': cookie.value, 'url': base} for cookie in cookies])
+            page = context.new_page()
+            failures = []
+            page.on('pageerror', lambda error: failures.append(str(error)))
+            for width in (320, 390, 1440):
+                page.set_viewport_size({'width': width, 'height': 900})
+                assert page.goto(base + '/Users').ok
+                link = page.get_by_role('link', name=employee_name, exact=True)
+                link.focus()
+                page.keyboard.press('Enter')
+                page.wait_for_url('**' + history_url)
+                expect(page.get_by_role('heading', name=f'Historique · {employee_name}')).to_be_visible()
+                expect(page.get_by_role('table', name=f'Opérations de {employee_name}')).to_contain_text('Déplacement de l’équipe')
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+                yesterday = str(today - timedelta(days=1))
+                page.get_by_label('Du', exact=True).fill(yesterday)
+                page.get_by_label('Au', exact=True).fill(yesterday)
+                page.get_by_role('button', name='Appliquer', exact=True).click()
+                expect(page.get_by_role('heading', name='Aucune opération à afficher')).to_be_visible()
+                page.get_by_role('link', name='Toutes les dates').click()
+                expect(page.get_by_label('Du', exact=True)).to_have_value('')
+                expect(page.get_by_role('table', name=f'Opérations de {employee_name}')).to_contain_text('Fiche client modifiée')
+
+                assert page.goto(base + '/Home/Index?currency=CDF').ok
+                row = page.locator('tr').filter(has=page.locator(f'a[href="/Sales/Details/{usd_sale}"]'))
+                expect(row).to_contain_text(employee_name)
+                expect(row.locator('[data-dashboard-amount="USD"]')).to_have_text('0,71 USD')
+                page.get_by_role('button', name='Masquer les montants').click()
+                expect(row.locator('[data-dashboard-amount="USD"]')).to_have_text('•••• USD')
+                expect(row).to_contain_text(employee_name)
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), width
+            assert not failures, failures
+            print('Chromium : historique employé au clavier et filtre de dates, masquage multidevise sans cacher l’auteur.')
         finally:
             browser.close()
 

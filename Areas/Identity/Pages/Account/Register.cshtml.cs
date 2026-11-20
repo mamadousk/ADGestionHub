@@ -84,7 +84,7 @@ public class RegisterModel(UserManager<ApplicationUser> users, SignInManager<App
                 }
                 if (!(await users.AddToRoleAsync(user, "Admin")).Succeeded)
                     throw new InvalidOperationException("Le rôle Admin n'a pas été attribué lors de l'inscription.");
-                writer.Audit(shop.Id, "Entreprise créée et compte administrateur initialisé", email);
+                await writer.AuditAsync(shop.Id, "Entreprise créée et compte administrateur initialisé", email);
                 await db.SaveChangesAsync();
                 await tx.CommitAsync();
             }

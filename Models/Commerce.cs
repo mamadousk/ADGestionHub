@@ -51,6 +51,7 @@ public sealed class Payment
     public int? SaleId { get; set; }
     public int? PurchaseId { get; set; }
     public int? DebtId { get; set; }
+    [MaxLength(450)] public string? CreatedByUserId { get; set; }
     [MaxLength(250)] public string? Description { get; set; }
     [MaxLength(50)] public string Method { get; set; } = "";
     [MaxLength(10)] public string CurrencyCode { get; set; } = "CDF";
@@ -66,6 +67,7 @@ public sealed class StockMovement
     public int Id { get; set; }
     public int BoutiqueId { get; set; }
     public int ProductId { get; set; }
+    [MaxLength(450)] public string? CreatedByUserId { get; set; }
     [MaxLength(24)] public string Kind { get; set; } = "";
     [MaxLength(250)] public string? Reference { get; set; }
     public int Delta { get; set; }

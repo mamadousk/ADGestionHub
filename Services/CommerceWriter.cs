@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,9 @@ public sealed class CommerceNotFoundException : Exception { }
 
 public sealed class CommerceWriter(ApplicationDbContext db, IHttpContextAccessor http)
 {
+    public string? ActorUserId => http.HttpContext?.User is { Identity.IsAuthenticated: true } user
+        ? user.FindFirstValue(ClaimTypes.NameIdentifier) : null;
+
     public async Task<T> ExecuteAsync<T>(int shop, Func<Task<T>> write)
     {
         await using var transaction = await db.Database.BeginTransactionAsync();
@@ -53,12 +57,19 @@ public sealed class CommerceWriter(ApplicationDbContext db, IHttpContextAccessor
         FooterMessage = "Merci de votre confiance."
     };
 
-    public void Audit(int shop, string message, string? details = null) => db.SystemLogs.Add(new SystemLog
+    public async Task AuditAsync(int shop, string message, string? details = null,
+        OperationSubject? subject = null, int? subjectId = null, DateTime? occurredAt = null)
     {
-        BoutiqueId = shop,
-        DateOccurred = DateTime.Now,
-        UserEmail = http.HttpContext?.User.Identity?.Name ?? "Système",
-        ErrorMessage = $"[AUDIT] {message}",
-        StackTrace = details
-    });
+        var actorId = ActorUserId;
+        // Resolve the authenticated ID in the same tenant, not by a submitted name or an old cookie label.
+        var actor = actorId == null ? null : await db.Users.AsNoTracking().Where(u => u.Id == actorId && u.BoutiqueId == shop)
+            .Select(u => new { u.Id, u.FullName, u.UserName, u.Email }).SingleOrDefaultAsync();
+        db.SystemLogs.Add(new SystemLog
+        {
+            BoutiqueId = shop, DateOccurred = occurredAt ?? DateTime.Now,
+            ActorUserId = actor?.Id, ActorName = actor?.FullName, UserEmail = actor?.UserName ?? actor?.Email ?? "Système",
+            Subject = subject, SubjectId = subjectId,
+            ErrorMessage = SystemLog.AuditPrefix + message, StackTrace = details
+        });
+    }
 }

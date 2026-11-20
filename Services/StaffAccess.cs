@@ -57,7 +57,7 @@ public static class StaffAccessRules
         new(Expenses, StaffPermission.Expenses, "Dépenses", "Saisir et consulter les dépenses, sans les corriger ni les supprimer.", "wallet", true),
         new(Dashboard, StaffPermission.Dashboard, "Tableau de bord", "Voir le chiffre d’affaires et les tendances des ventes de l’entreprise.", "layout-dashboard", true),
         new(Reports, StaffPermission.Reports, "Rapports et exports", "Consulter et exporter les chiffres, dont les dépenses, créances et coûts de stock.", "bar-chart-3", true),
-        new(Profit, StaffPermission.Profit, "Voir les bénéfices", "Voir le bénéfice dans les rubriques autorisées. Nécessite le tableau de bord ou l’historique des ventes.", "bar-chart-3", true)
+        new(Profit, StaffPermission.Profit, "Voir les bénéfices", "Voir le bénéfice dans les rubriques autorisées. Nécessite le tableau de bord, l’historique des ventes ou les rapports.", "bar-chart-3", true)
     });
 
     public static IReadOnlyList<StaffProfile> Profiles { get; } = Array.AsReadOnly(new StaffProfile[]
@@ -112,7 +112,7 @@ public static class StaffAccessRules
 
     private static bool IsValid(StaffPermission permissions) => (permissions & ~All) == 0
         && (!permissions.Has(StaffPermission.SalePayments) || permissions.Has(StaffPermission.SalesHistory))
-        && (!permissions.Has(StaffPermission.Profit) || (permissions & (StaffPermission.Dashboard | StaffPermission.SalesHistory)) != StaffPermission.None);
+        && (!permissions.Has(StaffPermission.Profit) || (permissions & (StaffPermission.Dashboard | StaffPermission.SalesHistory | StaffPermission.Reports)) != StaffPermission.None);
 }
 
 // Scoped to one HTTP request. Never use an access mask from a sign-in cookie or from form data.

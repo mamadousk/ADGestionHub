@@ -1,8 +1,12 @@
 @model BusinessHistory<Client>
-@{ ViewData["Title"] = Model.Contact.Name; }
+@{
+    ViewData["Title"] = Model.Contact.Name;
+    var authors = ViewData["ClientAuthors"] as IReadOnlyDictionary<int, OperationAuthor>;
+}
 <div class="page-heading">
     <div><p class="section-eyebrow"><a asp-action="Index">Clients</a></p><h1>@Model.Contact.Name</h1><p>@(Model.Contact.Phone ?? "Sans téléphone") · @(Model.Contact.Email ?? "Sans e-mail")</p>
-        @if (Model.Contact.Address != null) { <p>@Model.Contact.Address</p> }</div>
+        @if (Model.Contact.Address != null) { <p>@Model.Contact.Address</p> }
+        <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(Model.Contact.Id))" /></div>
     <a asp-action="Edit" asp-route-id="@Model.Contact.Id" class="btn btn-secondary-outline">Modifier la fiche</a>
 </div>
 @if ((await StaffCtx.CurrentAsync()).Has(StaffPermission.SalesHistory))
