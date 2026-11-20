@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AdGestionHub.Controllers;
 
 [Authorize]
-public sealed class HomeController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports, StaffAccess access) : Controller
+public sealed class HomeController(IBoutiqueService boutiques, ITenantContextService tenant, BusinessReportService reports, StaffAccess access, OperationJournal journal) : Controller
 {
     [AllowAnonymous]
     public IActionResult Welcome() => User.Identity?.IsAuthenticated == true ? RedirectToAction(nameof(Index)) : View();
@@ -39,9 +39,16 @@ public sealed class HomeController(IBoutiqueService boutiques, ITenantContextSer
             period = ReportPeriod.Current(null, null);
         }
         var showProfit = permissions.Has(StaffPermission.Profit);
+        var admin = User.IsInRole("Admin");
         var dashboard = await reports.BuildAsync(shop, settings, period,
-            Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode, User.IsInRole("Admin"), includeSaleItems: showProfit);
-        if (showProfit) ViewData["ProfitSummary"] = SaleProfit.ForPeriod(dashboard.Sales);
+            Money.IsMvpCurrency(currency) ? currency! : settings.PrimaryCurrencyCode, finance: admin,
+            includeSaleItems: false, includeProfit: showProfit);
+        if (permissions.Has(StaffPermission.SalesHistory))
+        {
+            var recent = await reports.SaleActivityAsync(shop, period, 5, HttpContext.RequestAborted);
+            ViewData["RecentSales"] = recent;
+            if (admin) ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, recent.Select(s => s.CreatedByUserId), HttpContext.RequestAborted);
+        }
         return View(dashboard);
     }
 

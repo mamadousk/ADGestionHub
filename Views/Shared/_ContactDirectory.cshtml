@@ -1,4 +1,7 @@
 @model IReadOnlyList<ContactRow>
+@{
+    var authors = ViewData["ClientAuthors"] as IReadOnlyDictionary<int, OperationAuthor>;
+}
 <form asp-action="Index" method="get" class="panel-card filter-panel mb-3">
     <div class="filter-grow"><label for="contactSearch" class="form-label">Rechercher</label><input id="contactSearch" type="search" name="search" value="@ViewData["Search"]" class="form-control" placeholder="Nom ou téléphone" /></div>
     <button type="submit" class="btn btn-secondary-outline">Rechercher</button>
@@ -12,7 +15,8 @@ else
     <div class="panel-card table-responsive"><table class="table table-ledger"><thead><tr><th scope="col">Nom</th><th scope="col">Téléphone</th><th scope="col">Adresse e-mail</th><th scope="col">Adresse</th></tr></thead><tbody>
         @foreach (var item in Model)
         {
-            <tr><td><a asp-action="Details" asp-route-id="@item.Id" class="fw-semibold">@item.Name</a></td><td>@(item.Phone ?? "—")</td><td>@(item.Email ?? "—")</td><td>@(item.Address ?? "—")</td></tr>
+            <tr><td><a asp-action="Details" asp-route-id="@item.Id" class="fw-semibold">@item.Name</a>
+                <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(item.Id))" /></td><td>@(item.Phone ?? "—")</td><td>@(item.Email ?? "—")</td><td>@(item.Address ?? "—")</td></tr>
         }
     </tbody></table></div>
 }

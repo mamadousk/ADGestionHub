@@ -1331,7 +1331,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible {
 .preserve-lines { white-space:pre-line; }
 .panel-card, .dashboard-columns > *, .metric-tile { min-width:0; }
 .panel-card .table-ledger { margin-bottom:0; }
-.table-ledger td { overflow-wrap:anywhere; }
+.table-ledger td, .operation-author { overflow-wrap:anywhere; }
 
 .dashboard-amount-toggle { width:44px; height:44px; padding:0; }
 .metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 214px),1fr)); gap:1rem; }

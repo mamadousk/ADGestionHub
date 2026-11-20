@@ -83,6 +83,7 @@ public sealed record BusinessHistory<T>(T Contact, IReadOnlyList<DocumentBalance
 public sealed record DocumentBalance(int Id, string Number, DateTime Date, string Contact, string Currency,
     decimal Total, decimal Paid, string Kind)
 {
+    public string? CreatedByUserId { get; init; }
     public decimal Balance => Total - Paid;
 }
 

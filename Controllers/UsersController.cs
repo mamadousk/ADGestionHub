@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = "ManageUsers")]
-public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqueService boutiques, CommerceWriter writer) : Controller
+public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqueService boutiques, CommerceWriter writer, OperationJournal journal) : Controller
 {
     public async Task<IActionResult> Index()
     {
@@ -20,6 +20,22 @@ public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqu
         foreach (var user in accounts)
             if (await IsEmployeeAsync(user)) staff.Add(ToRow(user));
         return View(staff);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> History(string id, DateTime? startDate, DateTime? endDate, int pageNumber = 1)
+    {
+        if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
+        var employee = await FindEmployeeAsync(shop, id);
+        if (employee == null) return NotFound();
+        var from = startDate?.Date;
+        var to = endDate?.Date;
+        if (from > DateTime.Today || to > DateTime.Today || from > to)
+            ModelState.AddModelError("", "Choisissez des dates dans l’ordre, sans date future.");
+        pageNumber = Math.Clamp(pageNumber, 1, int.MaxValue / OperationJournal.PageSize);
+        if (!ModelState.IsValid) return View(new StaffActivityPage(ToRow(employee), from, to, pageNumber, false, []));
+        var (entries, hasNext) = await journal.HistoryAsync(shop, employee.Id, from, to?.AddDays(1), pageNumber, HttpContext.RequestAborted);
+        return View(new StaffActivityPage(ToRow(employee), from, to, pageNumber, hasNext, entries));
     }
 
     [HttpGet]
@@ -48,7 +64,7 @@ public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqu
             {
                 RequireSuccess(await users.CreateAsync(user, model.Password));
                 RequireSuccess(await users.AddToRoleAsync(user, StaffAccessRules.EmployeeRole));
-                writer.Audit(shop, $"Compte employé créé : {user.UserName}", $"Accès : {AccessLabel(permissions)}");
+                await writer.AuditAsync(shop, $"Compte employé créé : {user.UserName}", $"Accès : {AccessLabel(permissions)}");
                 return true;
             });
             TempData["SuccessMessage"] = $"Le compte employé « {user.UserName} » a été créé.";
@@ -103,7 +119,7 @@ public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqu
                 else if (identityChanged) RequireSuccess(await users.UpdateSecurityStampAsync(user));
                 else RequireSuccess(await users.UpdateAsync(user));
                 // The access mask is read anew on each request, including for signed-in employees.
-                writer.Audit(shop, $"Compte employé modifié : {user.UserName}",
+                await writer.AuditAsync(shop, $"Compte employé modifié : {user.UserName}",
                     before == permissions ? null : $"Accès avant : {AccessLabel(before)} · Après : {AccessLabel(permissions)}");
                 return true;
             });
@@ -136,7 +152,7 @@ public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqu
             await writer.ExecuteAsync(shop, async () =>
             {
                 RequireSuccess(await users.DeleteAsync(user));
-                writer.Audit(shop, $"Compte employé supprimé : {user.UserName}");
+                await writer.AuditAsync(shop, $"Compte employé supprimé : {user.UserName}");
                 return true;
             });
             TempData["SuccessMessage"] = $"L’employé « {user.UserName} » a été supprimé.";
@@ -165,7 +181,7 @@ public sealed class UsersController(UserManager<ApplicationUser> users, IBoutiqu
         if (model.Role != StaffAccessRules.EmployeeRole)
             ModelState.AddModelError(nameof(model.Role), "Seul le rôle Employé peut être attribué ici.");
         if (!StaffAccessRules.TryParse(model.Permissions, out var permissions))
-            ModelState.AddModelError(nameof(model.Permissions), "Vérifiez les accès sélectionnés : les règlements nécessitent l’historique des ventes ; les bénéfices nécessitent le tableau de bord ou l’historique des ventes.");
+            ModelState.AddModelError(nameof(model.Permissions), "Vérifiez les accès sélectionnés : les règlements nécessitent l’historique des ventes ; les bénéfices nécessitent le tableau de bord, l’historique des ventes ou les rapports.");
         return permissions;
     }
 

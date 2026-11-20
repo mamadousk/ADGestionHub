@@ -1,4 +1,7 @@
 @model IEnumerable<Payment>
+@{
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
+}
 @if (!Model.Any())
 {
     <p class="text-slate mb-0">Aucun règlement enregistré.</p>
@@ -14,6 +17,7 @@ else
                 <td>@PaymentMeans.Display(payment.Method)
                     @if (payment.CdfPerUsd is decimal rate) { <div class="text-slate small">@Money.RateLabel(rate)</div> }
                     @if (payment.Description != null) { <div class="text-slate small">@payment.Description</div> }
+                    <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(payment.CreatedByUserId ?? string.Empty))" />
                 </td><td class="text-end text-nowrap">@Money.Display(payment.Amount, payment.CurrencyCode)</td><td class="text-end text-nowrap">@Money.Display(payment.AppliedAmount, payment.AppliedCurrencyCode)</td></tr>
         }
         </tbody>

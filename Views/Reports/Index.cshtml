@@ -6,7 +6,8 @@
     var from = Model.Period.Start.ToString("yyyy-MM-dd");
     var to = Model.Period.End.ToString("yyyy-MM-dd");
     var balances = Model.Outstanding.Where(b => b.Kind != "Purchase").ToList();
-    var receipts = Model.Payments.Where(p => !p.PurchaseId.HasValue).ToList();
+    var operations = (PeriodOperations)ViewData["PeriodOperations"]!;
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
     var exported = new[] { ("pdf", "PDF"), ("xlsx", "Excel"), ("csv", "CSV") };
 }
 <div class="page-heading">
@@ -19,19 +20,39 @@
 <div class="metric-grid mb-4">
     @foreach (var item in new[] { ("Chiffre d’affaires", Model.Revenue), ("Ventes", Model.Invoiced), ("Recettes encaissées", Model.Received), ("Dépenses", Model.Expensed), ("Créances à la clôture", Model.Receivables) })
     { <article class="panel-card metric-tile"><h2 class="h6 mb-2">@item.Item1</h2><strong class="metric-value num">@Display(item.Item2)</strong></article> }
+    @if (Model.Profit is { } profit)
+    {
+        <article class="panel-card metric-tile">
+            <h2 class="h6 mb-2">Bénéfice</h2>
+            <strong class="metric-value num">@(profit.Total is decimal amount ? Display(amount) : "—")</strong>
+            <small>@profit.Note</small>
+        </article>
+    }
 </div>
 <div class="dashboard-columns report-pair mb-3">
-    <section class="panel-card"><h2 class="h6 p-3 p-md-4 mb-0">Ventes de la période</h2>
-        @if (Model.Sales.Count == 0) { <p class="text-slate px-3 pb-3 mb-0">Aucune vente dans cette devise pour la période.</p> }
+    <section class="panel-card"><div class="p-3 p-md-4"><h2 class="h6 mb-1">Ventes de la période</h2><p class="text-slate small mb-0">Toutes devises · totaux de la période et exports en @Model.Currency</p></div>
+        @if (operations.Sales.Count == 0) { <p class="text-slate px-3 pb-3 mb-0">Aucune vente pour la période.</p> }
         else
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th>Vente</th><th>Client</th><th class="text-end">Total</th></tr></thead><tbody>
-                @foreach (var sale in Model.Sales)
-                { <tr><td>@if (permissions.Has(StaffPermission.SalesHistory)) { <a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a> } else { <span>@sale.Number</span> }<div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div></td><td>@(sale.CustomerName ?? "Client de passage")</td><td class="text-end text-nowrap">@Display(sale.FinalPrice)</td></tr> }
+                @foreach (var sale in operations.Sales)
+                {
+                    <tr>
+                        <td>
+                            @if (permissions.Has(StaffPermission.SalesHistory)) { <a asp-controller="Sales" asp-action="Details" asp-route-id="@sale.Id">@sale.Number</a> }
+                            else { <span>@sale.Number</span> }
+                            <div class="text-slate small">@sale.SaleDate.ToString("dd/MM/yyyy")</div>
+                            <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(sale.CreatedByUserId ?? string.Empty))" />
+                            @if (sale.IsCancelled) { <span class="status-pill danger">Annulée</span> }
+                        </td>
+                        <td>@(sale.CustomerName ?? "Client de passage")</td>
+                        <td class="text-end text-nowrap">@Money.Display(sale.FinalPrice, sale.CurrencyCode)</td>
+                    </tr>
+                }
             </tbody></table></div>
         }
     </section>
-    <section class="panel-card"><h2 class="h6 p-3 p-md-4 mb-0">Produits les plus vendus</h2>
+    <section class="panel-card"><div class="p-3 p-md-4"><h2 class="h6 mb-1">Produits les plus vendus</h2><p class="text-slate small mb-0">Ventes en @Model.Currency</p></div>
         @if (!Model.TopProducts.Any()) { <p class="px-3 pb-3 text-slate mb-0">Aucun produit vendu sur la période.</p> }
         else
         {
@@ -57,26 +78,34 @@
     </section>
 </div>
 <div class="dashboard-columns report-pair">
-    <section class="panel-card"><div class="p-3 p-md-4"><h2 class="h6 mb-1">Encaissements</h2><p class="text-slate small mb-0">Date et devise réellement versées.</p></div>
-        @if (receipts.Count == 0) { <p class="px-3 pb-3 text-slate mb-0">Aucun règlement pour la période.</p> }
+    <section class="panel-card"><div class="p-3 p-md-4"><h2 class="h6 mb-1">Encaissements</h2><p class="text-slate small mb-0">Toutes devises · date et devise réellement versées.</p></div>
+        @if (operations.Receipts.Count == 0) { <p class="px-3 pb-3 text-slate mb-0">Aucun règlement pour la période.</p> }
         else
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th>Date</th><th>Type / moyen</th><th class="text-end">Montant</th></tr></thead><tbody>
-                @foreach (var payment in receipts)
+                @foreach (var payment in operations.Receipts)
                 {
                     var kind = payment.SaleId.HasValue ? "Vente" : payment.DebtId.HasValue ? "Créance manuelle" : "Recette diverse";
-                    <tr><td>@payment.RecordedAt.ToString("dd/MM/yyyy")</td><td>@kind<div class="small text-slate">@PaymentMeans.Display(payment.Method)</div></td><td class="text-end text-nowrap">@Display(payment.Amount)</td></tr>
+                    <tr><td>@payment.RecordedAt.ToString("dd/MM/yyyy")</td><td>@kind<div class="small text-slate">@PaymentMeans.Display(payment.Method)</div>
+                        <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(payment.CreatedByUserId ?? string.Empty))" />
+                    </td><td class="text-end text-nowrap">@Money.Display(payment.Amount, payment.CurrencyCode)</td></tr>
                 }
             </tbody></table></div>
         }
     </section>
-    <section class="panel-card"><h2 class="h6 p-3 p-md-4 mb-0">Dépenses de la période</h2>
-        @if (Model.Expenses.Count == 0) { <p class="px-3 pb-3 text-slate mb-0">Aucune dépense pour la période.</p> }
+    <section class="panel-card"><div class="p-3 p-md-4"><h2 class="h6 mb-1">Dépenses de la période</h2><p class="text-slate small mb-0">Toutes devises</p></div>
+        @if (operations.Expenses.Count == 0) { <p class="px-3 pb-3 text-slate mb-0">Aucune dépense pour la période.</p> }
         else
         {
             <div class="table-responsive"><table class="table table-ledger"><thead><tr><th>Dépense</th><th>Catégorie</th><th class="text-end">Montant</th></tr></thead><tbody>
-                @foreach (var expense in Model.Expenses)
-                { <tr><td>@if (permissions.Has(StaffPermission.Expenses)) { <a asp-controller="Expenses" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a> } else { <span>@expense.Description</span> }<div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div></td><td>@expense.Category</td><td class="text-end text-nowrap">@Display(expense.Amount)</td></tr> }
+                @foreach (var expense in operations.Expenses)
+                {
+                    <tr><td>@if (permissions.Has(StaffPermission.Expenses)) { <a asp-controller="Expenses" asp-action="Details" asp-route-id="@expense.Id">@expense.Description</a> }
+                        else { <span>@expense.Description</span> }
+                        <div class="text-slate small">@expense.Date.ToString("dd/MM/yyyy")</div>
+                        <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(expense.UserId))" />
+                    </td><td>@expense.Category</td><td class="text-end text-nowrap">@Money.Display(expense.Amount, expense.CurrencyCode)</td></tr>
+                }
             </tbody></table></div>
         }
     </section>

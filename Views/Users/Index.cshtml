@@ -24,7 +24,7 @@
                 <article class="panel-card staff-member">
                     <header>
                         <span class="staff-symbol">@LucideIcons.Svg("user-check", 20)</span>
-                        <div><h2>@(user.FullName ?? user.UserName)</h2><p>@(user.FullName != null ? $"{user.UserName} · " : "")@user.Email</p></div>
+                        <div><h2><a asp-action="History" asp-route-id="@user.Id">@(user.FullName ?? user.UserName)</a></h2><p>@(user.FullName != null ? $"{user.UserName} · " : "")@user.Email</p></div>
                     </header>
                     <div class="staff-member-permissions">
                         <span class="status-pill info">@StaffAccessRules.ProfileName(user.Permissions)</span>

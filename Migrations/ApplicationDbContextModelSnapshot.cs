@@ -946,6 +946,14 @@ namespace AdGestionHub.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("ActorName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("ActorUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int?>("BoutiqueId")
                         .HasColumnType("int");
 
@@ -959,12 +967,22 @@ namespace AdGestionHub.Migrations
                     b.Property<string>("StackTrace")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("Subject")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubjectId")
+                        .HasColumnType("int");
+
                     b.Property<string>("UserEmail")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BoutiqueId");
+
+                    b.HasIndex("BoutiqueId", "ActorUserId", "DateOccurred");
+
+                    b.HasIndex("BoutiqueId", "Subject", "SubjectId");
 
                     b.ToTable("SystemLogs");
                 });
@@ -1253,6 +1271,10 @@ namespace AdGestionHub.Migrations
                     b.Property<int>("BoutiqueId")
                         .HasColumnType("int");
 
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int?>("SaleId")
                         .HasColumnType("int");
 
@@ -1325,6 +1347,10 @@ namespace AdGestionHub.Migrations
 
                     b.Property<int>("BoutiqueId")
                         .HasColumnType("int");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");

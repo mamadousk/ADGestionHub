@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AdGestionHub.Controllers;
 
 [Authorize(Policy = StaffAccessRules.Clients)]
-public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService boutiques, CommerceWriter writer, StaffAccess access) : Controller
+public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService boutiques, CommerceWriter writer, StaffAccess access, OperationJournal journal) : Controller
 {
     public async Task<IActionResult> Index(string? search)
     {
@@ -18,7 +18,9 @@ public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService 
         if (CommerceOperations.Clean(search) is string term)
             query = query.Where(c => c.Name.Contains(term) || (c.Phone != null && c.Phone.Contains(term)));
         ViewData["Search"] = search;
-        return View(await query.OrderBy(c => c.Name).ToListAsync());
+        var clients = await query.OrderBy(c => c.Name).ToListAsync();
+        if (User.IsInRole("Admin")) ViewData["ClientAuthors"] = await journal.ClientAuthorsAsync(shop, clients.Select(c => c.Id), HttpContext.RequestAborted);
+        return View(clients);
     }
 
     public async Task<IActionResult> Details(int id)
@@ -26,14 +28,17 @@ public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService 
         if (await boutiques.GetCurrentBoutiqueIdAsync() is not int shop) return Forbid();
         var client = await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.BoutiqueId == shop && c.Id == id);
         if (client == null) return NotFound();
+        var admin = User.IsInRole("Admin");
+        if (admin) ViewData["ClientAuthors"] = await journal.ClientAuthorsAsync(shop, [id], HttpContext.RequestAborted);
         if (!(await access.CurrentAsync()).Has(StaffPermission.SalesHistory))
             return View(new BusinessHistory<Client>(client, []));
         var sales = await db.Sales.AsNoTracking().Where(s => s.BoutiqueId == shop && s.ClientId == id && !s.IsCancelled)
             .Include(s => s.Payments).ToListAsync();
-        List<Debt> oldDebts = User.IsInRole("Admin")
+        if (admin) ViewData["OperationAuthors"] = await journal.AuthorsAsync(shop, sales.Select(s => s.CreatedByUserId), HttpContext.RequestAborted);
+        List<Debt> oldDebts = admin
             ? await db.Debts.AsNoTracking().Where(d => d.BoutiqueId == shop && d.ClientId == id && !d.IsArchived).Include(d => d.Payments).ToListAsync()
             : [];
-        var history = sales.Select(s => new DocumentBalance(s.Id, s.Number, s.SaleDate, client.Name, s.CurrencyCode, s.FinalPrice, s.Paid, "Sale"))
+        var history = sales.Select(s => new DocumentBalance(s.Id, s.Number, s.SaleDate, client.Name, s.CurrencyCode, s.FinalPrice, s.Paid, "Sale") { CreatedByUserId = s.CreatedByUserId })
             .Concat(oldDebts.Select(d => new DocumentBalance(d.Id, $"Créance #{d.Id}", d.DateCreated, client.Name, d.CurrencyCode, d.Amount, d.Paid, "Debt")))
             .OrderByDescending(x => x.Date).ToList();
         return View(new BusinessHistory<Client>(client, history));
@@ -71,7 +76,7 @@ public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService 
                     || await db.Debts.AnyAsync(d => d.BoutiqueId == shop && d.ClientId == id))
                     throw new CommerceRuleException("Ce client a un historique et doit rester dans le répertoire.");
                 db.Clients.Remove(client);
-                writer.Audit(shop, $"Suppression de la fiche client #{id}");
+                await writer.AuditAsync(shop, $"Suppression de la fiche client #{id}");
                 return true;
             });
             TempData["SuccessMessage"] = "Client supprimé.";
@@ -99,8 +104,13 @@ public sealed class ClientsController(ApplicationDbContext db, IBoutiqueService 
                     contact.Phone = CommerceOperations.Clean(model.Phone);
                     contact.Address = CommerceOperations.Clean(model.Address);
                     contact.Email = CommerceOperations.Clean(model.Email);
-                    if (!id.HasValue) db.Clients.Add(contact);
-                    writer.Audit(shop, id.HasValue ? $"Fiche client #{id} modifiée" : "Fiche client créée");
+                    if (!id.HasValue)
+                    {
+                        db.Clients.Add(contact);
+                        await db.SaveChangesAsync();
+                    }
+                    await writer.AuditAsync(shop, id.HasValue ? "Fiche client modifiée" : "Fiche client créée", contact.Name,
+                        OperationSubject.Client, contact.Id);
                     return contact;
                 });
                 TempData["SuccessMessage"] = "Fiche client enregistrée.";

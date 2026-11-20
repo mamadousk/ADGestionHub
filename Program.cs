@@ -43,6 +43,7 @@ builder.Services.AddScoped<CommerceOperations>();
 builder.Services.AddScoped<StaffAccess>();
 builder.Services.AddScoped<IAuthorizationHandler, StaffAccessHandler>();
 builder.Services.AddScoped<BusinessReportService>();
+builder.Services.AddScoped<OperationJournal>();
 builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 
 // --- COMPRESSION GZIP / BROTLI ---
@@ -210,6 +211,9 @@ await using (var scope = app.Services.CreateAsyncScope())
             await db.PublicPopups.AnyAsync();
             await db.Users.AnyAsync(u => u.StaffAccessMask != null);
             await db.Sales.AnyAsync(s => s.CreatedByUserId != null);
+            await db.Payments.AnyAsync(p => p.CreatedByUserId != null);
+            await db.StockMovements.AnyAsync(m => m.CreatedByUserId != null);
+            await db.SystemLogs.AnyAsync(l => l.ActorUserId != null && l.SubjectId != null);
         }
         catch (Microsoft.Data.Sqlite.SqliteException ex)
         {

@@ -3,6 +3,7 @@
 Lancer après `dotnet build`. Une base SQLite et un serveur jetables sont créés pour le test.
 """
 from base64 import b32decode, b64decode
+from datetime import date, timedelta
 import hmac
 from html import unescape
 from html.parser import HTMLParser
@@ -291,7 +292,7 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
         ({'Role': 'SuperAdmin'}, 'Seul le rôle Employé'),
         ({'Permissions': [SELL, 'ManageUsers']}, 'Vérifiez les accès sélectionnés'),
         ({'Permissions': [SETTLE]}, 'les règlements nécessitent l’historique'),
-        ({'Permissions': [SELL, PROFIT]}, 'les bénéfices nécessitent le tableau de bord ou l’historique'),
+        ({'Permissions': [SELL, PROFIT]}, 'les bénéfices nécessitent le tableau de bord, l’historique des ventes ou les rapports'),
     ):
         path, body, _ = owner.post('/Users/Create', {**create, **invalid})
         assert path == '/Users/Create' and message in small_text(body), path
@@ -300,7 +301,14 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     with sqlite3.connect(db_file) as db:
         employee, access = db.execute('SELECT Id, StaffAccessMask FROM AspNetUsers WHERE UserName = ?', (username,)).fetchone()
         assert access == 1
+    history_url = f'/Users/History/{employee}'
+    assert f'href="{history_url}"' in small_text(directory)
+    other_company.request(history_url, expected=404)
     edit_url = f'/Users/Edit/{employee}'
+    author = f"Par {profile['FullName']} · {username}"
+
+    def row_with(body, operation, caption):
+        return any(operation in row and caption in row for row in re.findall(r'<tr\b[^>]*>(.*?)</tr>', small_text(body), re.S))
     other_company.request(edit_url, expected=404)
     other_company.post(edit_url, {'Id': employee, **profile, 'Permissions': STAFF_LEGACY}, source='/Users/Create', expected=404)
 
@@ -325,6 +333,7 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     for path in (f'/Sales/Details/{sale}', f'/Sales/Receipt/{sale}', f'/Sales/Receipt/{sale}?format=pdf'):
         cashier.request(path, expected=404)
     denied(cashier, edit_url, {**profile, 'Id': employee, 'Permissions': STAFF_LEGACY})
+    denied(cashier, history_url)
 
     order = {'CurrencyCode': 'CDF', 'Items[0].ProductId': product, 'Items[0].Quantity': '1',
              'PaymentMode': 'Partial', 'InitialPayment': '500', 'PaymentMethod': 'Espèces',
@@ -339,26 +348,60 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     own_receipt = f'/Sales/Receipt/{own_sale}'
     assert 'Client de caisse' in small_text(cashier.request(own_receipt)[1])
     assert cashier.request(own_receipt + '?format=pdf')[1].startswith(b'%PDF-')
+    assert author not in small_text(owner.request(own_receipt)[1]) and username not in small_text(owner.request(own_receipt)[1])
+
+    # Cashier uses the secondary currency. The sale still belongs to the administrator's company,
+    # and a supplied author/tenant is ignored in favor of the authenticated account.
+    usd_order = {**order, 'CurrencyCode': 'USD', 'PaymentMode': 'Full', 'ExpectedTotal': '0.71',
+                 'CustomerName': 'Vente USD équipe', 'CreatedByUserId': 'autre-compte', 'BoutiqueId': '-1'}
+    path, _, _ = cashier.post('/Sales/Create', usd_order)
+    usd_sale = id_from(path, 'Sales')
+    today = date.today()
+    for route in ('/Home/Index?currency=CDF', '/Reports/Index?currency=CDF', '/Sales/Index'):
+        text = owner.request(route)[1]
+        assert row_with(text, 'Vente USD équipe', author) and '0,71 USD' in small_text(text), route
+        assert 'Vente USD équipe' not in small_text(other_company.request(route)[1]), route
+    assert 'Vente USD équipe' not in small_text(owner.request(f'/Reports/Index?endDate={today - timedelta(days=1)}')[1])
+    usd_report = owner.request('/Reports/Index?currency=USD')[1]
+    assert 'Bénéfice</h2>' in small_text(usd_report) and '0,28 USD' in small_text(usd_report)
+    assert 'Vente USD équipe' not in small_text(owner.request('/Reports/Export?format=csv&currency=CDF')[1])
+    assert 'Bénéfice' in small_text(owner.request('/Reports/Export?format=csv&currency=USD')[1])
     other_company.request(own_receipt, expected=404)
     settle = f'/Payments/Settle/{own_sale}?target=Sale'
     payment = {'Amount': '100', 'CurrencyCode': 'CDF', 'Method': 'Espèces'}
     denied(cashier, settle, payment)
     with sqlite3.connect(db_file) as db:
         assert db.execute('SELECT CreatedByUserId FROM Sales WHERE Id = ?', (own_sale,)).fetchone() == (employee,)
-        assert db.execute('SELECT COUNT(*) FROM Payments WHERE SaleId = ?', (own_sale,)).fetchone() == (1,)
+        assert db.execute('SELECT CreatedByUserId FROM Payments WHERE SaleId = ?', (own_sale,)).fetchone() == (employee,)
+        assert db.execute('SELECT CreatedByUserId FROM Sales WHERE Id = ?', (usd_sale,)).fetchone() == (employee,)
+        assert db.execute('SELECT CreatedByUserId FROM Payments WHERE SaleId = ?', (usd_sale,)).fetchone() == (employee,)
 
     # All changes are exercised in the same authenticated session, without a new login.
     def grant(permissions):
         path, _, _ = owner.post(edit_url, {**profile, 'Id': employee, 'Permissions': permissions})
         assert path in ('/Users', '/Users/Index'), path
 
-    grant([SELL, CATALOGUE, CLIENTS])
+    grant([SELL, CATALOGUE, CLIENTS, EXPENSES])
     assert 'name="ClientId"' in small_text(cashier.request('/Sales/Create')[1])
     client_page = small_text(cashier.request(f'/Clients/Details/{client}')[1])
     assert 'Client confidentiel A' in client_page and 'Historique des opérations' not in client_page and '4 000,00 CDF' not in client_page
     _, stock, _ = cashier.request(f'/Products/Details/{product}')
     assert 'Prix de vente' in small_text(stock) and 'Prix d’achat' not in small_text(stock)
     assert 'Ajouter un autre produit' not in small_text(stock)
+    assert row_with(owner.request(f'/Products/Details/{product}')[1], 'FAC-', author)
+    assert author not in small_text(stock)
+    path, _, _ = cashier.post('/Clients/Create', {'Name': 'Client saisi par l’équipe'})
+    staff_client = id_from(path, 'Clients')
+    path, _, _ = cashier.post(f'/Clients/Edit/{staff_client}', {'Name': 'Client modifié par l’équipe'})
+    assert path == f'/Clients/Details/{staff_client}'
+    assert row_with(owner.request('/Clients')[1], 'Client modifié par l’équipe', author)
+    assert author in small_text(owner.request(path)[1])
+    path, _, _ = cashier.post('/Expenses/Create', {'Description': 'Déplacement de l’équipe', 'Amount': '3,25',
+                                                   'CurrencyCode': 'USD', 'Category': 'Transport', 'Date': str(today), 'PaymentMethod': 'Espèces'})
+    staff_expense = id_from(path, 'Expenses')
+    for route in ('/Expenses', '/Reports/Index?currency=CDF'):
+        assert row_with(owner.request(route)[1], 'Déplacement de l’équipe', author), route
+    assert author in small_text(owner.request(f'/Expenses/Details/{staff_expense}')[1])
     denied(cashier, '/Products/Create')
     denied(cashier, '/Reports/Export?format=csv')
     assert cashier.request('/Home/Index')[0] == '/Sales/Create'
@@ -387,7 +430,10 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     grant([HISTORY, SETTLE, DASHBOARD, EXPORTS])
     for route in ('/Home/Index', '/Sales/Index', f'/Sales/Details/{sale}'):
         assert 'Bénéfice' not in small_text(cashier.request(route)[1]), route
-    assert cashier.request('/Reports/Export?format=csv')[2] == 'text/csv'
+    _, report_export, kind = cashier.request('/Reports/Export?format=csv')
+    assert kind == 'text/csv' and 'Bénéfice' not in small_text(report_export)
+    plain_report = small_text(cashier.request('/Reports/Index?currency=USD')[1])
+    assert 'Vente USD équipe' in plain_report and 'Bénéfice' not in plain_report and author not in plain_report
     assert 'Enregistrer le règlement' in small_text(cashier.request(details)[1])
     denied(cashier, '/Sales/Create')
     denied(cashier, '/Sales/Create', order, source=details)
@@ -395,6 +441,36 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     assert path == details
     with sqlite3.connect(db_file) as db:
         assert db.execute('SELECT COUNT(*) FROM Payments WHERE SaleId = ?', (own_sale,)).fetchone() == (2,)
+    # A cashier receives a payment on the administrator's sale, without becoming the seller.
+    admin_sale = f'/Sales/Details/{sale}'
+    path, _, _ = cashier.post(f'/Payments/Settle/{sale}?target=Sale', {**payment, 'Amount': '125'}, source=admin_sale)
+    assert path == admin_sale
+    assert row_with(owner.request(admin_sale)[1], '125,00 CDF', author)
+    assert row_with(owner.request('/Payments')[1], '125,00 CDF', author)
+    assert row_with(owner.request('/Reports/Index?currency=USD')[1], '125,00 CDF', author)
+
+    grant([EXPORTS, PROFIT])
+    assert '0,28 USD' in small_text(cashier.request('/Reports/Index?currency=USD')[1])
+    assert 'Bénéfice' in small_text(cashier.request('/Reports/Export?format=csv&currency=USD')[1])
+    denied(cashier, history_url)
+    denied(cashier, '/Sales/Index')
+
+    path, payload, _ = owner.request(f'{history_url}?startDate={today}&endDate={today}')
+    assert path == history_url
+    activity = small_text(payload)
+    for label in (profile['FullName'], f'/Sales/Details/{own_sale}', f'/Sales/Details/{usd_sale}',
+                  'Fiche client créée', 'Fiche client modifiée', 'Déplacement de l’équipe', 'Règlement enregistré'):
+        assert label in activity, label
+    assert activity.count(f'href="/Sales/Details/{usd_sale}"') == 1
+    assert f'href="{admin_sale}"' not in activity and 'Compte employé modifié' not in activity
+    yesterday = today - timedelta(days=1)
+    empty_history = small_text(owner.request(f'{history_url}?startDate={yesterday}&endDate={yesterday}')[1])
+    assert 'Aucune opération à afficher' in empty_history and 'Déplacement de l’équipe' not in empty_history
+    invalid_history = small_text(owner.request(f'{history_url}?startDate={today}&endDate={yesterday}')[1])
+    assert 'Choisissez des dates dans l’ordre' in invalid_history and 'Déplacement de l’équipe' not in invalid_history
+    if os.environ.get('ADGH_SMOKE_BROWSER') == '1':
+        from browser_smoke import run_staff_activity_browser
+        run_staff_activity_browser(base, owner.cookies, profile['FullName'], history_url, today, usd_sale)
 
     grant([])
     path, workspace, _ = cashier.request('/Home/Index')
@@ -403,14 +479,19 @@ def verify_staff_access(base, db_file, owner, other_company, password, product, 
     denied(cashier, '/Reports/Export?format=csv')
     with sqlite3.connect(db_file) as db:
         assert db.execute('SELECT StaffAccessMask FROM AspNetUsers WHERE Id = ?', (employee,)).fetchone() == (0,)
-        assert db.execute('SELECT COUNT(*) FROM Sales WHERE CreatedByUserId = ?', (employee,)).fetchone() == (1,)
+        assert db.execute('SELECT COUNT(*) FROM Sales WHERE CreatedByUserId = ?', (employee,)).fetchone() == (2,)
+    renamed = {**profile, 'FullName': 'Employée renommée', 'UserName': username + 'bis', 'Id': employee}
+    owner.post(edit_url, renamed)
+    renamed_history = small_text(owner.request(history_url)[1])
+    assert 'Historique · Employée renommée' in renamed_history and 'Déplacement de l’équipe' in renamed_history
     path, _, _ = owner.post(f'/Users/Delete/{employee}', {'id': employee})
     assert path in ('/Users', '/Users/Index')
     assert owner.request(own_receipt + '?format=pdf')[2] == 'application/pdf'
+    assert row_with(owner.request('/Reports/Index?currency=CDF')[1], 'Vente USD équipe', author)
     with sqlite3.connect(db_file) as db:
         assert db.execute('SELECT 1 FROM AspNetUsers WHERE Id = ?', (employee,)).fetchone() is None
         assert db.execute('SELECT CreatedByUserId FROM Sales WHERE Id = ?', (own_sale,)).fetchone() == (employee,)
-    print('Accès employé : caisse et reçu personnel, restrictions serveur, isolation, droits personnalisés, révocation et conservation des ventes.')
+    print('Équipe : accès serveur, ventes partagées CDF/USD, bénéfice délégué, auteurs des opérations, historique par date et conservation après suppression.')
 
 
 def verify_broadcasts(base, db_file, customer, other_company, staff, public, superadmin):

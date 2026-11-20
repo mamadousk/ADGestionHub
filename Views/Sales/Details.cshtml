@@ -2,12 +2,14 @@
 @{
     ViewData["Title"] = $"Vente {Model.Number}";
     var permissions = await StaffCtx.CurrentAsync();
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
     var profit = ViewData["SaleProfit"] as decimal?;
     var rate = PdfReportService.HistoricalRate(Model.CdfPerUsd, Model.SecondaryCurrencyCode, Model.ExchangeRateToSecondary, Model.CurrencyCode);
     var lines = new CommercialTable(Model.Items.Select(i => new CommercialLine(i.ProductName, i.Quantity, i.UnitPrice, i.EffectiveLineTotal)), Model.CurrencyCode);
 }
 <div class="page-heading">
-    <div><p class="section-eyebrow">@if (permissions.Has(StaffPermission.SalesHistory)) { <a asp-action="Index">Ventes et factures</a> } else { <span>Point de vente</span> }</p><h1>Vente @Model.Number</h1><p>@(Model.CustomerName ?? "Client de passage") · @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</p></div>
+    <div><p class="section-eyebrow">@if (permissions.Has(StaffPermission.SalesHistory)) { <a asp-action="Index">Ventes et factures</a> } else { <span>Point de vente</span> }</p><h1>Vente @Model.Number</h1><p>@(Model.CustomerName ?? "Client de passage") · @Model.SaleDate.ToString("dd/MM/yyyy HH:mm")</p>
+        <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(Model.CreatedByUserId ?? string.Empty))" /></div>
     <div class="d-flex flex-wrap gap-2"><a asp-action="Receipt" asp-route-id="@Model.Id" class="btn btn-secondary-outline">Imprimer le document</a><a asp-action="Receipt" asp-route-id="@Model.Id" asp-route-format="pdf" class="btn btn-secondary-outline">Télécharger le PDF</a>@if (permissions.Has(StaffPermission.Sell)) { <a asp-action="Create" class="btn btn-accent">@LucideIcons.Svg("plus", 17, "me-1") Nouvelle vente</a> }</div>
 </div>
 @if (TempData["StockNotice"] is string alert)

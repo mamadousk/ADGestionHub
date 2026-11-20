@@ -1,6 +1,7 @@
 @model Product
 @{
     ViewData["Title"] = Model.Name;
+    var authors = ViewData["OperationAuthors"] as IReadOnlyDictionary<string, OperationAuthor>;
     var movements = (IReadOnlyList<StockMovement>)ViewData["StockMovements"]!;
     var currency = (await TenantCtx.GetContextAsync()).PrimaryCurrency.Code;
     var admin = User.IsInRole("Admin");
@@ -50,7 +51,8 @@
             <tbody>
             @foreach (var move in movements)
             {
-                <tr><td class="text-nowrap">@move.RecordedAt.ToString("dd/MM/yyyy HH:mm")</td><td>@move.Kind</td><td>@(move.Reference ?? "—")</td>
+                <tr><td class="text-nowrap">@move.RecordedAt.ToString("dd/MM/yyyy HH:mm")</td><td>@move.Kind</td><td>@(move.Reference ?? "—")
+                    <partial name="_OperationAuthor" model="@(authors?.GetValueOrDefault(move.CreatedByUserId ?? string.Empty))" /></td>
                     <td class="text-end @(move.Delta < 0 ? "text-sober-red" : "text-forest")">@move.Delta.ToString("+0;-0")</td><td class="text-end">@move.QuantityAfter</td></tr>
             }
             </tbody>

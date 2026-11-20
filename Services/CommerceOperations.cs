@@ -10,7 +10,7 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
 {
     public const int MaxLines = 50;
 
-    public Task<Sale> SellAsync(int shop, SaleInput input, bool canDiscount, string? createdByUserId = null) => writer.ExecuteAsync(shop, async () =>
+    public Task<Sale> SellAsync(int shop, SaleInput input, bool canDiscount) => writer.ExecuteAsync(shop, async () =>
     {
         var settings = await writer.SettingsAsync(shop);
         var code = DocumentCurrency(input.CurrencyCode, settings);
@@ -18,7 +18,7 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         var client = await ClientAsync(shop, input.ClientId);
         var now = DateTime.Now;
         var sale = NewSale(shop, code, settings.CdfPerUsd, client?.Id, client?.Name ?? Clean(input.CustomerName), now);
-        sale.CreatedByUserId = createdByUserId;
+        sale.CreatedByUserId = writer.ActorUserId;
         foreach (var line in input.Items)
         {
             var product = products[line.ProductId];
@@ -40,7 +40,7 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
             throw new CommerceRuleException("La remise ne peut pas dépasser le sous-total.");
         sale.FinalPrice = sale.SubtotalNet - sale.Discount;
         VerifyTotal(input, sale.FinalPrice);
-        var initial = InitialPayment(input, settings, shop, code, sale.FinalPrice, now);
+        var initial = InitialPayment(input, settings, shop, code, sale.FinalPrice, now, sale.CreatedByUserId);
         if ((initial?.AppliedAmount ?? 0) < sale.FinalPrice && sale.CustomerName == null)
             throw new CommerceRuleException("Sélectionnez un client ou saisissez son nom pour suivre le montant restant.");
         if (initial != null) sale.Payments.Add(initial);
@@ -66,13 +66,13 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         {
             // Old records can lack a product reference (the product was deleted before V1).
             if (line.ProductId is int productId && products.TryGetValue(productId, out var product))
-                await stock.ApplyAsync(shop, product, line.Quantity, "Annulation vente", sale.Number, now, restoreArchived: true);
+                await stock.ApplyAsync(shop, product, line.Quantity, "Annulation vente", sale.Number, now, restoreArchived: true, actorUserId: writer.ActorUserId);
         }
 
         sale.IsCancelled = true;
         sale.CancelledAt = now;
         sale.CancellationReason = reason.Trim();
-        writer.Audit(shop, $"Annulation de la vente {sale.Number}", sale.CancellationReason);
+        await writer.AuditAsync(shop, $"Annulation de la vente {sale.Number}", sale.CancellationReason);
         return true;
     });
 
@@ -97,12 +97,12 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         if (applied <= 0 || applied > balance)
             throw new CommerceRuleException($"Le règlement doit être positif et ne pas dépasser le reste à régler : {Money.Display(balance, currency)}.");
 
-        var payment = NewPayment(shop, settings, input.CurrencyCode, amount, currency, applied, input.Method, now);
+        var payment = NewPayment(shop, settings, input.CurrencyCode, amount, currency, applied, input.Method, now, writer.ActorUserId);
         payment.Description = description;
         payment.SaleId = target == "Sale" ? id : null;
         payment.DebtId = target == "Debt" ? id : null;
         db.Payments.Add(payment);
-        writer.Audit(shop, $"Règlement enregistré : {number}", $"{Money.Display(amount, input.CurrencyCode)} · {payment.Method}");
+        await writer.AuditAsync(shop, $"Règlement enregistré : {number}", $"{Money.Display(amount, input.CurrencyCode)} · {payment.Method}", occurredAt: now);
         return payment;
     });
 
@@ -164,13 +164,15 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         foreach (var line in sale.Items.OrderBy(i => i.ProductId))
         {
             var product = products[line.ProductId!.Value];
-            var remaining = await stock.ApplyAsync(sale.BoutiqueId, product, -line.Quantity, "Vente", sale.Number, sale.SaleDate);
+            var remaining = await stock.ApplyAsync(sale.BoutiqueId, product, -line.Quantity, "Vente", sale.Number, sale.SaleDate, actorUserId: sale.CreatedByUserId);
             if (remaining <= product.StockAlertThreshold) warnings.Add(product.Id);
         }
         sale.StockWarnings = warnings.Count;
         db.Sales.Add(sale);
-        writer.Audit(sale.BoutiqueId, $"Vente {sale.Number} enregistrée",
-            $"Total : {Money.Display(sale.FinalPrice, sale.CurrencyCode)} · Réglé : {Money.Display(sale.Paid, sale.CurrencyCode)}");
+        await db.SaveChangesAsync(); // Get the sale ID; the writer still commits the sale and journal together.
+        await writer.AuditAsync(sale.BoutiqueId, $"Vente {sale.Number} enregistrée",
+            $"Total : {Money.Display(sale.FinalPrice, sale.CurrencyCode)} · Réglé : {Money.Display(sale.Paid, sale.CurrencyCode)}",
+            OperationSubject.Sale, sale.Id, sale.SaleDate);
     }
 
     private static async Task<(string Number, int Next)> AllocateNumberAsync(string prefix, int counter, IQueryable<string> history)
@@ -190,7 +192,7 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
         return (prefix + next.ToString("D5", CultureInfo.InvariantCulture), (int)next + 1);
     }
 
-    private static Payment? InitialPayment(PayableInput input, StoreSettings settings, int shop, string code, decimal total, DateTime now)
+    private static Payment? InitialPayment(PayableInput input, StoreSettings settings, int shop, string code, decimal total, DateTime now, string? actorUserId)
     {
         var amount = input.PaymentMode switch
         {
@@ -200,14 +202,14 @@ public sealed class CommerceOperations(ApplicationDbContext db, CommerceWriter w
             "Partial" => throw new CommerceRuleException("Un règlement partiel doit être supérieur à zéro et inférieur au total."),
             _ => throw new CommerceRuleException("Choisissez l'état du règlement.")
         };
-        return amount == 0 ? null : NewPayment(shop, settings, code, Money.Amount(amount, code), code, amount, input.PaymentMethod, now);
+        return amount == 0 ? null : NewPayment(shop, settings, code, Money.Amount(amount, code), code, amount, input.PaymentMethod, now, actorUserId);
     }
 
     private static Payment NewPayment(int shop, StoreSettings settings, string currency, decimal amount, string appliedCurrency,
-        decimal applied, string? method, DateTime now) => new()
+        decimal applied, string? method, DateTime now, string? actorUserId) => new()
     {
         BoutiqueId = shop, CurrencyCode = currency, Amount = amount, AppliedCurrencyCode = appliedCurrency, AppliedAmount = applied,
-        Method = PaymentMeans.Validate(method, settings), CdfPerUsd = settings.CdfPerUsd, RecordedAt = now
+        Method = PaymentMeans.Validate(method, settings), CdfPerUsd = settings.CdfPerUsd, RecordedAt = now, CreatedByUserId = actorUserId
     };
 
     private async Task<(string, string, decimal)> SaleBalanceAsync(int shop, int? id)
