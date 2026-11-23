@@ -1,8 +1,23 @@
-﻿@page
+@page
 @model ConfirmEmailModel
 @{
-    ViewData["Title"] = "Confirm email";
+    ViewData["Title"] = "Confirmation de l’adresse e-mail";
 }
 
-<h1>@ViewData["Title"]</h1>
-<partial name="_StatusMessage" model="Model.StatusMessage" />
+<div class="py-4 auth-shell">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-5">
+            <div class="panel-card auth-card p-4 p-md-5 text-center">
+                <h1 class="h5 mb-3">@ViewData["Title"]</h1>
+                <partial name="_StatusMessage" model="Model.StatusMessage" />
+                <div class="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                    <a asp-page="./Login" class="btn btn-accent">Aller à la connexion</a>
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <a asp-area="" asp-controller="Home" asp-action="Index" class="btn btn-secondary-outline">Accéder à mon espace</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
