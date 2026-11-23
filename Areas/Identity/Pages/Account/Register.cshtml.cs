@@ -1,17 +1,20 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text;
 using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace AdGestionHub.Areas.Identity.Pages.Account;
 
 [AllowAnonymous]
 public class RegisterModel(UserManager<ApplicationUser> users, SignInManager<ApplicationUser> signIn,
-    ApplicationDbContext db, CommerceWriter writer, ILogger<RegisterModel> logger) : PageModel
+    ApplicationDbContext db, CommerceWriter writer, IEmailSender emailSender, ILogger<RegisterModel> logger) : PageModel
 {
     [BindProperty] public InputModel Input { get; set; } = new();
     public string? ReturnUrl { get; private set; }
@@ -96,6 +99,23 @@ public class RegisterModel(UserManager<ApplicationUser> users, SignInManager<App
             }
         }
         await signIn.SignInAsync(user, isPersistent: false);
+
+        try
+        {
+            var code = await users.GenerateEmailConfirmationTokenAsync(user);
+            code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            var callbackUrl = Url.Page("/Account/ConfirmEmail", pageHandler: null,
+                values: new { area = "Identity", userId = user.Id, code }, protocol: Request.Scheme);
+            await emailSender.SendEmailAsync(user.Email!, "Confirmez votre adresse e-mail",
+                AccountEmails.ConfirmEmail(callbackUrl));
+            TempData["EmailConfirmationNotice"] =
+                $"Un e-mail de confirmation a été envoyé à {email}. Confirmez votre adresse pour sécuriser votre compte.";
+        }
+        catch (Exception error)
+        {
+            logger.LogError(error, "L'e-mail de confirmation n'a pas pu être envoyé à {Email}.", email);
+        }
+
         return RedirectToAction("Terms", "Onboarding", new { area = "" });
     }
 }

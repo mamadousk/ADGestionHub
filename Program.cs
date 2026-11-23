@@ -3,7 +3,9 @@ using AdGestionHub.Middlewares;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -93,6 +95,18 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 })
 .AddRoles<IdentityRole>()
 .AddEntityFrameworkStores<ApplicationDbContext>();
+
+// --- E-MAILS TRANSACTIONNELS (BREVO / SMTP) ---
+builder.Services.AddDataProtection();
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection(SmtpOptions.SectionName));
+builder.Services.AddScoped<AccountAccessGuard>();
+builder.Services.AddScoped<EmailLoginTicket>();
+
+// Remplace l'expéditeur no-op d'Identity par l'implémentation SMTP réelle.
+var defaultEmailSender = builder.Services.FirstOrDefault(d => d.ServiceType == typeof(IEmailSender));
+if (defaultEmailSender is not null)
+    builder.Services.Remove(defaultEmailSender);
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 
 builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 {

@@ -8,6 +8,10 @@
         <p class="section-eyebrow">Première connexion · Conditions d’utilisation</p>
         <h1>Avant d’accéder à votre espace</h1>
         <p class="text-slate">Prenez connaissance des conditions qui encadrent l’utilisation d’AD Gestion Hub. Votre acceptation est nécessaire pour accéder aux fonctionnalités de la boutique.</p>
+        @if (TempData["EmailConfirmationNotice"] is string emailNotice)
+        {
+            <div class="alert alert-info small mb-4" role="status">@emailNotice</div>
+        }
         <div class="terms-version mb-4">
             <div>
                 <strong>Conditions générales d’utilisation</strong>

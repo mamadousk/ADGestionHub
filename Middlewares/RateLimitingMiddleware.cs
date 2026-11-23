@@ -40,6 +40,7 @@ namespace AdGestionHub.Middlewares
                 var isSensitive = path.StartsWith("/Identity/Account/Login", StringComparison.OrdinalIgnoreCase)
                                || path.StartsWith("/Identity/Account/Register", StringComparison.OrdinalIgnoreCase)
                                || path.StartsWith("/Identity/Account/ForgotPassword", StringComparison.OrdinalIgnoreCase)
+                               || path.StartsWith("/Identity/Account/ResendEmailConfirmation", StringComparison.OrdinalIgnoreCase)
                                || path.StartsWith("/Identity/Account/ResetPassword", StringComparison.OrdinalIgnoreCase)
                                || path.StartsWith("/Marketing/", StringComparison.OrdinalIgnoreCase);
 
