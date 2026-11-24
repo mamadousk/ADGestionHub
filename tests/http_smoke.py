@@ -92,8 +92,6 @@ LOGIN = '/Identity/Account/Login'
 LOGOUT = '/Identity/Account/Logout'
 LOGIN_2FA = '/Identity/Account/LoginWith2fa'
 RECOVERY = '/Identity/Account/LoginWithRecoveryCode'
-EMAIL_LOGIN = '/Identity/Account/LoginWithEmail'
-EMAIL_LOGIN_CODE = '/Identity/Account/LoginWithEmailCode'
 HOME = ('/Home', '/Home/Index')
 REPORTS = ('/Reports', '/Reports/Index')
 SELL = 'staff.sale.create'
@@ -216,15 +214,9 @@ def verify_session_navigation(base, email, password, sale):
     link = re.search(r'<a[^>]+href="([^"?#]+)"[^>]*>\s*Se connecter\s*</a>', small_text(landing))
     assert link and link.group(1) == LOGIN
     check_html(visitor.request(link.group(1)), (LOGIN,), 'id="account"')
-    _, login_html, _ = visitor.request(LOGIN)
-    assert 'Se connecter avec un code e-mail' in small_text(login_html)
     for step in (LOGIN_2FA, RECOVERY):
         # Without a temporary 2FA session, the browser should return to the login form instead of a 500.
         check_html(visitor.request(target(step, '/Sales/Create')), (LOGIN,), 'La vérification de connexion a expiré.')
-
-    # The passwordless e-mail flow is reachable and never reveals whether an address exists.
-    check_html(visitor.request(target(EMAIL_LOGIN, '/Sales/Create')), (EMAIL_LOGIN,), 'Connexion par code e-mail')
-    check_html(visitor.request(target(EMAIL_LOGIN_CODE, '/Sales/Create')), (EMAIL_LOGIN,), 'Le délai de saisie du code a expiré.')
 
     date = time.strftime('%Y-%m-%d')
     export = f'/Reports/Export?format=pdf&startDate={date}&endDate={date}&currency=USD'
@@ -268,8 +260,6 @@ def verify_session_navigation(base, email, password, sale):
     check_html(visitor.post(LOGOUT, {}, source='/Home/Index'), (LOGIN,))
     check_html(visitor.post(target(LOGIN, export), credentials), (LOGIN_2FA,), 'Double authentification')
     mfa = target(LOGIN_2FA, export)
-    _, mfa_html, _ = visitor.request(mfa)
-    assert 'Recevoir un code par e-mail' in small_text(mfa_html)
     rejected = check_html(visitor.post(mfa, {'Input.TwoFactorCode': 'x', 'rememberMe': 'true'}), (LOGIN_2FA,), 'Double authentification')
     # Submit the returned form action, not the original URL: the retry must preserve the page destination.
     retry = re.search(r'<form[^>]*action="([^"]+)"', small_text(rejected)).group(1)

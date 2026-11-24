@@ -1,31 +1,23 @@
-@page
+﻿@page
 @model ResendEmailConfirmationModel
 @{
-    ViewData["Title"] = "Renvoyer l'e-mail de confirmation";
+    ViewData["Title"] = "Resend email confirmation";
 }
 
-<div class="py-4 auth-shell">
-    <div class="row justify-content-center">
-        <div class="col-md-7 col-lg-5">
-            <div class="panel-card auth-card p-4 p-md-5">
-                <h1 class="h5 mb-2">@ViewData["Title"]</h1>
-                <p class="text-slate small mb-4">
-                    Saisissez l’adresse e-mail utilisée à l’inscription. Si un compte existe, un nouveau lien de confirmation vous sera envoyé.
-                </p>
-                <form method="post">
-                    <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3" role="alert"></div>
-                    <div class="mb-3">
-                        <label asp-for="Input.Email" class="form-label">Adresse e-mail</label>
-                        <input asp-for="Input.Email" class="form-control" autocomplete="username" placeholder="nom@entreprise.com" />
-                        <span asp-validation-for="Input.Email" class="text-sober-red small"></span>
-                    </div>
-                    <button type="submit" class="btn btn-accent w-100 py-2">Renvoyer le message</button>
-                </form>
-                <div class="text-center mt-3 pt-3 border-top">
-                    <a asp-page="./Login" class="text-slate text-decoration-none small">Retour à la connexion</a>
-                </div>
+<h1>@ViewData["Title"]</h1>
+<h2>Enter your email.</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form method="post">
+            <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+            <div class="form-floating mb-3">
+                <input asp-for="Input.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
+                <label asp-for="Input.Email" class="form-label"></label>
+                <span asp-validation-for="Input.Email" class="text-danger"></span>
             </div>
-        </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Resend</button>
+        </form>
     </div>
 </div>
 

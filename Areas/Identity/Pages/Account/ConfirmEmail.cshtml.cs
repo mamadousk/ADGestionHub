@@ -1,60 +1,52 @@
 using AdGestionHub.Models;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+#nullable disable
+
+using System;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
-using System.Text;
 
-namespace AdGestionHub.Areas.Identity.Pages.Account;
-
-[AllowAnonymous]
-public class ConfirmEmailModel : PageModel
+namespace AdGestionHub.Areas.Identity.Pages.Account
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly SignInManager<ApplicationUser> _signInManager;
-
-    public ConfirmEmailModel(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager)
+    public class ConfirmEmailModel : PageModel
     {
-        _userManager = userManager;
-        _signInManager = signInManager;
-    }
+        private readonly UserManager<ApplicationUser> _userManager;
 
-    [TempData]
-    public string StatusMessage { get; set; } = string.Empty;
-
-    public async Task<IActionResult> OnGetAsync(string? userId, string? code)
-    {
-        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(code))
-            return RedirectToPage("./Login");
-
-        var user = await _userManager.FindByIdAsync(userId);
-        if (user == null)
-            return NotFound("Impossible de charger l’utilisateur.");
-
-        try
+        public ConfirmEmailModel(UserManager<ApplicationUser> userManager)
         {
-            code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+            _userManager = userManager;
         }
-        catch (FormatException)
+
+        /// <summary>
+        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
+        ///     directly from your code. This API may change or be removed in future releases.
+        /// </summary>
+        [TempData]
+        public string StatusMessage { get; set; }
+        public async Task<IActionResult> OnGetAsync(string userId, string code)
         {
-            StatusMessage = "Le lien de confirmation est invalide ou a été modifié.";
+            if (userId == null || code == null)
+            {
+                return RedirectToPage("/Index");
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound($"Unable to load user with ID '{userId}'.");
+            }
+
+            code = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+            var result = await _userManager.ConfirmEmailAsync(user, code);
+            StatusMessage = result.Succeeded ? "Thank you for confirming your email." : "Error confirming your email.";
             return Page();
         }
-
-        var result = await _userManager.ConfirmEmailAsync(user, code);
-        if (result.Succeeded)
-        {
-            StatusMessage = "Merci, votre adresse e-mail est confirmée.";
-            var currentUserId = _userManager.GetUserId(User);
-            if (User.Identity?.IsAuthenticated == true && string.Equals(currentUserId, user.Id, StringComparison.Ordinal))
-                await _signInManager.RefreshSignInAsync(user);
-        }
-        else
-        {
-            StatusMessage = "Erreur lors de la confirmation. Le lien a peut-être expiré ou a déjà été utilisé.";
-        }
-
-        return Page();
     }
 }

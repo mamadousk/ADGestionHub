@@ -1,24 +1,8 @@
 @page
 @model RegisterConfirmationModel
-@{
-    ViewData["Title"] = "Vérifiez votre adresse e-mail";
-}
-
-<div class="py-4 auth-shell">
-    <div class="row justify-content-center">
-        <div class="col-md-7 col-lg-5">
-            <div class="panel-card auth-card p-4 p-md-5 text-center">
-                <h1 class="h5 mb-2">@ViewData["Title"]</h1>
-                <p class="text-slate small mb-3">
-                    Si cette adresse est associée à un compte, un message de confirmation vient de lui être envoyé.
-                    Ouvrez le lien qu’il contient pour sécuriser votre compte et activer la réinitialisation du mot de passe.
-                </p>
-                <p class="text-slate small mb-4">Pensez à vérifier vos courriers indésirables.</p>
-                <div class="d-flex flex-wrap justify-content-center gap-2">
-                    <a asp-page="./ResendEmailConfirmation" class="btn btn-secondary-outline">Renvoyer le message</a>
-                    <a asp-page="./Login" class="btn btn-accent">Aller à la connexion</a>
-                </div>
-            </div>
-        </div>
-    </div>
+@{ ViewData["Title"] = "Confirmation de l’adresse e-mail"; }
+<div class="py-4">
+    <h1>Confirmation de l’adresse e-mail</h1>
+    <p>Si vous avez reçu un message de confirmation, ouvrez le lien qu’il contient.</p>
+    <a asp-page="./Login" class="btn btn-accent">Aller à la connexion</a>
 </div>
