@@ -1,6 +1,7 @@
-// ==================== FILE: Areas/Identity/Pages/Account/Manage/Email.cshtml.cs ====================
+﻿// ==================== FILE: Areas/Identity/Pages/Account/Manage/Email.cshtml.cs ====================
 using System.ComponentModel.DataAnnotations;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -8,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.WebUtilities;
 using AdGestionHub.Models;
-using AdGestionHub.Services;
 
 namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
 {
@@ -41,7 +41,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
         {
             [Required]
             [EmailAddress]
-            [Display(Name = "Nouvelle adresse e-mail")]
+            [Display(Name = "New email")]
             public string NewEmail { get; set; }
         }
 
@@ -63,7 +63,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound("Impossible de charger l’utilisateur connecté.");
+                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
             await LoadAsync(user);
@@ -75,7 +75,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound("Impossible de charger l’utilisateur connecté.");
+                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
             if (!ModelState.IsValid)
@@ -94,25 +94,17 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
                     "/Account/ConfirmEmailChange",
                     pageHandler: null,
                     values: new { area = "Identity", userId = userId, email = Input.NewEmail, code = code },
-                    protocol: Request.Scheme) ?? string.Empty;
-                try
-                {
-                    await _emailSender.SendEmailAsync(
-                        Input.NewEmail,
-                        "Confirmez votre nouvelle adresse e-mail",
-                        AccountEmails.ConfirmEmailChange(callbackUrl));
-                }
-                catch (Exception)
-                {
-                    StatusMessage = "Error: L'envoi de l'e-mail de confirmation a échoué. Réessayez dans quelques instants.";
-                    return RedirectToPage();
-                }
+                    protocol: Request.Scheme);
+                await _emailSender.SendEmailAsync(
+                    Input.NewEmail,
+                    "Confirm your email",
+                    $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
 
-                StatusMessage = "Un e-mail de confirmation a été envoyé à votre nouvelle adresse.";
+                StatusMessage = "Confirmation link to change email sent. Please check your email.";
                 return RedirectToPage();
             }
 
-            StatusMessage = "Votre adresse e-mail n'a pas changé.";
+            StatusMessage = "Your email is unchanged.";
             return RedirectToPage();
         }
 
@@ -121,7 +113,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
-                return NotFound("Impossible de charger l’utilisateur connecté.");
+                return NotFound($"Unable to load user with ID '{_userManager.GetUserId(User)}'.");
             }
 
             if (!ModelState.IsValid)
@@ -131,28 +123,20 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
             }
 
             var userId = await _userManager.GetUserIdAsync(user);
-            var email = await _userManager.GetEmailAsync(user) ?? string.Empty;
+            var email = await _userManager.GetEmailAsync(user);
             var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
             var callbackUrl = Url.Page(
                 "/Account/ConfirmEmail",
                 pageHandler: null,
                 values: new { area = "Identity", userId = userId, code = code },
-                protocol: Request.Scheme) ?? string.Empty;
-            try
-            {
-                await _emailSender.SendEmailAsync(
-                    email,
-                    "Confirmez votre adresse e-mail",
-                    AccountEmails.ConfirmEmail(callbackUrl));
-            }
-            catch (Exception)
-            {
-                StatusMessage = "Error: L'envoi de l'e-mail de vérification a échoué. Réessayez dans quelques instants.";
-                return RedirectToPage();
-            }
+                protocol: Request.Scheme);
+            await _emailSender.SendEmailAsync(
+                email,
+                "Confirm your email",
+                $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
 
-            StatusMessage = "Un e-mail de vérification a été envoyé. Vérifiez votre boîte de réception.";
+            StatusMessage = "Verification email sent. Please check your email.";
             return RedirectToPage();
         }
     }

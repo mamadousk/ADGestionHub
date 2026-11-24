@@ -1,9 +1,11 @@
+using AdGestionHub.Data;
 using AdGestionHub.Models;
 using AdGestionHub.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
@@ -15,18 +17,18 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly AccountAccessGuard _accessGuard;
+        private readonly ApplicationDbContext _context;
         private readonly ILogger<LoginModel> _logger;
 
         public LoginModel(
             SignInManager<ApplicationUser> signInManager,
             UserManager<ApplicationUser> userManager,
-            AccountAccessGuard accessGuard,
+            ApplicationDbContext context,
             ILogger<LoginModel> logger)
         {
             _signInManager = signInManager;
             _userManager = userManager;
-            _accessGuard = accessGuard;
+            _context = context;
             _logger = logger;
         }
 
@@ -87,11 +89,18 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             }
 
             // Vérifier que la boutique associée est bien active avant de créer une session
-            if (!await _accessGuard.CanSignInAsync(user))
+            if (user.BoutiqueId.HasValue)
             {
-                _logger.LogWarning("Tentative de connexion refusée : boutique {BoutiqueId} suspendue.", user.BoutiqueId);
-                ModelState.AddModelError(string.Empty, "Votre boutique est actuellement désactivée. Veuillez contacter le support AdGestionHub.");
-                return Page();
+                var boutique = await _context.Boutiques
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == user.BoutiqueId.Value);
+
+                if (boutique != null && !boutique.IsActive)
+                {
+                    _logger.LogWarning("Tentative de connexion refusée : boutique {BoutiqueId} suspendue.", boutique.Id);
+                    ModelState.AddModelError(string.Empty, "Votre boutique est actuellement désactivée. Veuillez contacter le support AdGestionHub.");
+                    return Page();
+                }
             }
 
             var result = await _signInManager.PasswordSignInAsync(

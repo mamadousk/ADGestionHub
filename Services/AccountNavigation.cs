@@ -48,8 +48,7 @@ internal static class AccountNavigation
             return url.Action("AdminDashboard", "Marketing", new { area = "" }) ?? home;
         if (Is(0, "Identity") && Is(1, "Account"))
         {
-            if (Is(2, "Login") || Is(2, "Logout") || Is(2, "LoginWith2fa") || Is(2, "LoginWithRecoveryCode")
-                || Is(2, "LoginWithEmail") || Is(2, "LoginWithEmailCode")) return home;
+            if (Is(2, "Login") || Is(2, "Logout") || Is(2, "LoginWith2fa") || Is(2, "LoginWithRecoveryCode")) return home;
             if (Is(2, "Manage") && Is(3, "DownloadPersonalData"))
                 return url.Page("/Account/Manage/PersonalData", new { area = "Identity" }) ?? home;
         }
