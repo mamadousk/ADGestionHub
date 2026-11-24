@@ -94,6 +94,15 @@ public class LoginWithEmailModel : PageModel
             return Page();
         }
 
+        // La 2FA (TOTP) reste le seul second facteur des comptes qui l'ont activée :
+        // un code e-mail ne doit pas permettre de la contourner.
+        if (await _userManager.GetTwoFactorEnabledAsync(user))
+        {
+            ModelState.AddModelError(string.Empty,
+                "Ce compte est protégé par la double authentification. Connectez-vous avec votre mot de passe, puis saisissez votre code.");
+            return Page();
+        }
+
         if (!recentlySent)
         {
             try

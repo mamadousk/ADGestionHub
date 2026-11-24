@@ -105,7 +105,7 @@ public class RegisterModel(UserManager<ApplicationUser> users, SignInManager<App
             var code = await users.GenerateEmailConfirmationTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
             var callbackUrl = Url.Page("/Account/ConfirmEmail", pageHandler: null,
-                values: new { area = "Identity", userId = user.Id, code }, protocol: Request.Scheme);
+                values: new { area = "Identity", userId = user.Id, code }, protocol: Request.Scheme) ?? string.Empty;
             await emailSender.SendEmailAsync(user.Email!, "Confirmez votre adresse e-mail",
                 AccountEmails.ConfirmEmail(callbackUrl));
             TempData["EmailConfirmationNotice"] =
