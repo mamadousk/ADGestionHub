@@ -116,6 +116,17 @@ public class LoginWithEmailCodeModel : PageModel
 
         await _userManager.ResetAccessFailedCountAsync(user);
 
+        // Un compte protégé par la double authentification doit passer par son second facteur :
+        // le parcours par code e-mail ne remplace pas un TOTP déjà configuré.
+        if (await _userManager.GetTwoFactorEnabledAsync(user))
+        {
+            _ticket.Clear();
+            _logger.LogWarning("Connexion par code e-mail refusée : la 2FA est active pour l'utilisateur {UserId}.", user.Id);
+            ModelState.AddModelError(string.Empty,
+                "Ce compte est protégé par la double authentification. Connectez-vous avec votre mot de passe, puis saisissez votre code.");
+            return Page();
+        }
+
         if (!user.EmailConfirmed)
         {
             user.EmailConfirmed = true;
@@ -128,9 +139,7 @@ public class LoginWithEmailCodeModel : PageModel
         await _userManager.UpdateSecurityStampAsync(user);
         _ticket.Clear();
 
-        var signedIn = await _signInManager.SignInOrTwoFactorAsync(user, ticket.RememberMe);
-        if (!signedIn)
-            return RedirectToPage("./LoginWith2fa", new { ReturnUrl, RememberMe = ticket.RememberMe });
+        await _signInManager.SignInAsync(user, ticket.RememberMe);
 
         _logger.LogInformation("Connexion par code e-mail réussie pour l'utilisateur {UserId}.", user.Id);
         return LocalRedirect(ReturnUrl);

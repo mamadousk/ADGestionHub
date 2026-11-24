@@ -33,9 +33,13 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
         [BindProperty]
         public InputModel Input { get; set; } = new();
 
-        /// <summary>Code de secours reçu par e-mail.</summary>
+        /// <summary>
+        /// Code de secours reçu par e-mail. Doit rester nullable : le formulaire TOTP ne poste pas
+        /// ce champ, et une propriété non nullable recevrait un [Required] implicite qui rendrait
+        /// ModelState invalide et rejetterait tout code TOTP correct.
+        /// </summary>
         [BindProperty]
-        public string EmailCode { get; set; } = string.Empty;
+        public string? EmailCode { get; set; }
 
         public bool EmailCodeSent { get; set; }
 
@@ -55,7 +59,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             public bool RememberMachine { get; set; }
         }
 
-        public async Task<IActionResult> OnGetAsync(bool rememberMe, string returnUrl = null)
+        public async Task<IActionResult> OnGetAsync(bool rememberMe, string? returnUrl = null)
         {
             ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
             RememberMe = rememberMe;
@@ -64,7 +68,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             return await _signInManager.GetTwoFactorAuthenticationUserAsync() == null ? RestartLogin() : Page();
         }
 
-        public async Task<IActionResult> OnPostAsync(bool rememberMe, string returnUrl = null)
+        public async Task<IActionResult> OnPostAsync(bool rememberMe, string? returnUrl = null)
         {
             ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
             RememberMe = rememberMe;
@@ -97,7 +101,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             }
         }
 
-        public async Task<IActionResult> OnPostSendEmailCodeAsync(bool rememberMe, string returnUrl = null)
+        public async Task<IActionResult> OnPostSendEmailCodeAsync(bool rememberMe, string? returnUrl = null)
         {
             ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
             RememberMe = rememberMe;
@@ -127,7 +131,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
             return RedirectToPage("./LoginWith2fa", new { rememberMe, returnUrl });
         }
 
-        public async Task<IActionResult> OnPostVerifyEmailCodeAsync(bool rememberMe, string returnUrl = null)
+        public async Task<IActionResult> OnPostVerifyEmailCodeAsync(bool rememberMe, string? returnUrl = null)
         {
             ReturnUrl = AccountNavigation.AfterSignIn(Url, returnUrl);
             RememberMe = rememberMe;
@@ -138,7 +142,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account
 
             // Seul le code e-mail est validé ici : le formulaire de code e-mail ne poste pas
             // Input.TwoFactorCode, donc ModelState ne doit pas être contrôlé globalement.
-            var code = EmailCode.Replace(" ", string.Empty).Replace("-", string.Empty).Trim();
+            var code = (EmailCode ?? string.Empty).Replace(" ", string.Empty).Replace("-", string.Empty).Trim();
             if (code.Length != 6 || code.Any(c => c is < '0' or > '9'))
             {
                 ModelState.AddModelError(nameof(EmailCode), "Le code doit comporter 6 chiffres.");

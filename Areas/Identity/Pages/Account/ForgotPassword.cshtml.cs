@@ -58,7 +58,7 @@ public class ForgotPasswordModel : PageModel
                 var confirmation = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                 confirmation = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(confirmation));
                 var confirmationUrl = Url.Page("/Account/ConfirmEmail", pageHandler: null,
-                    values: new { area = "Identity", userId = user.Id, code = confirmation }, protocol: Request.Scheme);
+                    values: new { area = "Identity", userId = user.Id, code = confirmation }, protocol: Request.Scheme) ?? string.Empty;
                 await _emailSender.SendEmailAsync(user.Email, "Confirmez votre adresse e-mail",
                     AccountEmails.ConfirmEmail(confirmationUrl));
                 return RedirectToPage("./ForgotPasswordConfirmation");
@@ -67,7 +67,7 @@ public class ForgotPasswordModel : PageModel
             var code = await _userManager.GeneratePasswordResetTokenAsync(user);
             code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
             var callbackUrl = Url.Page("/Account/ResetPassword", pageHandler: null,
-                values: new { area = "Identity", code, email = user.Email }, protocol: Request.Scheme);
+                values: new { area = "Identity", code, email = user.Email }, protocol: Request.Scheme) ?? string.Empty;
             await _emailSender.SendEmailAsync(user.Email, "Réinitialisation de votre mot de passe",
                 AccountEmails.ResetPassword(callbackUrl));
         }

@@ -94,7 +94,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
                     "/Account/ConfirmEmailChange",
                     pageHandler: null,
                     values: new { area = "Identity", userId = userId, email = Input.NewEmail, code = code },
-                    protocol: Request.Scheme);
+                    protocol: Request.Scheme) ?? string.Empty;
                 try
                 {
                     await _emailSender.SendEmailAsync(
@@ -138,7 +138,7 @@ namespace AdGestionHub.Areas.Identity.Pages.Account.Manage
                 "/Account/ConfirmEmail",
                 pageHandler: null,
                 values: new { area = "Identity", userId = userId, code = code },
-                protocol: Request.Scheme);
+                protocol: Request.Scheme) ?? string.Empty;
             try
             {
                 await _emailSender.SendEmailAsync(
